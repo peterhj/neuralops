@@ -1,0 +1,17 @@
+[package]
+name = "neuralops"
+version = "0.1.0"
+authors = ["Peter Jin <peterhaijin@gmail.com>"]
+
+[lib]
+name = "neuralops"
+path = "src/lib.rs"
+
+[dependencies]
+anymap = "*"
+typemap = "*"
+array = { path = "../rembrandt-project/libarray" }
+densearray = { path = "../libdensearray" }
+nnpack = { path = "../libnnpack" }
+#openblas = { path = "../libopenblas" }
+operator = { path = "../liboperator" }
