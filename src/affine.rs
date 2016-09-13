@@ -1,3 +1,4 @@
+use super::{OpCapability};
 use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::{activate_fwd, activate_bwd};
 
@@ -5,9 +6,13 @@ use densearray::{Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d}
 use densearray::linalg::{Transpose};
 use operator::{Operator, InternalOperator, OpPhase};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
+use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::{Rng};
+use rand::distributions::{IndependentSample};
+use rand::distributions::normal::{Normal};
 
+#[derive(Clone, Copy)]
 pub struct AffineOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   usize,
@@ -28,6 +33,30 @@ pub struct AffineOperator {
   out:      CommonOperatorOutput<f32>,
 }
 
+impl AffineOperator {
+  pub fn new(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: &InternalOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> AffineOperator {
+    let mut bias = Vec::with_capacity(cfg.out_dim);
+    unsafe { bias.set_len(cfg.out_dim) };
+    let mut b_grad = Vec::with_capacity(cfg.out_dim);
+    unsafe { b_grad.set_len(cfg.out_dim) };
+    let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
+    unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim) };
+    let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
+    unsafe { tmp_grad.set_len(cfg.batch_sz * cfg.out_dim) };
+    AffineOperator{
+      cfg:      cfg,
+      in_:      prev_op.output(prev_arm),
+      weights:  Array2d::zeros((cfg.in_dim, cfg.out_dim)),
+      w_grad:   Array2d::zeros((cfg.in_dim, cfg.out_dim)),
+      bias:     bias,
+      b_grad:   b_grad,
+      tmp_buf:  tmp_buf,
+      tmp_grad: tmp_grad,
+      out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim, cap),
+    }
+  }
+}
+
 impl InternalOperator<f32> for AffineOperator {
   type Output = CommonOperatorOutput<f32>;
 
@@ -36,20 +65,24 @@ impl InternalOperator<f32> for AffineOperator {
     self.out.clone()
   }
 
-  fn init_param<R>(&mut self, rng: &mut R) where R: Rng {
+  fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
     match self.cfg.w_init {
       ParamInitKind::Disabled => {
-        panic!();
+        panic!("parameter initialization explicitly disabled");
       }
       ParamInitKind::Uniform{lo, hi} => {
         for e in self.weights.as_mut_slice().iter_mut() {
-          // TODO
+          unimplemented!();
         }
       }
       ParamInitKind::Normal{mean, std} => {
+        let dist = Normal::new(mean as f64, std as f64);
         for e in self.weights.as_mut_slice().iter_mut() {
-          // TODO
+          *e = dist.ind_sample(rng) as f32;
         }
+      }
+      ParamInitKind::KaimingFwd => {
+        unimplemented!();
       }
       _ => unimplemented!(),
     }
@@ -83,7 +116,7 @@ impl InternalOperator<f32> for AffineOperator {
     assert!(self.in_.batch_size <= self.cfg.batch_sz);
     self.out.batch_size = self.in_.batch_size;
 
-    self.tmp_buf.reshape_mut((self.cfg.out_dim, self.in_.batch_size))
+    self.tmp_buf.reshape_mut((self.cfg.out_dim, self.out.batch_size))
       .matrix_prod(
           1.0,
           self.weights.as_view(), Transpose::T,
@@ -91,7 +124,7 @@ impl InternalOperator<f32> for AffineOperator {
           0.0,
       );
     for j in 0 .. self.out.batch_size {
-      self.tmp_buf.reshape_mut((self.cfg.out_dim, self.in_.batch_size))
+      self.tmp_buf.reshape_mut((self.cfg.out_dim, self.out.batch_size))
         .view_mut((0, j), (self.cfg.out_dim, j+1))
         .matrix_sum(
             1.0,

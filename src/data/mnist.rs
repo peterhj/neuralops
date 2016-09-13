@@ -1,6 +1,6 @@
 use data::{IndexedDataShard, Layout, ClassSample2d};
 
-use densearray::{Array3d};
+use densearray::{ArrayIndex, Array3d};
 
 use byteorder::{ReadBytesExt, LittleEndian, BigEndian};
 use memmap::{Mmap, Protection};
@@ -49,7 +49,20 @@ pub struct MnistDataShard {
 
 impl MnistDataShard {
   pub fn new(data_path: PathBuf, labels_path: PathBuf) -> MnistDataShard {
-    unimplemented!();
+    let mut frames_file = File::open(&data_path).unwrap();
+    let mut labels_file = File::open(&labels_path).unwrap();
+    let (f_n, frame_dim, frames_mmap) = mmap_idx_file(&mut frames_file);
+    let (l_n, _, labels_mmap) = mmap_idx_file(&mut labels_file);
+    assert_eq!(f_n, l_n);
+    MnistDataShard{
+      len:      f_n,
+      frame_sz: frame_dim.unwrap().flat_len(),
+      frame_d:  frame_dim.unwrap(),
+      frames_f: frames_file,
+      frames_m: frames_mmap,
+      labels_f: labels_file,
+      labels_m: labels_mmap,
+    }
   }
 }
 

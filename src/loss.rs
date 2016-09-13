@@ -1,3 +1,4 @@
+use super::{OpCapability};
 use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 
@@ -7,6 +8,7 @@ use operator::{Operator, InternalOperator, OpPhase};
 
 use std::iter::{Sum};
 
+#[derive(Clone, Copy)]
 pub struct ClassLossOperatorConfig {
   pub batch_sz:     usize,
   pub minibatch_sz: usize,
@@ -25,6 +27,38 @@ pub struct SoftmaxNLLClassLossOperator {
   labels:   Vec<i32>,
   weights:  Vec<f32>,
   out:      CommonOperatorOutput<f32>,
+}
+
+impl SoftmaxNLLClassLossOperator {
+  pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &InternalOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> SoftmaxNLLClassLossOperator {
+    let mut max_log = Vec::with_capacity(cfg.batch_sz);
+    unsafe { max_log.set_len(cfg.batch_sz) };
+    let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
+    unsafe { facts.set_len(cfg.batch_sz * cfg.num_classes) };
+    let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
+    unsafe { sum_fact.set_len(cfg.batch_sz) };
+    let mut hats = Vec::with_capacity(cfg.batch_sz);
+    unsafe { hats.set_len(cfg.batch_sz) };
+    let mut losses = Vec::with_capacity(cfg.batch_sz);
+    unsafe { losses.set_len(cfg.batch_sz) };
+    let mut labels = Vec::with_capacity(cfg.batch_sz);
+    unsafe { labels.set_len(cfg.batch_sz) };
+    let mut weights = Vec::with_capacity(cfg.batch_sz);
+    unsafe { weights.set_len(cfg.batch_sz) };
+    SoftmaxNLLClassLossOperator{
+      cfg:      cfg,
+      in_:      prev_op.output(prev_arm),
+      max_log:  max_log,
+      facts:    facts,
+      sum_fact: sum_fact,
+      hats:     hats,
+      losses:   losses,
+      loss1:    0.0,
+      labels:   labels,
+      weights:  weights,
+      out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.num_classes, cap),
+    }
+  }
 }
 
 impl<T> Operator<f32, ClassSample2d<T>> for SoftmaxNLLClassLossOperator where T: Copy {
@@ -68,6 +102,7 @@ impl InternalOperator<f32> for SoftmaxNLLClassLossOperator {
       self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow_mut()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
     }
     self.loss1 = Sum::sum(self.losses.iter().map(|&x| x));
+    println!("DEBUG: softmax nll loss: loss1: {:?} loss[0]: {:?} w[0]: {:?} y[0]: {:?}", self.loss1, self.losses[0], self.weights[0], self.labels[0]);
   }
 
   fn backward(&mut self) {
