@@ -106,7 +106,7 @@ impl InternalOperator<f32> for AffineOperator {
     assert!(self.in_.batch_size <= self.cfg.batch_sz);
     assert_eq!(self.out.batch_size, self.in_.batch_size);
 
-    activate_bwd(self.cfg.act_kind, &self.tmp_buf, self.out.out_grad.borrow().as_ref().unwrap(), &mut self.tmp_grad);
+    activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     self.w_grad.as_view_mut()
       .matrix_prod(
@@ -124,8 +124,8 @@ impl InternalOperator<f32> for AffineOperator {
         );
     }
 
-    if let Some(ref mut in_grad) = *self.in_.out_grad.borrow_mut() {
-      in_grad.reshape_mut((self.cfg.in_dim, self.in_.batch_size))
+    if let Some(in_grad) = self.in_.out_grad.as_mut() {
+      in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, self.in_.batch_size))
         .matrix_prod(
             1.0,
             self.weights.as_view(), Transpose::N,

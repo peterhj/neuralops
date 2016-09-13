@@ -1,3 +1,5 @@
+#![feature(iter_arith_traits)]
+
 extern crate densearray;
 extern crate float;
 extern crate iter_utils;
@@ -20,9 +22,44 @@ pub mod data;
 pub mod input;
 pub mod kernels;
 pub mod loss;
+pub mod prelude;
 pub mod seq;
 
-pub enum OpConfig {
+#[derive(Clone, Copy)]
+pub enum OpCapability {
+  Forward,
+  Backward,
+  RForward,
+  RBackward,
+}
+
+impl OpCapability {
+  pub fn enable_backward(&self) -> bool {
+    match *self {
+      OpCapability::Forward => false,
+      _ => true,
+    }
+  }
+
+  pub fn enable_r_forward(&self) -> bool {
+    match *self {
+      OpCapability::Forward => false,
+      OpCapability::Backward => false,
+      _ => true,
+    }
+  }
+
+  pub fn enable_r_backward(&self) -> bool {
+    match *self {
+      OpCapability::Forward => false,
+      OpCapability::Backward => false,
+      OpCapability::RForward => false,
+      _ => true,
+    }
+  }
+}
+
+pub enum OperatorConfig {
   SimpleInput(SimpleInputOperatorConfig),
   Affine(AffineOperatorConfig),
   SoftmaxNLLClassLoss(ClassLossOperatorConfig),

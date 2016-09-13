@@ -6,6 +6,7 @@ use byteorder::{ReadBytesExt, LittleEndian, BigEndian};
 use memmap::{Mmap, Protection};
 
 use std::fs::{File};
+use std::path::{PathBuf};
 
 fn mmap_idx_file(file: &mut File) -> (usize, Option<(usize, usize, usize)>, Mmap) {
   let magic: u32 = file.read_u32::<BigEndian>().unwrap();
@@ -44,6 +45,12 @@ pub struct MnistDataShard {
   frames_m: Mmap,
   labels_f: File,
   labels_m: Mmap,
+}
+
+impl MnistDataShard {
+  pub fn new(data_path: PathBuf, labels_path: PathBuf) -> MnistDataShard {
+    unimplemented!();
+  }
 }
 
 impl IndexedDataShard<ClassSample2d<u8>> for MnistDataShard {

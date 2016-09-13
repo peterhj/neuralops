@@ -1,4 +1,4 @@
-use super::{OpConfig};
+use super::{OperatorConfig};
 use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 
@@ -11,7 +11,7 @@ pub struct SeqOperator<T, S, Out> {
 }
 
 impl SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
-  pub fn new(cfgs: Vec<OpConfig>) -> SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
+  pub fn new(cfgs: Vec<OperatorConfig>) -> SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
     unimplemented!();
   }
 }

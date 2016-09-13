@@ -1,3 +1,4 @@
+use super::{OpCapability};
 use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 
@@ -5,6 +6,7 @@ use densearray::{ArrayIndex};
 use operator::{Operator, InternalOperator, OpPhase};
 use operator::data::{ClassSample};
 
+#[derive(Clone, Copy)]
 pub struct SimpleInputOperatorConfig {
   pub batch_sz: usize,
   pub frame_sz: usize,
@@ -14,6 +16,18 @@ pub struct SimpleInputOperator {
   cfg:      SimpleInputOperatorConfig,
   in_buf:   Vec<f32>,
   out:      CommonOperatorOutput<f32>,
+}
+
+impl SimpleInputOperator {
+  pub fn new(cfg: SimpleInputOperatorConfig, cap: OpCapability) -> SimpleInputOperator {
+    let mut in_buf = Vec::with_capacity(cfg.batch_sz * cfg.frame_sz);
+    unsafe { in_buf.set_len(cfg.batch_sz * cfg.frame_sz) };
+    SimpleInputOperator{
+      cfg:      cfg,
+      in_buf:   in_buf,
+      out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.frame_sz, cap),
+    }
+  }
 }
 
 impl Operator<f32, ClassSample<f32>> for SimpleInputOperator {

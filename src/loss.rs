@@ -4,7 +4,8 @@ use data::{ClassSample2d};
 use float::ord::{F32InfNan};
 use iter_utils::{argmax, KahanSum};
 use operator::{Operator, InternalOperator, OpPhase};
-//use operator::data::{ClassSample};
+
+use std::iter::{Sum};
 
 pub struct ClassLossOperatorConfig {
   pub batch_sz:     usize,
@@ -60,20 +61,19 @@ impl InternalOperator<f32> for SoftmaxNLLClassLossOperator {
       for k in 0 .. self.cfg.num_classes {
         self.facts[idx * self.cfg.num_classes + k] = (self.in_.out_buf.borrow()[idx * self.cfg.num_classes + k] - max_logit).exp();
       }
-      let sum_fact: f32 = KahanSum::kahan_sum(self.facts[range].iter().map(|&x| x));
+      let sum_fact: f32 = Sum::sum(self.facts[range].iter().map(|&x| x));
       for k in 0 .. self.cfg.num_classes {
         self.out.out_buf.borrow_mut()[idx * self.cfg.num_classes + k] = self.facts[idx * self.cfg.num_classes + k] / sum_fact;
       }
       self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow_mut()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
     }
-    self.loss1 = KahanSum::kahan_sum(self.losses.iter().map(|&x| x));
+    self.loss1 = Sum::sum(self.losses.iter().map(|&x| x));
   }
 
   fn backward(&mut self) {
     assert_eq!(self.out.batch_size, self.in_.batch_size);
     let out_buf = self.out.out_buf.borrow();
-    let mut in_grad = self.in_.out_grad.borrow_mut();
-    let mut in_grad = in_grad.as_mut().unwrap();
+    let mut in_grad = self.in_.out_grad.as_mut().unwrap().borrow_mut();
     for idx in 0 .. self.in_.batch_size {
       for k in 0 .. self.cfg.num_classes {
         in_grad[idx * self.cfg.num_classes + k] =
