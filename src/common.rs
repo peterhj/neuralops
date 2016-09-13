@@ -17,3 +17,13 @@ pub enum ActivationKind {
   Logistic,
   Tanh,
 }
+
+#[derive(Clone, Copy, Debug)]
+pub enum ParamInitKind {
+  Disabled,
+  Uniform{lo: f32, hi: f32},
+  Normal{mean: f32, std: f32},
+  Xavier,
+  KaimingFwd,
+  KaimingBwd,
+}

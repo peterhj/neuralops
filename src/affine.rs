@@ -1,16 +1,19 @@
-use common::{CommonOperatorOutput, ActivationKind};
+use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::{activate_fwd, activate_bwd};
 
-//use array::{/*Array1d,*/ Array2d};
 use densearray::{Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
 use densearray::linalg::{Transpose};
 use operator::{Operator, InternalOperator, OpPhase};
+use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
+
+use rand::{Rng};
 
 pub struct AffineOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   usize,
   pub out_dim:  usize,
   pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
 }
 
 pub struct AffineOperator {
@@ -33,13 +36,33 @@ impl InternalOperator<f32> for AffineOperator {
     self.out.clone()
   }
 
-  fn init_param(&mut self) {
-    for e in self.weights.as_mut_slice().iter_mut() {
-      // TODO
+  fn init_param<R>(&mut self, rng: &mut R) where R: Rng {
+    match self.cfg.w_init {
+      ParamInitKind::Disabled => {
+        panic!();
+      }
+      ParamInitKind::Uniform{lo, hi} => {
+        for e in self.weights.as_mut_slice().iter_mut() {
+          // TODO
+        }
+      }
+      ParamInitKind::Normal{mean, std} => {
+        for e in self.weights.as_mut_slice().iter_mut() {
+          // TODO
+        }
+      }
+      _ => unimplemented!(),
     }
     for e in self.bias.iter_mut() {
       *e = 0.0;
     }
+  }
+
+  fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += grad_reader.read_accumulate(alpha, beta, offset, self.weights.as_mut_slice());
+    offset += grad_reader.read_accumulate(alpha, beta, offset, &mut self.bias);
+    offset - init_offset
   }
 
   fn reset_grad(&mut self) {
@@ -49,7 +72,15 @@ impl InternalOperator<f32> for AffineOperator {
     }
   }
 
+  fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += grad_accum.accumulate(alpha, beta, offset, self.weights.as_slice());
+    offset += grad_accum.accumulate(alpha, beta, offset, &self.bias);
+    offset - init_offset
+  }
+
   fn forward(&mut self, _phase: OpPhase) {
+    assert!(self.in_.batch_size <= self.cfg.batch_sz);
     self.out.batch_size = self.in_.batch_size;
 
     self.tmp_buf.reshape_mut((self.cfg.out_dim, self.in_.batch_size))
@@ -72,6 +103,7 @@ impl InternalOperator<f32> for AffineOperator {
   }
 
   fn backward(&mut self) {
+    assert!(self.in_.batch_size <= self.cfg.batch_sz);
     assert_eq!(self.out.batch_size, self.in_.batch_size);
 
     activate_bwd(self.cfg.act_kind, &self.tmp_buf, self.out.out_grad.borrow().as_ref().unwrap(), &mut self.tmp_grad);
@@ -86,9 +118,9 @@ impl InternalOperator<f32> for AffineOperator {
     for j in 0 .. self.out.batch_size {
       self.b_grad.reshape_mut((self.cfg.out_dim, 1))
         .matrix_sum(
-          1.0,
-          self.tmp_grad.reshape((self.cfg.out_dim, self.out.batch_size))
-            .view((0, j), (self.cfg.out_dim, j+1)),
+            1.0,
+            self.tmp_grad.reshape((self.cfg.out_dim, self.out.batch_size))
+              .view((0, j), (self.cfg.out_dim, j+1)),
         );
     }
 

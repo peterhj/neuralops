@@ -7,11 +7,17 @@ authors = ["Peter Jin <peterhaijin@gmail.com>"]
 name = "neuralops"
 path = "src/lib.rs"
 
+[[bin]]
+name = "train-mnist"
+path = "tools/train-mnist.rs"
+
 [dependencies]
-anymap = "*"
-typemap = "*"
-array = { path = "../rembrandt-project/libarray" }
+byteorder = "*"
+float = "*"
+memmap = "*"
+rand = "*"
 densearray = { path = "../libdensearray" }
+iter_utils = { path = "../libiter_utils" }
 nnpack = { path = "../libnnpack" }
-#openblas = { path = "../libopenblas" }
 operator = { path = "../liboperator" }
+rng = { path = "../librng" }
