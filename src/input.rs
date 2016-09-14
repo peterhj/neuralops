@@ -19,13 +19,13 @@ pub struct SimpleInputOperator {
 }
 
 impl SimpleInputOperator {
-  pub fn new(cfg: SimpleInputOperatorConfig, cap: OpCapability) -> SimpleInputOperator {
+  pub fn new(cfg: SimpleInputOperatorConfig, _cap: OpCapability) -> SimpleInputOperator {
     let mut in_buf = Vec::with_capacity(cfg.batch_sz * cfg.frame_sz);
     unsafe { in_buf.set_len(cfg.batch_sz * cfg.frame_sz) };
     SimpleInputOperator{
       cfg:      cfg,
       in_buf:   in_buf,
-      out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.frame_sz, cap),
+      out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.frame_sz, OpCapability::Forward),
     }
   }
 }
@@ -49,7 +49,7 @@ impl Operator<f32, ClassSample<u8>> for SimpleInputOperator {
     for (idx, sample) in samples.iter().enumerate() {
       assert_eq!(self.cfg.frame_sz, sample.input.len());
       for j in 0 .. self.cfg.frame_sz {
-        self.in_buf[idx * self.cfg.frame_sz + j] = sample.input[j] as f32;
+        self.in_buf[idx * self.cfg.frame_sz + j] = sample.input[j] as f32 / 255.0;
       }
     }
     self.out.batch_size = batch_size;
@@ -61,11 +61,12 @@ impl Operator<f32, ClassSample2d<u8>> for SimpleInputOperator {
     let batch_size = samples.len();
     assert!(batch_size <= self.cfg.batch_sz);
     for (idx, sample) in samples.iter().enumerate() {
+      //println!("DEBUG: input op: loading {}/{}", idx, batch_size);
       assert_eq!(self.cfg.frame_sz, sample.input.dim().flat_len());
       assert_eq!(sample.input.stride(), sample.input.dim().least_stride());
       let input = sample.input.as_slice();
-      for j in 0 .. self.cfg.frame_sz {
-        self.in_buf[idx * self.cfg.frame_sz + j] = input[j] as f32;
+      for i in 0 .. self.cfg.frame_sz {
+        self.in_buf[idx * self.cfg.frame_sz + i] = input[i] as f32 / 255.0;
       }
     }
     self.out.batch_size = batch_size;

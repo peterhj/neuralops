@@ -9,7 +9,7 @@ use operator::{Operator, InternalOperator, OpPhase};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
-use rand::{Rng};
+//use rand::{Rng};
 
 pub struct SeqOperator<T, S, Out> {
   input_op:     Box<Operator<T, S, Output=Out>>,
@@ -75,6 +75,14 @@ impl<T, S, Out> InternalOperator<T> for SeqOperator<T, S, Out> where Out: Clone 
     self.loss_op.output(0)
   }
 
+  fn param_len(&self) -> usize {
+    let mut p = 0;
+    for op in self.inner_ops.iter() {
+      p += op.param_len();
+    }
+    p
+  }
+
   fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
     for op in self.inner_ops.iter_mut() {
       op.init_param(rng);
@@ -87,6 +95,18 @@ impl<T, S, Out> InternalOperator<T> for SeqOperator<T, S, Out> where Out: Clone 
       offset += op.update_param(alpha, beta, grad_reader, offset);
     }
     offset - init_offset
+  }
+
+  fn reset_grad(&mut self) {
+    for op in self.inner_ops.iter_mut() {
+      op.reset_grad();
+    }
+  }
+
+  fn apply_l2_reg(&mut self, lambda: f32) {
+    for op in self.inner_ops.iter_mut() {
+      op.apply_l2_reg(lambda);
+    }
   }
 
   fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<T>, init_offset: usize) -> usize {

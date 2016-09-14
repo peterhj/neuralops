@@ -38,7 +38,12 @@ pub fn rect_fwd(in_buf: &[f32], out_buf: &mut [f32]) {
   let n = in_buf.len();
   assert_eq!(n, out_buf.len());
   for i in 0 .. n {
-    out_buf[i] = in_buf[i].max(0.0);
+    //out_buf[i] = in_buf[i].max(0.0);
+    if in_buf[i] > 0.0 {
+      out_buf[i] = in_buf[i];
+    } else {
+      out_buf[i] = 0.0;
+    }
   }
 }
 

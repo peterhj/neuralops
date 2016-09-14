@@ -1,4 +1,5 @@
 use densearray::{Array3d};
+use operator::data::{WeightedSample};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::{Rng, thread_rng};
@@ -21,6 +22,16 @@ pub struct ClassSample2d<T> where T: Copy {
   pub layout:   (Layout, Layout, Layout),
   pub label:    Option<i32>,
   pub weight:   Option<f32>,
+}
+
+impl<T> WeightedSample for ClassSample2d<T> where T: Copy {
+  fn set_weight(&mut self, weight: f32) {
+    self.weight = Some(weight);
+  }
+
+  fn multiply_weight(&mut self, w2: f32) {
+    self.weight = self.weight.map_or(Some(w2), |w1| Some(w1 * w2));
+  }
 }
 
 pub trait IndexedDataShard<S> {

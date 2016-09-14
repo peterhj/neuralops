@@ -16,7 +16,7 @@ impl CommonOperatorOutput<f32> {
   pub fn new(batch_size: usize, frame_size: usize, cap: OpCapability) -> Self {
     let mut out_buf = Vec::with_capacity(batch_size * frame_size);
     unsafe { out_buf.set_len(batch_size * frame_size) };
-    let mut out_grad = if cap.enable_backward() {
+    let out_grad = if cap.enable_backward() {
       let mut out_grad = Vec::with_capacity(batch_size * frame_size);
       unsafe { out_grad.set_len(batch_size * frame_size) };
       Some(Rc::new(RefCell::new(out_grad)))

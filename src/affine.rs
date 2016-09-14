@@ -2,15 +2,16 @@ use super::{OpCapability};
 use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::{activate_fwd, activate_bwd};
 
-use densearray::{Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
+use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
 use densearray::linalg::{Transpose};
-use operator::{Operator, InternalOperator, OpPhase};
+use operator::{InternalOperator, OpPhase};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
-use rand::{Rng};
+//use rand::{Rng};
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
+use rand::distributions::range::{Range};
 
 #[derive(Clone, Copy)]
 pub struct AffineOperatorConfig {
@@ -65,13 +66,17 @@ impl InternalOperator<f32> for AffineOperator {
     self.out.clone()
   }
 
+  fn param_len(&self) -> usize {
+    self.cfg.in_dim * self.cfg.out_dim + self.cfg.out_dim
+  }
+
   fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
     match self.cfg.w_init {
       ParamInitKind::Disabled => {
         panic!("parameter initialization explicitly disabled");
       }
       ParamInitKind::Uniform{lo, hi} => {
-        for e in self.weights.as_mut_slice().iter_mut() {
+        for _ in self.weights.as_mut_slice().iter_mut() {
           unimplemented!();
         }
       }
@@ -81,8 +86,12 @@ impl InternalOperator<f32> for AffineOperator {
           *e = dist.ind_sample(rng) as f32;
         }
       }
-      ParamInitKind::KaimingFwd => {
-        unimplemented!();
+      ParamInitKind::Xavier => {
+        let half_range = (6.0 / (self.cfg.in_dim + self.cfg.out_dim) as f64).sqrt();
+        let dist = Range::new(-half_range, half_range);
+        for e in self.weights.as_mut_slice().iter_mut() {
+          *e = dist.ind_sample(rng) as f32;
+        }
       }
       _ => unimplemented!(),
     }
@@ -105,10 +114,22 @@ impl InternalOperator<f32> for AffineOperator {
     }
   }
 
+  fn apply_l2_reg(&mut self, lambda: f32) {
+    let weights_len = self.weights.dim().flat_len();
+    let weights = self.weights.as_mut_slice();
+    let w_grad = self.w_grad.as_mut_slice();
+    for j in 0 .. weights_len {
+      w_grad[j] += lambda * weights[j];
+    }
+    for j in 0 .. self.bias.len() {
+      self.b_grad[j] += lambda * self.bias[j];
+    }
+  }
+
   fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
-    offset += grad_accum.accumulate(alpha, beta, offset, self.weights.as_slice());
-    offset += grad_accum.accumulate(alpha, beta, offset, &self.bias);
+    offset += grad_accum.accumulate(alpha, beta, offset, self.w_grad.as_slice());
+    offset += grad_accum.accumulate(alpha, beta, offset, &self.b_grad);
     offset - init_offset
   }
 

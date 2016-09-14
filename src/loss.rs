@@ -3,7 +3,7 @@ use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 
 use float::ord::{F32InfNan};
-use iter_utils::{argmax, KahanSum};
+use iter_utils::{argmax}; //, KahanSum};
 use operator::{Operator, InternalOperator, OpPhase};
 
 use std::iter::{Sum};
@@ -70,7 +70,8 @@ impl<T> Operator<f32, ClassSample2d<T>> for SoftmaxNLLClassLossOperator where T:
         assert!(0 <= cat && cat < self.cfg.num_classes as i32);
         self.labels[idx] = cat;
       }
-      self.weights[idx] = sample.weight.unwrap_or(1.0) / self.cfg.minibatch_sz as f32;
+      //self.weights[idx] = sample.weight.unwrap_or(1.0) / self.cfg.minibatch_sz as f32;
+      self.weights[idx] = sample.weight.unwrap_or(1.0);
     }
     self.out.batch_size = actual_batch_size;
   }
@@ -99,10 +100,10 @@ impl InternalOperator<f32> for SoftmaxNLLClassLossOperator {
       for k in 0 .. self.cfg.num_classes {
         self.out.out_buf.borrow_mut()[idx * self.cfg.num_classes + k] = self.facts[idx * self.cfg.num_classes + k] / sum_fact;
       }
-      self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow_mut()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
+      self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
     }
     self.loss1 = Sum::sum(self.losses.iter().map(|&x| x));
-    println!("DEBUG: softmax nll loss: loss1: {:?} loss[0]: {:?} w[0]: {:?} y[0]: {:?}", self.loss1, self.losses[0], self.weights[0], self.labels[0]);
+    println!("DEBUG: softmax nll loss: loss1: {:?} loss[0]: {:?} w[0]: {:?} y[0]: {:?} p[0]: {:e}", self.loss1, self.losses[0], self.weights[0], self.labels[0], self.out.out_buf.borrow()[self.labels[0] as usize]);
   }
 
   fn backward(&mut self) {

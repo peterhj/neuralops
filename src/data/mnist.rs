@@ -2,7 +2,7 @@ use data::{IndexedDataShard, Layout, ClassSample2d};
 
 use densearray::{ArrayIndex, Array3d};
 
-use byteorder::{ReadBytesExt, LittleEndian, BigEndian};
+use byteorder::{ReadBytesExt, BigEndian};
 use memmap::{Mmap, Protection};
 
 use std::fs::{File};
@@ -15,7 +15,7 @@ fn mmap_idx_file(file: &mut File) -> (usize, Option<(usize, usize, usize)>, Mmap
   assert_eq!(magic2, 0x08);
   let ndims = magic3 as usize;
   let mut dims = vec![];
-  for d in 0 .. ndims {
+  for _ in 0 .. ndims {
     dims.push(file.read_u32::<BigEndian>().unwrap() as usize);
   }
   let n = dims[0] as usize;
@@ -41,10 +41,10 @@ pub struct MnistDataShard {
   len:      usize,
   frame_sz: usize,
   frame_d:  (usize, usize, usize),
-  frames_f: File,
-  frames_m: Mmap,
-  labels_f: File,
-  labels_m: Mmap,
+  _frames_f:    File,
+  frames_m:     Mmap,
+  _labels_f:    File,
+  labels_m:     Mmap,
 }
 
 impl MnistDataShard {
@@ -58,10 +58,10 @@ impl MnistDataShard {
       len:      f_n,
       frame_sz: frame_dim.unwrap().flat_len(),
       frame_d:  frame_dim.unwrap(),
-      frames_f: frames_file,
-      frames_m: frames_mmap,
-      labels_f: labels_file,
-      labels_m: labels_mmap,
+      _frames_f:    frames_file,
+      frames_m:     frames_mmap,
+      _labels_f:    labels_file,
+      labels_m:     labels_mmap,
     }
   }
 }
@@ -72,9 +72,12 @@ impl IndexedDataShard<ClassSample2d<u8>> for MnistDataShard {
   }
 
   fn get(&mut self, idx: usize) -> ClassSample2d<u8> {
+    assert_eq!(784, self.frame_sz);
+    assert_eq!((28, 28, 1), self.frame_d);
     assert!(idx < self.len);
     let mut input_buf = Vec::with_capacity(self.frame_sz);
     input_buf.extend_from_slice(&unsafe { self.frames_m.as_slice() }[idx * self.frame_sz .. (idx+1) * self.frame_sz]);
+    assert_eq!(self.frame_sz, input_buf.len());
     let label = unsafe { self.labels_m.as_slice() }[idx] as i32;
     ClassSample2d{
       input:    Array3d::from_storage(self.frame_d, input_buf),
