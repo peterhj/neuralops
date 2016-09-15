@@ -47,6 +47,5 @@ pub enum ParamInitKind {
   Uniform{lo: f32, hi: f32},
   Normal{mean: f32, std: f32},
   Xavier,
-  KaimingFwd,
-  KaimingBwd,
+  Kaiming,
 }

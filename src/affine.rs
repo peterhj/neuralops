@@ -4,7 +4,7 @@ use kernels::{activate_fwd, activate_bwd};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
 use densearray::linalg::{Transpose};
-use operator::{InternalOperator, OpPhase};
+use operator::{InternalOperator, OpPhase, Regularization};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -12,6 +12,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
+use std::cmp::{min};
 
 #[derive(Clone, Copy)]
 pub struct AffineOperatorConfig {
@@ -76,8 +77,9 @@ impl InternalOperator<f32> for AffineOperator {
         panic!("parameter initialization explicitly disabled");
       }
       ParamInitKind::Uniform{lo, hi} => {
-        for _ in self.weights.as_mut_slice().iter_mut() {
-          unimplemented!();
+        let dist = Range::new(lo, hi);
+        for e in self.weights.as_mut_slice().iter_mut() {
+          *e = dist.ind_sample(rng) as f32;
         }
       }
       ParamInitKind::Normal{mean, std} => {
@@ -93,7 +95,13 @@ impl InternalOperator<f32> for AffineOperator {
           *e = dist.ind_sample(rng) as f32;
         }
       }
-      _ => unimplemented!(),
+      ParamInitKind::Kaiming => {
+        let std = (2.0 / min(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
+        let dist = Normal::new(0.0, std);
+        for e in self.weights.as_mut_slice().iter_mut() {
+          *e = dist.ind_sample(rng) as f32;
+        }
+      }
     }
     for e in self.bias.iter_mut() {
       *e = 0.0;
@@ -114,15 +122,19 @@ impl InternalOperator<f32> for AffineOperator {
     }
   }
 
-  fn apply_l2_reg(&mut self, lambda: f32) {
-    let weights_len = self.weights.dim().flat_len();
-    let weights = self.weights.as_mut_slice();
-    let w_grad = self.w_grad.as_mut_slice();
-    for j in 0 .. weights_len {
-      w_grad[j] += lambda * weights[j];
-    }
-    for j in 0 .. self.bias.len() {
-      self.b_grad[j] += lambda * self.bias[j];
+  fn apply_grad_reg(&mut self, reg: Regularization) {
+    match reg {
+      Regularization::L2{lambda} => {
+        let weights_len = self.weights.dim().flat_len();
+        let weights = self.weights.as_mut_slice();
+        let w_grad = self.w_grad.as_mut_slice();
+        for j in 0 .. weights_len {
+          w_grad[j] += lambda * weights[j];
+        }
+        for j in 0 .. self.bias.len() {
+          self.b_grad[j] += lambda * self.bias[j];
+        }
+      }
     }
   }
 

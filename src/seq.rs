@@ -5,7 +5,7 @@ use affine::{AffineOperator};
 use input::{SimpleInputOperator};
 use loss::{SoftmaxNLLClassLossOperator};
 
-use operator::{Operator, InternalOperator, OpPhase};
+use operator::{Operator, InternalOperator, OpPhase, Regularization};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -103,9 +103,9 @@ impl<T, S, Out> InternalOperator<T> for SeqOperator<T, S, Out> where Out: Clone 
     }
   }
 
-  fn apply_l2_reg(&mut self, lambda: f32) {
+  fn apply_grad_reg(&mut self, reg: Regularization) {
     for op in self.inner_ops.iter_mut() {
-      op.apply_l2_reg(lambda);
+      op.apply_grad_reg(reg);
     }
   }
 

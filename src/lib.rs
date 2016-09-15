@@ -3,7 +3,7 @@
 extern crate densearray;
 extern crate float;
 extern crate iter_utils;
-//extern crate nnpack;
+extern crate nnpack;
 extern crate operator;
 extern crate rng;
 
