@@ -5,7 +5,7 @@ use kernels::{activate_fwd, activate_bwd};
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
 use densearray::linalg::{Transpose};
 use operator::{InternalOperator, OpPhase, Regularization};
-use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
+use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 //use rand::{Rng};
@@ -108,6 +108,20 @@ impl InternalOperator<f32> for AffineOperator {
     }
   }
 
+  fn load_param(&mut self, param_reader: &mut ReadBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += param_reader.read(offset, self.weights.as_mut_slice());
+    offset += param_reader.read(offset, &mut self.bias);
+    offset - init_offset
+  }
+
+  fn store_param(&mut self, param_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += param_writer.write(offset, self.weights.as_slice());
+    offset += param_writer.write(offset, &self.bias);
+    offset - init_offset
+  }
+
   fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_reader.read_accumulate(alpha, beta, offset, self.weights.as_mut_slice());
@@ -136,6 +150,13 @@ impl InternalOperator<f32> for AffineOperator {
         }
       }
     }
+  }
+
+  fn store_grad(&mut self, grad_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += grad_writer.write(offset, self.w_grad.as_slice());
+    offset += grad_writer.write(offset, &self.b_grad);
+    offset - init_offset
   }
 
   fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {

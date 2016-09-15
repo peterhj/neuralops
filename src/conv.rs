@@ -221,6 +221,8 @@ impl InternalOperator<f32> for Conv2dOperator {
       panic!("nnpack convolution failed: {:?}", status);
     }
 
+    // FIXME(20160915): missing gradient w.r.t. the bias.
+
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
       let status = unsafe { nnp_convolution_input_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,

@@ -75,6 +75,10 @@ impl<T> Operator<f32, ClassSample2d<T>> for SoftmaxNLLClassLossOperator where T:
     }
     self.out.batch_size = actual_batch_size;
   }
+
+  fn store_loss(&mut self) -> f32 {
+    self.loss1
+  }
 }
 
 impl InternalOperator<f32> for SoftmaxNLLClassLossOperator {
@@ -83,6 +87,10 @@ impl InternalOperator<f32> for SoftmaxNLLClassLossOperator {
   fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);
     self.out.clone()
+  }
+
+  fn reset_loss(&mut self) {
+    self.loss1 = 0.0;
   }
 
   fn forward(&mut self, _phase: OpPhase) {
@@ -102,7 +110,7 @@ impl InternalOperator<f32> for SoftmaxNLLClassLossOperator {
       }
       self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
     }
-    self.loss1 = Sum::sum(self.losses.iter().map(|&x| x));
+    self.loss1 += Sum::sum(self.losses.iter().map(|&x| x));
     println!("DEBUG: softmax nll loss: loss1: {:?} loss[0]: {:?} w[0]: {:?} y[0]: {:?} p[0]: {:e}", self.loss1, self.losses[0], self.weights[0], self.labels[0], self.out.out_buf.borrow()[self.labels[0] as usize]);
   }
 

@@ -8,7 +8,7 @@ use loss::{SoftmaxNLLClassLossOperator};
 //use prelude::*;
 
 use operator::{Operator, InternalOperator, OpPhase, Regularization};
-use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
+use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 //use rand::{Rng};
@@ -70,6 +70,10 @@ impl<T, S, Out> Operator<T, S> for SeqOperator<T, S, Out> where Out: Clone {
     self.input_op.load_data(samples);
     self.loss_op.load_data(samples);
   }
+
+  fn store_loss(&mut self) -> f32 {
+    self.loss_op.store_loss()
+  }
 }
 
 impl<T, S, Out> InternalOperator<T> for SeqOperator<T, S, Out> where Out: Clone {
@@ -94,12 +98,32 @@ impl<T, S, Out> InternalOperator<T> for SeqOperator<T, S, Out> where Out: Clone 
     }
   }
 
+  fn load_param(&mut self, param_reader: &mut ReadBuffer<T>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    for op in self.inner_ops.iter_mut() {
+      offset += op.load_param(param_reader, offset);
+    }
+    offset - init_offset
+  }
+
+  fn store_param(&mut self, param_writer: &mut WriteBuffer<T>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    for op in self.inner_ops.iter_mut() {
+      offset += op.store_param(param_writer, offset);
+    }
+    offset - init_offset
+  }
+
   fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<T>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     for op in self.inner_ops.iter_mut() {
       offset += op.update_param(alpha, beta, grad_reader, offset);
     }
     offset - init_offset
+  }
+
+  fn reset_loss(&mut self) {
+    self.loss_op.reset_loss();
   }
 
   fn reset_grad(&mut self) {
@@ -112,6 +136,14 @@ impl<T, S, Out> InternalOperator<T> for SeqOperator<T, S, Out> where Out: Clone 
     for op in self.inner_ops.iter_mut() {
       op.apply_grad_reg(reg);
     }
+  }
+
+  fn store_grad(&mut self, grad_writer: &mut WriteBuffer<T>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    for op in self.inner_ops.iter_mut() {
+      offset += op.store_grad(grad_writer, offset);
+    }
+    offset - init_offset
   }
 
   fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<T>, init_offset: usize) -> usize {

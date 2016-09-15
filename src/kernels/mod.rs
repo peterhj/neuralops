@@ -1,4 +1,4 @@
-use common::{ActivationKind};
+use common::{ActivationKind, PoolKind};
 
 pub fn activate_fwd(act_kind: ActivationKind, in_buf: &[f32], out_buf: &mut [f32]) {
   match act_kind {
@@ -59,3 +59,6 @@ pub fn rect_bwd(in_buf: &[f32], out_grad: &[f32], in_grad: &mut [f32]) {
     }
   }
 }
+
+/*pub fn pool_fwd(pool_kind: PoolKind, in_buf: &[f32], out_buf: &mut [f32]) {
+}*/

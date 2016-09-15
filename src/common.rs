@@ -49,3 +49,9 @@ pub enum ParamInitKind {
   Xavier,
   Kaiming,
 }
+
+#[derive(Clone, Copy, Debug)]
+pub enum PoolKind {
+  Max,
+  Average,
+}
