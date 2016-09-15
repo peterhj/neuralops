@@ -4,7 +4,7 @@ use kernels::{activate_fwd, activate_bwd};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array4d};
 use densearray::linalg::{Transpose};
-use nnpack::{NnpackPthreadPool};
+use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;
 use operator::{InternalOperator, OpPhase, Regularization};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
@@ -14,6 +14,7 @@ use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
 use std::cmp::{min};
+use std::ptr::{null_mut};
 
 #[derive(Clone, Copy)]
 pub struct Conv2dOperatorConfig {
@@ -51,11 +52,14 @@ pub struct Conv2dOperator {
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   out:      CommonOperatorOutput<f32>,
-  pool:     NnpackPthreadPool,
+  nnp_h:    NnpackHandle,
+  nnp_pool: NnpackPthreadPool,
 }
 
 impl Conv2dOperator {
   pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &InternalOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> Conv2dOperator {
+    assert_eq!(1, cfg.stride_w);
+    assert_eq!(1, cfg.stride_h);
     let mut bias = Vec::with_capacity(cfg.out_chan);
     unsafe { bias.set_len(cfg.out_chan) };
     let mut b_grad = Vec::with_capacity(cfg.out_chan);
@@ -75,7 +79,8 @@ impl Conv2dOperator {
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
-      pool:     NnpackPthreadPool::new(1),
+      nnp_h:    NnpackHandle::new(),
+      nnp_pool: NnpackPthreadPool::new(1),
     }
   }
 }
@@ -170,7 +175,24 @@ impl InternalOperator<f32> for Conv2dOperator {
     assert!(self.in_.batch_size <= self.cfg.batch_sz);
     self.out.batch_size = self.in_.batch_size;
 
-    // TODO
+    let status = unsafe { nnp_convolution_output(
+        nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
+        self.out.batch_size,
+        self.cfg.in_dim.2,
+        self.cfg.out_chan,
+        nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
+        nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
+        nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
+        self.in_.out_buf.borrow().as_ptr(),
+        self.weights.as_view().as_ptr(),
+        self.bias.as_ptr(),
+        self.tmp_buf.as_mut_ptr(),
+        self.nnp_pool.as_raw(),
+        null_mut(),
+    ) };
+    if status.is_err() {
+      panic!("nnpack convolution failed: {:?}", status);
+    }
 
     activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
   }
@@ -181,9 +203,42 @@ impl InternalOperator<f32> for Conv2dOperator {
 
     activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
-    // TODO
+    let status = unsafe { nnp_convolution_kernel_gradient(
+        nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
+        self.out.batch_size,
+        self.cfg.in_dim.2,
+        self.cfg.out_chan,
+        nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
+        nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
+        nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
+        self.in_.out_buf.borrow().as_ptr(),
+        self.tmp_grad.as_ptr(),
+        self.w_grad.as_view_mut().as_mut_ptr(),
+        self.nnp_pool.as_raw(),
+        null_mut(),
+    ) };
+    if status.is_err() {
+      panic!("nnpack convolution failed: {:?}", status);
+    }
 
-    if let Some(in_grad) = self.in_.out_grad.as_mut() {
+    if let Some(in_grad) = self.in_.out_grad.as_ref() {
+      let status = unsafe { nnp_convolution_input_gradient(
+          nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
+          self.out.batch_size,
+          self.cfg.in_dim.2,
+          self.cfg.out_chan,
+          nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
+          nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
+          nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
+          self.tmp_grad.as_ptr(),
+          self.weights.as_view().as_ptr(),
+          in_grad.borrow_mut().as_mut_ptr(),
+          self.nnp_pool.as_raw(),
+          null_mut(),
+      ) };
+      if status.is_err() {
+        panic!("nnpack convolution failed: {:?}", status);
+      }
     }
   }
 }

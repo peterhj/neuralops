@@ -2,8 +2,10 @@ use super::{OpCapability, OperatorConfig};
 use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 use affine::{AffineOperator};
+use conv::{Conv2dOperator};
 use input::{SimpleInputOperator};
 use loss::{SoftmaxNLLClassLossOperator};
+//use prelude::*;
 
 use operator::{Operator, InternalOperator, OpPhase, Regularization};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
@@ -28,7 +30,7 @@ impl SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
     };
     let mut inner_ops: Vec<Box<InternalOperator<f32, Output=CommonOperatorOutput<f32>>>> = vec![];
     for (idx, cfg) in cfgs[1 .. num_ops-1].iter().enumerate() {
-      let op = {
+      let op: Box<InternalOperator<f32, Output=CommonOperatorOutput<f32>>> = {
         let prev_op = match idx {
           0 => &*input_op as &InternalOperator<f32, Output=CommonOperatorOutput<f32>>,
           _ => &*inner_ops[idx-1] as &InternalOperator<f32, Output=CommonOperatorOutput<f32>>,
@@ -36,6 +38,9 @@ impl SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
         match cfg {
           &OperatorConfig::Affine(cfg) => {
             Box::new(AffineOperator::new(cfg, cap, prev_op, 0))
+          }
+          &OperatorConfig::Conv2d(cfg) => {
+            Box::new(Conv2dOperator::new(cfg, cap, prev_op, 0))
           }
           _ => unreachable!(),
         }

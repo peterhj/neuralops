@@ -16,10 +16,19 @@ use std::path::{PathBuf};
 fn main() {
   let batch_sz = 32;
   let mut op_cfg = vec![];
-  op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+
+  /*op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     frame_sz:   784,
   }));
+  /*op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
+    batch_sz:   batch_sz,
+    in_dim:     784,
+    out_dim:    10,
+    act_kind:   ActivationKind::Identity,
+    //act_kind:   ActivationKind::Rect,
+    w_init:     ParamInitKind::Xavier,
+  }));*/
   op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     784,
@@ -34,19 +43,44 @@ fn main() {
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Xavier,
   }));
-  /*op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
+  op_cfg.push(OperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
+    batch_sz:       batch_sz,
+    minibatch_sz:   batch_sz,
+    num_classes:    10,
+  }));*/
+
+  op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
-    in_dim:     784,
+    frame_sz:   784,
+  }));
+  op_cfg.push(OperatorConfig::Conv2d(Conv2dOperatorConfig{
+    batch_sz:   batch_sz,
+    in_dim:     (28, 28, 1),
+    kernel_w:   5,
+    kernel_h:   5,
+    stride_w:   1,
+    stride_h:   1,
+    pad_left:   2,
+    pad_right:  2,
+    pad_bot:    2,
+    pad_top:    2,
+    out_chan:   10,
+    act_kind:   ActivationKind::Rect,
+    w_init:     ParamInitKind::Xavier,
+  }));
+  op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
+    batch_sz:   batch_sz,
+    in_dim:     7840,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
-    //act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Xavier,
-  }));*/
+  }));
   op_cfg.push(OperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     num_classes:    10,
   }));
+
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let sgd_cfg = SgdOptConfig{

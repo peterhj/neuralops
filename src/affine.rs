@@ -190,7 +190,7 @@ impl InternalOperator<f32> for AffineOperator {
         );
     }
 
-    if let Some(in_grad) = self.in_.out_grad.as_mut() {
+    if let Some(in_grad) = self.in_.out_grad.as_ref() {
       in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, self.in_.batch_size))
         .matrix_prod(
             1.0,

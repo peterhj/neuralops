@@ -11,9 +11,10 @@ extern crate byteorder;
 extern crate memmap;
 extern crate rand;
 
-use affine::{AffineOperatorConfig};
+/*use affine::{AffineOperatorConfig};
 use input::{SimpleInputOperatorConfig};
-use loss::{ClassLossOperatorConfig};
+use loss::{ClassLossOperatorConfig};*/
+use prelude::*;
 
 pub mod affine;
 pub mod common;
@@ -62,5 +63,6 @@ impl OpCapability {
 pub enum OperatorConfig {
   SimpleInput(SimpleInputOperatorConfig),
   Affine(AffineOperatorConfig),
+  Conv2d(Conv2dOperatorConfig),
   SoftmaxNLLClassLoss(ClassLossOperatorConfig),
 }
