@@ -39,6 +39,42 @@ pub trait IndexedDataShard<S> {
   fn get(&mut self, idx: usize) -> S;
 }
 
+pub struct CyclicSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  rng:      Xorshiftplus128Rng,
+  inner:    Shard,
+  counter:  usize,
+  _marker:  PhantomData<S>,
+}
+
+impl<S, Shard> CyclicSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  pub fn new(inner: Shard) -> CyclicSamplingDataIter<S, Shard> {
+    CyclicSamplingDataIter{
+      rng:      Xorshiftplus128Rng::new(&mut thread_rng()),
+      inner:    inner,
+      counter:  0,
+      _marker:  PhantomData,
+    }
+  }
+
+  pub fn len(&self) -> usize {
+    self.inner.len()
+  }
+}
+
+impl<S, Shard> Iterator for CyclicSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  type Item = S;
+
+  fn next(&mut self) -> Option<S> {
+    if self.counter >= self.len() {
+      self.counter = 0;
+    }
+    let idx = self.counter;
+    let sample = self.inner.get(idx);
+    self.counter += 1;
+    Some(sample)
+  }
+}
+
 pub struct RandomSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   rng:      Xorshiftplus128Rng,
   inner:    Shard,
@@ -52,6 +88,10 @@ impl<S, Shard> RandomSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S>
       inner:    inner,
       _marker:  PhantomData,
     }
+  }
+
+  pub fn len(&self) -> usize {
+    self.inner.len()
   }
 }
 

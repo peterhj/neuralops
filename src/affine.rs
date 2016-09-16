@@ -180,7 +180,7 @@ impl InternalOperator<f32> for AffineOperator {
     for j in 0 .. self.out.batch_size {
       self.tmp_buf.reshape_mut((self.cfg.out_dim, self.out.batch_size))
         .view_mut((0, j), (self.cfg.out_dim, j+1))
-        .matrix_sum(
+        .matrix_add(
             1.0,
             self.bias.reshape((self.cfg.out_dim, 1)),
         );
@@ -204,7 +204,7 @@ impl InternalOperator<f32> for AffineOperator {
       );
     for j in 0 .. self.out.batch_size {
       self.b_grad.reshape_mut((self.cfg.out_dim, 1))
-        .matrix_sum(
+        .matrix_add(
             1.0,
             self.tmp_grad.reshape((self.cfg.out_dim, self.out.batch_size))
               .view((0, j), (self.cfg.out_dim, j+1)),

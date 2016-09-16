@@ -3,7 +3,7 @@ extern crate operator;
 extern crate rand;
 extern crate rng;
 
-use neuralops::data::{RandomSamplingDataIter};
+use neuralops::data::{CyclicSamplingDataIter, RandomSamplingDataIter};
 use neuralops::data::mnist::{MnistDataShard};
 use neuralops::prelude::*;
 use operator::opt::{OptWorker};
@@ -99,7 +99,7 @@ fn main() {
           PathBuf::from("mnist/train-labels-idx1-ubyte"),
       ));
   let mut valid_data =
-      RandomSamplingDataIter::new(
+      CyclicSamplingDataIter::new(
       MnistDataShard::new(
           PathBuf::from("mnist/t10k-images-idx3-ubyte"),
           PathBuf::from("mnist/t10k-labels-idx1-ubyte"),
