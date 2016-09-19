@@ -6,7 +6,8 @@ extern crate rng;
 use neuralops::data::{CyclicSamplingDataIter, RandomSamplingDataIter};
 use neuralops::data::mnist::{MnistDataShard};
 use neuralops::prelude::*;
-use operator::opt::{OptWorker};
+use operator::{OpCapability};
+use operator::opt::{OptWorker, OptStats};
 use operator::opt::sgd::{SgdOptConfig, SgdOptWorker};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -17,7 +18,7 @@ fn main() {
   let batch_sz = 32;
   let mut op_cfg = vec![];
 
-  /*op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+  op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     frame_sz:   784,
   }));
@@ -47,9 +48,9 @@ fn main() {
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     num_classes:    10,
-  }));*/
+  }));
 
-  op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+  /*op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     frame_sz:   784,
   }));
@@ -79,21 +80,13 @@ fn main() {
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     num_classes:    10,
-  }));
+  }));*/
 
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
-  let sgd_cfg = SgdOptConfig{
-    batch_sz:       batch_sz,
-    minibatch_sz:   batch_sz,
-    step_size:      0.01,
-    momentum:       None,
-    l2_reg:         Some(1.0e-4),
-  };
-  let mut sgd = SgdOptWorker::new(sgd_cfg, op);
-
   let mut train_data =
-      RandomSamplingDataIter::new(
+      CyclicSamplingDataIter::new(
+      //RandomSamplingDataIter::new(
       MnistDataShard::new(
           PathBuf::from("mnist/train-images-idx3-ubyte"),
           PathBuf::from("mnist/train-labels-idx1-ubyte"),
@@ -105,15 +98,28 @@ fn main() {
           PathBuf::from("mnist/t10k-labels-idx1-ubyte"),
       ));
 
+  let sgd_cfg = SgdOptConfig{
+    batch_sz:       batch_sz,
+    //minibatch_sz:   batch_sz,
+    minibatch_sz:   train_data.len(),
+    step_size:      0.3,
+    momentum:       Some(0.9),
+    l2_reg:         Some(1.0e-4),
+  };
+  let mut sgd = SgdOptWorker::new(sgd_cfg, op);
+
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
   println!("DEBUG: training...");
   sgd.init_param(&mut rng);
-  for iter_nr in 0 .. 200 {
+  for iter_nr in 0 .. 30 {
+    sgd.reset_opt_stats();
     sgd.step(&mut train_data);
-    if iter_nr % 1000 == 0 {
-      println!("DEBUG: iter {}", iter_nr);
-    }
+    //if iter_nr % 10 == 0 {
+    println!("DEBUG: iter: {} stats: {:?}", iter_nr, sgd.get_opt_stats());
+    //}
   }
   println!("DEBUG: validation...");
+  sgd.reset_opt_stats();
   sgd.eval(10000, &mut valid_data);
+  println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
 }

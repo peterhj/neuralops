@@ -1,5 +1,5 @@
 use densearray::{Array3d};
-use operator::data::{WeightedSample};
+use operator::data::{SampleWeight, WeightedSample};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::{Rng, thread_rng};
@@ -20,8 +20,18 @@ pub enum Layout {
 pub struct ClassSample2d<T> where T: Copy {
   pub input:    Array3d<T>,
   pub layout:   (Layout, Layout, Layout),
-  pub label:    Option<i32>,
+  pub label:    Option<u32>,
   pub weight:   Option<f32>,
+}
+
+impl<T> SampleWeight for ClassSample2d<T> where T: Copy {
+  fn weight(&self) -> Option<f32> {
+    self.weight
+  }
+
+  fn mix_weight(&mut self, w: f32) {
+    self.weight = Some(self.weight.map_or(w, |w0| w0 * w));
+  }
 }
 
 impl<T> WeightedSample for ClassSample2d<T> where T: Copy {

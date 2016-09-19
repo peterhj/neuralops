@@ -1,4 +1,3 @@
-use super::{OpCapability};
 use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::{activate_fwd, activate_bwd};
 
@@ -6,14 +5,14 @@ use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewM
 use densearray::linalg::{Transpose};
 use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;
-use operator::{InternalOperator, OpPhase, Regularization};
+use operator::{InternalOperator, OpCapability, OpPhase, Regularization};
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
-use std::cmp::{min};
+use std::cmp::{max, min};
 use std::ptr::{null_mut};
 
 #[derive(Clone, Copy)]
@@ -122,7 +121,7 @@ impl InternalOperator<f32> for Conv2dOperator {
         }
       }
       ParamInitKind::Kaiming => {
-        let std = (2.0 / min(self.cfg.in_dim.2, self.cfg.out_chan) as f64).sqrt();
+        let std = (2.0 / max(self.cfg.in_dim.2, self.cfg.out_chan) as f64).sqrt();
         let dist = Normal::new(0.0, std);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;

@@ -1,10 +1,9 @@
-use super::{OpCapability};
 use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::{activate_fwd, activate_bwd};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
 use densearray::linalg::{Transpose};
-use operator::{InternalOperator, OpPhase, Regularization};
+use operator::{InternalOperator, OpCapability, OpPhase, Regularization};
 use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -12,7 +11,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
-use std::cmp::{min};
+use std::cmp::{max, min};
 
 #[derive(Clone, Copy)]
 pub struct AffineOperatorConfig {
@@ -96,7 +95,7 @@ impl InternalOperator<f32> for AffineOperator {
         }
       }
       ParamInitKind::Kaiming => {
-        let std = (2.0 / min(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
+        let std = (2.0 / max(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
         let dist = Normal::new(0.0, std);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;

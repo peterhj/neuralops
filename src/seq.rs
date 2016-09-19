@@ -1,4 +1,4 @@
-use super::{OpCapability, OperatorConfig};
+use super::{OperatorConfig};
 use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 use affine::{AffineOperator};
@@ -7,7 +7,7 @@ use input::{SimpleInputOperator};
 use loss::{SoftmaxNLLClassLossOperator};
 //use prelude::*;
 
-use operator::{Operator, InternalOperator, OpPhase, Regularization};
+use operator::{Operator, InternalOperator, OpCapability, OpPhase, Regularization};
 use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 

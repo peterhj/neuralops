@@ -1,4 +1,3 @@
-pub use super::{OpCapability};
 pub use super::{OperatorConfig};
 pub use affine::{AffineOperatorConfig};
 pub use common::{ActivationKind, ParamInitKind};

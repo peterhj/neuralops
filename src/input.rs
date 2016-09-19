@@ -1,10 +1,9 @@
-use super::{OpCapability};
 use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 
 use densearray::{ArrayIndex};
-use operator::{Operator, InternalOperator, OpPhase};
-use operator::data::{ClassSample};
+use operator::{Operator, InternalOperator, OpCapability, OpPhase};
+//use operator::data::{ClassSample};
 
 #[derive(Clone, Copy)]
 pub struct SimpleInputOperatorConfig {
@@ -30,7 +29,7 @@ impl SimpleInputOperator {
   }
 }
 
-impl Operator<f32, ClassSample<f32>> for SimpleInputOperator {
+/*impl Operator<f32, ClassSample<f32>> for SimpleInputOperator {
   fn load_data(&mut self, samples: &[ClassSample<f32>]) {
     let batch_size = samples.len();
     assert!(batch_size <= self.cfg.batch_sz);
@@ -54,7 +53,7 @@ impl Operator<f32, ClassSample<u8>> for SimpleInputOperator {
     }
     self.out.batch_size = batch_size;
   }
-}
+}*/
 
 impl Operator<f32, ClassSample2d<u8>> for SimpleInputOperator {
   fn load_data(&mut self, samples: &[ClassSample2d<u8>]) {

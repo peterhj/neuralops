@@ -78,7 +78,7 @@ impl IndexedDataShard<ClassSample2d<u8>> for MnistDataShard {
     let mut input_buf = Vec::with_capacity(self.frame_sz);
     input_buf.extend_from_slice(&unsafe { self.frames_m.as_slice() }[idx * self.frame_sz .. (idx+1) * self.frame_sz]);
     assert_eq!(self.frame_sz, input_buf.len());
-    let label = unsafe { self.labels_m.as_slice() }[idx] as i32;
+    let label = unsafe { self.labels_m.as_slice() }[idx] as u32;
     ClassSample2d{
       input:    Array3d::from_storage(self.frame_d, input_buf),
       layout:   (Layout::Width, Layout::Height, Layout::Dim(0)),

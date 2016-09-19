@@ -1,4 +1,4 @@
-use super::{OpCapability};
+use operator::{OpCapability};
 
 use std::cell::{RefCell};
 use std::rc::{Rc};
