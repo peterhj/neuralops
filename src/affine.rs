@@ -3,7 +3,7 @@ use kernels::{activate_fwd, activate_bwd};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
 use densearray::linalg::{Transpose};
-use operator::{InternalOperator, OpCapability, OpPhase, Regularization};
+use operator::prelude::*;
 use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -35,7 +35,7 @@ pub struct AffineOperator {
 }
 
 impl AffineOperator {
-  pub fn new(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: &InternalOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> AffineOperator {
+  pub fn new(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> AffineOperator {
     let mut bias = Vec::with_capacity(cfg.out_dim);
     unsafe { bias.set_len(cfg.out_dim) };
     let mut b_grad = Vec::with_capacity(cfg.out_dim);
@@ -58,7 +58,7 @@ impl AffineOperator {
   }
 }
 
-impl InternalOperator<f32> for AffineOperator {
+impl DiffOperator<f32> for AffineOperator {
   type Output = CommonOperatorOutput<f32>;
 
   fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
@@ -137,7 +137,7 @@ impl InternalOperator<f32> for AffineOperator {
 
   fn apply_grad_reg(&mut self, reg: Regularization) {
     match reg {
-      Regularization::L2{lambda} => {
+      Regularization::L2(lambda) => {
         let weights_len = self.weights.dim().flat_len();
         let weights = self.weights.as_mut_slice();
         let w_grad = self.w_grad.as_mut_slice();

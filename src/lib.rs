@@ -17,6 +17,7 @@ pub mod affine;
 pub mod common;
 pub mod conv;
 pub mod data;
+pub mod graph;
 pub mod input;
 pub mod kernels;
 pub mod loss;

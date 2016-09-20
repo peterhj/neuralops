@@ -5,7 +5,7 @@ use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewM
 use densearray::linalg::{Transpose};
 use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;
-use operator::{InternalOperator, OpCapability, OpPhase, Regularization};
+use operator::prelude::*;
 use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -56,7 +56,7 @@ pub struct Conv2dOperator {
 }
 
 impl Conv2dOperator {
-  pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &InternalOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> Conv2dOperator {
+  pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> Conv2dOperator {
     assert_eq!(1, cfg.stride_w);
     assert_eq!(1, cfg.stride_h);
     let mut bias = Vec::with_capacity(cfg.out_chan);
@@ -84,7 +84,7 @@ impl Conv2dOperator {
   }
 }
 
-impl InternalOperator<f32> for Conv2dOperator {
+impl DiffOperator<f32> for Conv2dOperator {
   type Output = CommonOperatorOutput<f32>;
 
   fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
@@ -149,7 +149,7 @@ impl InternalOperator<f32> for Conv2dOperator {
 
   fn apply_grad_reg(&mut self, reg: Regularization) {
     match reg {
-      Regularization::L2{lambda} => {
+      Regularization::L2(lambda) => {
         let weights_len = self.weights.dim().flat_len();
         let weights = self.weights.as_mut_slice();
         let w_grad = self.w_grad.as_mut_slice();

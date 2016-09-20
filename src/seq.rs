@@ -7,7 +7,7 @@ use input::{SimpleInputOperator};
 use loss::{SoftmaxNLLClassLossOperator};
 //use prelude::*;
 
-use operator::{Operator, InternalOperator, OpCapability, OpPhase, Regularization};
+use operator::prelude::*;
 use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -16,7 +16,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 pub struct SeqOperator<T, S, Out> {
   input_op:     Box<Operator<T, S, Output=Out>>,
   loss_op:      Box<Operator<T, S, Output=Out>>,
-  inner_ops:    Vec<Box<InternalOperator<T, Output=Out>>>,
+  inner_ops:    Vec<Box<DiffOperator<T, Output=Out>>>,
 }
 
 impl SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
@@ -28,12 +28,12 @@ impl SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
       }
       _ => unreachable!(),
     };
-    let mut inner_ops: Vec<Box<InternalOperator<f32, Output=CommonOperatorOutput<f32>>>> = vec![];
+    let mut inner_ops: Vec<Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>>>> = vec![];
     for (idx, cfg) in cfgs[1 .. num_ops-1].iter().enumerate() {
-      let op: Box<InternalOperator<f32, Output=CommonOperatorOutput<f32>>> = {
+      let op: Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>>> = {
         let prev_op = match idx {
-          0 => &*input_op as &InternalOperator<f32, Output=CommonOperatorOutput<f32>>,
-          _ => &*inner_ops[idx-1] as &InternalOperator<f32, Output=CommonOperatorOutput<f32>>,
+          0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
+          _ => &*inner_ops[idx-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
         };
         match cfg {
           &OperatorConfig::Affine(cfg) => {
@@ -50,8 +50,8 @@ impl SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
     let loss_op = match cfgs[num_ops-1] {
       OperatorConfig::SoftmaxNLLClassLoss(cfg) => {
         let prev_op = match inner_ops.len() {
-          0 => &*input_op as &InternalOperator<f32, Output=CommonOperatorOutput<f32>>,
-          _ => &*inner_ops[inner_ops.len()-1] as &InternalOperator<f32, Output=CommonOperatorOutput<f32>>,
+          0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
+          _ => &*inner_ops[inner_ops.len()-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
         };
         Box::new(SoftmaxNLLClassLossOperator::new(cfg, cap, prev_op, 0))
       }
@@ -76,7 +76,7 @@ impl<T, S, Out> Operator<T, S> for SeqOperator<T, S, Out> where Out: Clone {
   }
 }
 
-impl<T, S, Out> InternalOperator<T> for SeqOperator<T, S, Out> where Out: Clone {
+impl<T, S, Out> DiffOperator<T> for SeqOperator<T, S, Out> where Out: Clone {
   type Output = Out;
 
   fn output(&self, _arm: usize) -> Out {

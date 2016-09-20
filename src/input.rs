@@ -2,7 +2,7 @@ use common::{CommonOperatorOutput};
 use data::{ClassSample2d};
 
 use densearray::{ArrayIndex};
-use operator::{Operator, InternalOperator, OpCapability, OpPhase};
+use operator::prelude::*;
 //use operator::data::{ClassSample};
 
 #[derive(Clone, Copy)]
@@ -72,7 +72,7 @@ impl Operator<f32, ClassSample2d<u8>> for SimpleInputOperator {
   }
 }
 
-impl InternalOperator<f32> for SimpleInputOperator {
+impl DiffOperator<f32> for SimpleInputOperator {
   type Output = CommonOperatorOutput<f32>;
 
   fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {

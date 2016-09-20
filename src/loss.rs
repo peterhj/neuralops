@@ -3,7 +3,7 @@ use data::{ClassSample2d};
 
 use float::ord::{F32InfNan};
 use iter_utils::{argmax}; //, KahanSum};
-use operator::{Operator, InternalOperator, OpCapability, OpPhase};
+use operator::prelude::*;
 
 use std::iter::{Sum};
 
@@ -29,7 +29,7 @@ pub struct SoftmaxNLLClassLossOperator {
 }
 
 impl SoftmaxNLLClassLossOperator {
-  pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &InternalOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> SoftmaxNLLClassLossOperator {
+  pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> SoftmaxNLLClassLossOperator {
     let mut max_log = Vec::with_capacity(cfg.batch_sz);
     unsafe { max_log.set_len(cfg.batch_sz) };
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
@@ -80,7 +80,7 @@ impl<T> Operator<f32, ClassSample2d<T>> for SoftmaxNLLClassLossOperator where T:
   }
 }
 
-impl InternalOperator<f32> for SoftmaxNLLClassLossOperator {
+impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
   type Output = CommonOperatorOutput<f32>;
 
   fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
