@@ -1,5 +1,6 @@
 use densearray::{Array3d};
-use operator::data::{SampleWeight, WeightedSample};
+use operator::data::{SampleExtractInput, SampleClass, SampleWeight};
+use operator::memory::{SharedSlice};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::{Rng, thread_rng};
@@ -9,19 +10,25 @@ pub mod cifar;
 pub mod mnist;
 
 #[derive(Clone, Copy)]
-pub enum Layout {
-  Dim(usize),
-  Width,
-  Height,
-  Depth,
+pub enum Shape {
+  Dim(usize, usize),
+  Width(usize),
+  Height(usize),
+  Depth(usize),
 }
 
 #[derive(Clone)]
 pub struct ClassSample2d<T> where T: Copy {
   pub input:    Array3d<T>,
-  pub layout:   (Layout, Layout, Layout),
+  pub layout:   (Shape, Shape, Shape),
   pub label:    Option<u32>,
   pub weight:   Option<f32>,
+}
+
+impl<T> SampleClass for ClassSample2d<T> where T: Copy {
+  fn class(&self) -> Option<u32> {
+    self.label
+  }
 }
 
 impl<T> SampleWeight for ClassSample2d<T> where T: Copy {
@@ -34,13 +41,82 @@ impl<T> SampleWeight for ClassSample2d<T> where T: Copy {
   }
 }
 
-impl<T> WeightedSample for ClassSample2d<T> where T: Copy {
-  fn set_weight(&mut self, weight: f32) {
-    self.weight = Some(weight);
+#[derive(Clone)]
+pub struct SharedClassSample<T> where T: Copy {
+  pub input:    SharedSlice<T>,
+  pub label:    Option<u32>,
+  pub weight:   Option<f32>,
+}
+
+impl SampleExtractInput<u8> for SharedClassSample<u8> {
+  fn extract_input(&self, output: &mut [u8]) {
+    let input: &[u8] = &*self.input;
+    output.copy_from_slice(input);
+  }
+}
+
+impl SampleExtractInput<f32> for SharedClassSample<u8> {
+  fn extract_input(&self, output: &mut [f32]) {
+    let input: &[u8] = &*self.input;
+    for i in 0 .. input.len() {
+      output[i] = input[i] as f32;
+    }
+  }
+}
+
+impl<T> SampleClass for SharedClassSample<T> where T: Copy {
+  fn class(&self) -> Option<u32> {
+    self.label
+  }
+}
+
+impl<T> SampleWeight for SharedClassSample<T> where T: Copy {
+  fn weight(&self) -> Option<f32> {
+    self.weight
   }
 
-  fn multiply_weight(&mut self, w2: f32) {
-    self.weight = self.weight.map_or(Some(w2), |w1| Some(w1 * w2));
+  fn mix_weight(&mut self, w: f32) {
+    self.weight = Some(self.weight.map_or(w, |w0| w0 * w));
+  }
+}
+
+#[derive(Clone)]
+pub struct SharedClassSample2d<T> where T: Copy {
+  pub input:    Array3d<T, SharedSlice<T>>,
+  pub layout:   (Shape, Shape, Shape),
+  pub label:    Option<u32>,
+  pub weight:   Option<f32>,
+}
+
+impl SampleExtractInput<u8> for SharedClassSample2d<u8> {
+  fn extract_input(&self, output: &mut [u8]) {
+    let input: &[u8] = self.input.as_slice();
+    output.copy_from_slice(input);
+  }
+}
+
+impl SampleExtractInput<f32> for SharedClassSample2d<u8> {
+  fn extract_input(&self, output: &mut [f32]) {
+    let input: &[u8] = self.input.as_slice();
+    for i in 0 .. input.len() {
+      output[i] = input[i] as f32;
+    }
+  }
+}
+
+impl<T> SampleClass for SharedClassSample2d<T> where T: Copy {
+  fn class(&self) -> Option<u32> {
+    self.label
+  }
+}
+
+impl<T> SampleWeight for SharedClassSample2d<T> where T: Copy {
+  fn weight(&self) -> Option<f32> {
+    self.weight
+  }
+
+  fn mix_weight(&mut self, w: f32) {
+    self.weight = Some(self.weight.map_or(w, |w0| w0 * w));
   }
 }
 

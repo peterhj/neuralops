@@ -85,8 +85,8 @@ fn main() {
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let mut train_data =
-      CyclicSamplingDataIter::new(
-      //RandomSamplingDataIter::new(
+      //CyclicSamplingDataIter::new(
+      RandomSamplingDataIter::new(
       MnistDataShard::new(
           PathBuf::from("mnist/train-images-idx3-ubyte"),
           PathBuf::from("mnist/train-labels-idx1-ubyte"),
@@ -100,9 +100,9 @@ fn main() {
 
   let sgd_cfg = SgdOptConfig{
     batch_sz:       batch_sz,
-    //minibatch_sz:   batch_sz,
-    minibatch_sz:   train_data.len(),
-    step_size:      0.3,
+    //minibatch_sz:   train_data.len(),
+    minibatch_sz:   batch_sz,
+    step_size:      0.01,
     momentum:       Some(0.9),
     l2_reg:         Some(1.0e-4),
   };
@@ -111,15 +111,15 @@ fn main() {
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
   println!("DEBUG: training...");
   sgd.init_param(&mut rng);
-  for iter_nr in 0 .. 30 {
+  for iter_nr in 0 .. 1000 {
     sgd.reset_opt_stats();
     sgd.step(&mut train_data);
-    //if iter_nr % 10 == 0 {
-    println!("DEBUG: iter: {} stats: {:?}", iter_nr, sgd.get_opt_stats());
-    //}
+    if iter_nr % 10 == 0 {
+      println!("DEBUG: iter: {} stats: {:?}", iter_nr, sgd.get_opt_stats());
+    }
   }
   println!("DEBUG: validation...");
   sgd.reset_opt_stats();
-  sgd.eval(10000, &mut valid_data);
+  sgd.eval(valid_data.len(), &mut valid_data);
   println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
 }

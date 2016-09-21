@@ -14,7 +14,6 @@ path = "tools/train-mnist.rs"
 [dependencies]
 byteorder = "*"
 float = "*"
-memmap = "*"
 rand = "*"
 densearray = { path = "../libdensearray" }
 iter_utils = { path = "../libiter_utils" }

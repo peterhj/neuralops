@@ -1,6 +1,6 @@
 use super::{OperatorConfig};
 use common::{CommonOperatorOutput};
-use data::{ClassSample2d};
+use data::{SharedClassSample2d};
 use affine::{AffineOperator};
 use conv::{Conv2dOperator};
 use input::{SimpleInputOperator};
@@ -19,8 +19,8 @@ pub struct SeqOperator<T, S, Out> {
   inner_ops:    Vec<Box<DiffOperator<T, Output=Out>>>,
 }
 
-impl SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
-  pub fn new(cfgs: Vec<OperatorConfig>, cap: OpCapability) -> SeqOperator<f32, ClassSample2d<u8>, CommonOperatorOutput<f32>> {
+impl SeqOperator<f32, SharedClassSample2d<u8>, CommonOperatorOutput<f32>> {
+  pub fn new(cfgs: Vec<OperatorConfig>, cap: OpCapability) -> SeqOperator<f32, SharedClassSample2d<u8>, CommonOperatorOutput<f32>> {
     let num_ops = cfgs.len();
     let input_op = match cfgs[0] {
       OperatorConfig::SimpleInput(cfg) => {

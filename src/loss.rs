@@ -1,9 +1,10 @@
 use common::{CommonOperatorOutput};
-use data::{ClassSample2d};
+use data::{SharedClassSample2d};
 
 use float::ord::{F32InfNan};
 use iter_utils::{argmax}; //, KahanSum};
 use operator::prelude::*;
+use operator::data::{SampleClass, SampleWeight};
 
 use std::iter::{Sum};
 
@@ -60,17 +61,16 @@ impl SoftmaxNLLClassLossOperator {
   }
 }
 
-impl<T> Operator<f32, ClassSample2d<T>> for SoftmaxNLLClassLossOperator where T: Copy {
-  fn load_data(&mut self, samples: &[ClassSample2d<T>]) {
+impl<T> Operator<f32, SharedClassSample2d<T>> for SoftmaxNLLClassLossOperator where T: Copy {
+  fn load_data(&mut self, samples: &[SharedClassSample2d<T>]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
     for (idx, sample) in samples.iter().enumerate() {
-      if let Some(cat) = sample.label {
+      if let Some(cat) = sample.class() {
         assert!(0 <= cat && cat < self.cfg.num_classes as u32);
         self.labels[idx] = cat;
       }
-      //self.weights[idx] = sample.weight.unwrap_or(1.0) / self.cfg.minibatch_sz as f32;
-      self.weights[idx] = sample.weight.unwrap_or(1.0);
+      self.weights[idx] = sample.weight().unwrap_or(1.0);
     }
     self.out.batch_size = actual_batch_size;
   }

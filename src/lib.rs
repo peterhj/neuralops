@@ -8,7 +8,6 @@ extern crate operator;
 extern crate rng;
 
 extern crate byteorder;
-extern crate memmap;
 extern crate rand;
 
 use prelude::*;
