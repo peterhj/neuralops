@@ -1,7 +1,7 @@
 use densearray::{Array3d};
 use operator::data::{SampleExtractInput, SampleClass, SampleWeight};
-use operator::memory::{SharedSlice};
 use rng::xorshift::{Xorshiftplus128Rng};
+use sharedmem::{SharedSlice};
 
 use rand::{Rng, thread_rng};
 use std::marker::{PhantomData};
@@ -20,7 +20,7 @@ pub enum Shape {
 #[derive(Clone)]
 pub struct ClassSample2d<T> where T: Copy {
   pub input:    Array3d<T>,
-  pub layout:   (Shape, Shape, Shape),
+  pub shape:    (Shape, Shape, Shape),
   pub label:    Option<u32>,
   pub weight:   Option<f32>,
 }
@@ -83,7 +83,7 @@ impl<T> SampleWeight for SharedClassSample<T> where T: Copy {
 #[derive(Clone)]
 pub struct SharedClassSample2d<T> where T: Copy {
   pub input:    Array3d<T, SharedSlice<T>>,
-  pub layout:   (Shape, Shape, Shape),
+  pub shape:    (Shape, Shape, Shape),
   pub label:    Option<u32>,
   pub weight:   Option<f32>,
 }

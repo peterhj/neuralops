@@ -6,6 +6,7 @@ extern crate iter_utils;
 extern crate nnpack;
 extern crate operator;
 extern crate rng;
+extern crate sharedmem;
 
 extern crate byteorder;
 extern crate rand;

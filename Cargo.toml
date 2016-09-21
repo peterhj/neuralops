@@ -20,3 +20,4 @@ iter_utils = { path = "../libiter_utils" }
 nnpack = { path = "../libnnpack" }
 operator = { path = "../liboperator" }
 rng = { path = "../librng" }
+sharedmem = { path = "../libsharedmem" }
