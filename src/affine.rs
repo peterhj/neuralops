@@ -1,13 +1,12 @@
 use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::{activate_fwd, activate_bwd};
 
-use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array2d};
+use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array2d};
 use densearray::linalg::{Transpose};
 use operator::prelude::*;
 use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
-//use rand::{Rng};
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
@@ -27,8 +26,8 @@ pub struct AffineOperator {
   in_:      CommonOperatorOutput<f32>,
   weights:  Array2d<f32>,
   w_grad:   Array2d<f32>,
-  bias:     Vec<f32>,
-  b_grad:   Vec<f32>,
+  bias:     Array1d<f32>,
+  b_grad:   Array1d<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   out:      CommonOperatorOutput<f32>,
@@ -36,10 +35,6 @@ pub struct AffineOperator {
 
 impl AffineOperator {
   pub fn new(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> AffineOperator {
-    let mut bias = Vec::with_capacity(cfg.out_dim);
-    unsafe { bias.set_len(cfg.out_dim) };
-    let mut b_grad = Vec::with_capacity(cfg.out_dim);
-    unsafe { b_grad.set_len(cfg.out_dim) };
     let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
     unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim) };
     let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
@@ -49,8 +44,8 @@ impl AffineOperator {
       in_:      prev_op.output(prev_arm),
       weights:  Array2d::zeros((cfg.in_dim, cfg.out_dim)),
       w_grad:   Array2d::zeros((cfg.in_dim, cfg.out_dim)),
-      bias:     bias,
-      b_grad:   b_grad,
+      bias:     Array1d::zeros(cfg.out_dim),
+      b_grad:   Array1d::zeros(cfg.out_dim),
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim, cap),
@@ -102,7 +97,7 @@ impl DiffOperator<f32> for AffineOperator {
         }
       }
     }
-    for e in self.bias.iter_mut() {
+    for e in self.bias.as_mut_slice().iter_mut() {
       *e = 0.0;
     }
   }
@@ -110,29 +105,27 @@ impl DiffOperator<f32> for AffineOperator {
   fn load_param(&mut self, param_reader: &mut ReadBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += param_reader.read(offset, self.weights.as_mut_slice());
-    offset += param_reader.read(offset, &mut self.bias);
+    offset += param_reader.read(offset, self.bias.as_mut_slice());
     offset - init_offset
   }
 
   fn store_param(&mut self, param_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += param_writer.write(offset, self.weights.as_slice());
-    offset += param_writer.write(offset, &self.bias);
+    offset += param_writer.write(offset, self.bias.as_slice());
     offset - init_offset
   }
 
   fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_reader.read_accumulate(alpha, beta, offset, self.weights.as_mut_slice());
-    offset += grad_reader.read_accumulate(alpha, beta, offset, &mut self.bias);
+    offset += grad_reader.read_accumulate(alpha, beta, offset, self.bias.as_mut_slice());
     offset - init_offset
   }
 
   fn reset_grad(&mut self) {
     self.w_grad.as_view_mut().set_constant(0.0);
-    for e in self.b_grad.iter_mut() {
-      *e = 0.0;
-    }
+    self.b_grad.as_view_mut().set_constant(0.0);
   }
 
   fn apply_grad_reg(&mut self, reg: Regularization) {
@@ -141,11 +134,14 @@ impl DiffOperator<f32> for AffineOperator {
         let weights_len = self.weights.dim().flat_len();
         let weights = self.weights.as_mut_slice();
         let w_grad = self.w_grad.as_mut_slice();
+        let bias_len = self.bias.dim().flat_len();
+        let bias = self.bias.as_mut_slice();
+        let b_grad = self.b_grad.as_mut_slice();
         for j in 0 .. weights_len {
           w_grad[j] += lambda * weights[j];
         }
-        for j in 0 .. self.bias.len() {
-          self.b_grad[j] += lambda * self.bias[j];
+        for j in 0 .. bias_len {
+          b_grad[j] += lambda * bias[j];
         }
       }
     }
@@ -154,14 +150,14 @@ impl DiffOperator<f32> for AffineOperator {
   fn store_grad(&mut self, grad_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_writer.write(offset, self.w_grad.as_slice());
-    offset += grad_writer.write(offset, &self.b_grad);
+    offset += grad_writer.write(offset, self.b_grad.as_slice());
     offset - init_offset
   }
 
   fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_accum.accumulate(alpha, beta, offset, self.w_grad.as_slice());
-    offset += grad_accum.accumulate(alpha, beta, offset, &self.b_grad);
+    offset += grad_accum.accumulate(alpha, beta, offset, self.b_grad.as_slice());
     offset - init_offset
   }
 
@@ -181,7 +177,7 @@ impl DiffOperator<f32> for AffineOperator {
         .view_mut((0, j), (self.cfg.out_dim, j+1))
         .matrix_add(
             1.0,
-            self.bias.reshape((self.cfg.out_dim, 1)),
+            self.bias.as_view().reshape((self.cfg.out_dim, 1)),
         );
     }
 
@@ -202,7 +198,7 @@ impl DiffOperator<f32> for AffineOperator {
           1.0,
       );
     for j in 0 .. self.out.batch_size {
-      self.b_grad.reshape_mut((self.cfg.out_dim, 1))
+      self.b_grad.as_view_mut().reshape_mut((self.cfg.out_dim, 1))
         .matrix_add(
             1.0,
             self.tmp_grad.reshape((self.cfg.out_dim, self.out.batch_size))

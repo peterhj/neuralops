@@ -3,11 +3,10 @@ extern crate operator;
 extern crate rand;
 extern crate rng;
 
-use neuralops::data::{CyclicSamplingDataIter, RandomSamplingDataIter};
-use neuralops::data::mnist::{MnistDataShard};
 use neuralops::prelude::*;
-use operator::{OpCapability};
-use operator::opt::{OptWorker, OptStats};
+use neuralops::data::{CyclicDataIter, RandomSampleDataIter, RandomSubsampleDataIter};
+use neuralops::data::mnist::{MnistDataShard};
+use operator::prelude::*;
 use operator::opt::sgd::{SgdOptConfig, SgdOptWorker};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -20,7 +19,7 @@ fn main() {
 
   op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
-    frame_sz:   784,
+    stride:     784,
   }));
   /*op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
@@ -85,14 +84,16 @@ fn main() {
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let mut train_data =
-      //CyclicSamplingDataIter::new(
-      RandomSamplingDataIter::new(
+      //CyclicDataIter::new(
+      //RandomSampleDataIter::new(
+      RandomSubsampleDataIter::new(
+      batch_sz,
       MnistDataShard::new(
           PathBuf::from("mnist/train-images-idx3-ubyte"),
           PathBuf::from("mnist/train-labels-idx1-ubyte"),
       ));
   let mut valid_data =
-      CyclicSamplingDataIter::new(
+      CyclicDataIter::new(
       MnistDataShard::new(
           PathBuf::from("mnist/t10k-images-idx3-ubyte"),
           PathBuf::from("mnist/t10k-labels-idx1-ubyte"),

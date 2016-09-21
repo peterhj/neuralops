@@ -4,6 +4,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use sharedmem::{SharedSlice};
 
 use rand::{Rng, thread_rng};
+use std::collections::{HashSet};
 use std::marker::{PhantomData};
 
 pub mod cifar;
@@ -12,6 +13,8 @@ pub mod mnist;
 #[derive(Clone, Copy)]
 pub enum Shape {
   Dim(usize, usize),
+  Time(usize),
+  Frequency(usize),
   Width(usize),
   Height(usize),
   Depth(usize),
@@ -125,16 +128,16 @@ pub trait IndexedDataShard<S> {
   fn get(&mut self, idx: usize) -> S;
 }
 
-pub struct CyclicSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+pub struct CyclicDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   rng:      Xorshiftplus128Rng,
   inner:    Shard,
   counter:  usize,
   _marker:  PhantomData<S>,
 }
 
-impl<S, Shard> CyclicSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
-  pub fn new(inner: Shard) -> CyclicSamplingDataIter<S, Shard> {
-    CyclicSamplingDataIter{
+impl<S, Shard> CyclicDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  pub fn new(inner: Shard) -> CyclicDataIter<S, Shard> {
+    CyclicDataIter{
       rng:      Xorshiftplus128Rng::new(&mut thread_rng()),
       inner:    inner,
       counter:  0,
@@ -147,7 +150,7 @@ impl<S, Shard> CyclicSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S>
   }
 }
 
-impl<S, Shard> Iterator for CyclicSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+impl<S, Shard> Iterator for CyclicDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   type Item = S;
 
   fn next(&mut self) -> Option<S> {
@@ -161,15 +164,15 @@ impl<S, Shard> Iterator for CyclicSamplingDataIter<S, Shard> where Shard: Indexe
   }
 }
 
-pub struct RandomSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+pub struct RandomSampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   rng:      Xorshiftplus128Rng,
   inner:    Shard,
   _marker:  PhantomData<S>,
 }
 
-impl<S, Shard> RandomSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
-  pub fn new(inner: Shard) -> RandomSamplingDataIter<S, Shard> {
-    RandomSamplingDataIter{
+impl<S, Shard> RandomSampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  pub fn new(inner: Shard) -> RandomSampleDataIter<S, Shard> {
+    RandomSampleDataIter{
       rng:      Xorshiftplus128Rng::new(&mut thread_rng()),
       inner:    inner,
       _marker:  PhantomData,
@@ -181,12 +184,56 @@ impl<S, Shard> RandomSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S>
   }
 }
 
-impl<S, Shard> Iterator for RandomSamplingDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+impl<S, Shard> Iterator for RandomSampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   type Item = S;
 
   fn next(&mut self) -> Option<S> {
     let idx = self.rng.gen_range(0, self.inner.len());
     let sample = self.inner.get(idx);
     Some(sample)
+  }
+}
+
+pub struct RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  batch_sz: usize,
+  idxs_set: HashSet<usize>,
+  rng:      Xorshiftplus128Rng,
+  inner:    Shard,
+  _marker:  PhantomData<S>,
+}
+
+impl<S, Shard> RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  pub fn new(batch_sz: usize, inner: Shard) -> RandomSubsampleDataIter<S, Shard> {
+    assert!(batch_sz <= inner.len());
+    RandomSubsampleDataIter{
+      batch_sz: batch_sz,
+      idxs_set: HashSet::with_capacity(batch_sz),
+      rng:      Xorshiftplus128Rng::new(&mut thread_rng()),
+      inner:    inner,
+      _marker:  PhantomData,
+    }
+  }
+
+  pub fn len(&self) -> usize {
+    self.inner.len()
+  }
+}
+
+impl<S, Shard> Iterator for RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  type Item = S;
+
+  fn next(&mut self) -> Option<S> {
+    if self.idxs_set.len() >= self.batch_sz {
+      self.idxs_set.clear();
+    }
+    loop {
+      let idx = self.rng.gen_range(0, self.inner.len());
+      if self.idxs_set.contains(&idx) {
+        continue;
+      }
+      self.idxs_set.insert(idx);
+      let sample = self.inner.get(idx);
+      return Some(sample);
+    }
   }
 }
