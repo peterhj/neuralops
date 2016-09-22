@@ -46,7 +46,7 @@ impl SoftmaxNLLClassLossOperator {
     unsafe { weights.set_len(cfg.batch_sz) };
     SoftmaxNLLClassLossOperator{
       cfg:      cfg,
-      in_:      prev_op.output(prev_arm),
+      in_:      prev_op._output(prev_arm),
       max_log:  max_log,
       facts:    facts,
       sum_fact: sum_fact,
@@ -60,7 +60,7 @@ impl SoftmaxNLLClassLossOperator {
   }
 }
 
-impl<S> Operator<f32, S> for SoftmaxNLLClassLossOperator where S: SampleClass + SampleWeight {
+impl<S> DiffOperatorInput<f32, S> for SoftmaxNLLClassLossOperator where S: SampleClass + SampleWeight {
   fn load_data(&mut self, samples: &[S]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
@@ -78,7 +78,7 @@ impl<S> Operator<f32, S> for SoftmaxNLLClassLossOperator where S: SampleClass + 
 impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
   type Output = CommonOperatorOutput<f32>;
 
-  fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
+  fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);
     self.out.clone()
   }

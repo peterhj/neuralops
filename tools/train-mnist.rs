@@ -15,13 +15,13 @@ use std::path::{PathBuf};
 
 fn main() {
   let batch_sz = 32;
-  let mut op_cfg = vec![];
 
-  op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+  let mut op_cfg = vec![];
+  op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     stride:     784,
   }));
-  /*op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
+  /*op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     784,
     out_dim:    10,
@@ -29,31 +29,31 @@ fn main() {
     //act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Xavier,
   }));*/
-  op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     784,
     out_dim:    50,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Xavier,
   }));
-  op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     50,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Xavier,
   }));
-  op_cfg.push(OperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     num_classes:    10,
   }));
 
-  /*op_cfg.push(OperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+  /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     frame_sz:   784,
   }));
-  op_cfg.push(OperatorConfig::Conv2d(Conv2dOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (28, 28, 1),
     kernel_w:   5,
@@ -68,14 +68,14 @@ fn main() {
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Xavier,
   }));
-  op_cfg.push(OperatorConfig::Affine(AffineOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     7840,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Xavier,
   }));
-  op_cfg.push(OperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     num_classes:    10,
@@ -111,12 +111,13 @@ fn main() {
 
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
   println!("DEBUG: training...");
+  sgd.reset_opt_stats();
   sgd.init_param(&mut rng);
   for iter_nr in 0 .. 1000 {
-    sgd.reset_opt_stats();
     sgd.step(&mut train_data);
     if iter_nr % 10 == 0 {
       println!("DEBUG: iter: {} stats: {:?}", iter_nr, sgd.get_opt_stats());
+      sgd.reset_opt_stats();
     }
   }
   println!("DEBUG: validation...");

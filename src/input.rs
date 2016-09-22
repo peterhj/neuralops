@@ -1,4 +1,4 @@
-use common::{CommonOperatorOutput};
+use common::{ArmOutput, CommonOperatorOutput};
 
 use densearray::{ReshapeMut, ArrayIndex};
 use operator::prelude::*;
@@ -24,7 +24,7 @@ impl SimpleInputOperator {
   }
 }
 
-impl<S> Operator<f32, S> for SimpleInputOperator where S: SampleExtractInput<f32> {
+impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtractInput<f32> {
   fn load_data(&mut self, samples: &[S]) {
     let batch_size = samples.len();
     assert!(batch_size <= self.cfg.batch_sz);
@@ -41,10 +41,11 @@ impl<S> Operator<f32, S> for SimpleInputOperator where S: SampleExtractInput<f32
   }
 }
 
+//impl ArmOutput for SimpleInputOperator {
 impl DiffOperator<f32> for SimpleInputOperator {
   type Output = CommonOperatorOutput<f32>;
 
-  fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
+  fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);
     self.out.clone()
   }

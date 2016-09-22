@@ -1,4 +1,4 @@
-use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
+use common::{ArmOutput, CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::{activate_fwd, activate_bwd};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array2d};
@@ -41,7 +41,7 @@ impl AffineOperator {
     unsafe { tmp_grad.set_len(cfg.batch_sz * cfg.out_dim) };
     AffineOperator{
       cfg:      cfg,
-      in_:      prev_op.output(prev_arm),
+      in_:      prev_op._output(prev_arm),
       weights:  Array2d::zeros((cfg.in_dim, cfg.out_dim)),
       w_grad:   Array2d::zeros((cfg.in_dim, cfg.out_dim)),
       bias:     Array1d::zeros(cfg.out_dim),
@@ -56,7 +56,7 @@ impl AffineOperator {
 impl DiffOperator<f32> for AffineOperator {
   type Output = CommonOperatorOutput<f32>;
 
-  fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
+  fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);
     self.out.clone()
   }

@@ -14,6 +14,7 @@ extern crate rand;
 use prelude::*;
 
 pub mod affine;
+pub mod checkpoint;
 pub mod common;
 pub mod conv;
 pub mod data;
@@ -24,9 +25,4 @@ pub mod loss;
 pub mod prelude;
 pub mod seq;
 
-pub enum OperatorConfig {
-  SimpleInput(SimpleInputOperatorConfig),
-  Affine(AffineOperatorConfig),
-  Conv2d(Conv2dOperatorConfig),
-  SoftmaxNLLClassLoss(ClassLossOperatorConfig),
-}
+mod ops;

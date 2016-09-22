@@ -70,7 +70,7 @@ impl Conv2dOperator {
     unsafe { tmp_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
     Conv2dOperator{
       cfg:      cfg,
-      in_:      prev_op.output(prev_arm),
+      in_:      prev_op._output(prev_arm),
       weights:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       w_grad:   Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       bias:     bias,
@@ -87,7 +87,7 @@ impl Conv2dOperator {
 impl DiffOperator<f32> for Conv2dOperator {
   type Output = CommonOperatorOutput<f32>;
 
-  fn output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
+  fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);
     self.out.clone()
   }
