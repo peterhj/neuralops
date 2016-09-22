@@ -1,6 +1,6 @@
 use super::{OperatorConfig};
 use common::{CommonOperatorOutput};
-use data::{SharedClassSample2d};
+//use data::{SharedClassSample2d};
 use affine::{AffineOperator};
 use conv::{Conv2dOperator};
 use input::{SimpleInputOperator};
@@ -8,6 +8,7 @@ use loss::{SoftmaxNLLClassLossOperator};
 //use prelude::*;
 
 use operator::prelude::*;
+use operator::data::{SampleExtractInput, SampleClass, SampleWeight};
 use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -19,8 +20,8 @@ pub struct SeqOperator<T, S, Out> {
   inner_ops:    Vec<Box<DiffOperator<T, Output=Out>>>,
 }
 
-impl SeqOperator<f32, SharedClassSample2d<u8>, CommonOperatorOutput<f32>> {
-  pub fn new(cfgs: Vec<OperatorConfig>, cap: OpCapability) -> SeqOperator<f32, SharedClassSample2d<u8>, CommonOperatorOutput<f32>> {
+impl<S> SeqOperator<f32, S, CommonOperatorOutput<f32>> where S: SampleExtractInput<f32> + SampleClass + SampleWeight {
+  pub fn new(cfgs: Vec<OperatorConfig>, cap: OpCapability) -> SeqOperator<f32, S, CommonOperatorOutput<f32>> {
     let num_ops = cfgs.len();
     let input_op = match cfgs[0] {
       OperatorConfig::SimpleInput(cfg) => {
@@ -70,10 +71,6 @@ impl<T, S, Out> Operator<T, S> for SeqOperator<T, S, Out> where Out: Clone {
     self.input_op.load_data(samples);
     self.loss_op.load_data(samples);
   }
-
-  fn store_loss(&mut self) -> f32 {
-    self.loss_op.store_loss()
-  }
 }
 
 impl<T, S, Out> DiffOperator<T> for SeqOperator<T, S, Out> where Out: Clone {
@@ -122,19 +119,9 @@ impl<T, S, Out> DiffOperator<T> for SeqOperator<T, S, Out> where Out: Clone {
     offset - init_offset
   }
 
-  fn reset_loss(&mut self) {
-    self.loss_op.reset_loss();
-  }
-
   fn reset_grad(&mut self) {
     for op in self.inner_ops.iter_mut() {
       op.reset_grad();
-    }
-  }
-
-  fn apply_grad_reg(&mut self, reg: Regularization) {
-    for op in self.inner_ops.iter_mut() {
-      op.apply_grad_reg(reg);
     }
   }
 
@@ -154,6 +141,22 @@ impl<T, S, Out> DiffOperator<T> for SeqOperator<T, S, Out> where Out: Clone {
     offset - init_offset
   }
 
+  fn reset_loss(&mut self) {
+    self.loss_op.reset_loss();
+  }
+
+  fn store_loss(&mut self) -> f32 {
+    self.loss_op.store_loss()
+  }
+
+  fn apply_grad_reg(&mut self, reg: Regularization) {
+    // FIXME(20160921): regularization contributes extra loss from each of the
+    // sub-operators; add those to the designated loss operator.
+    for op in self.inner_ops.iter_mut() {
+      op.apply_grad_reg(reg);
+    }
+  }
+
   fn forward(&mut self, phase: OpPhase) {
     self.input_op.forward(phase);
     for op in self.inner_ops.iter_mut() {
@@ -167,5 +170,12 @@ impl<T, S, Out> DiffOperator<T> for SeqOperator<T, S, Out> where Out: Clone {
     for op in self.inner_ops.iter_mut().rev() {
       op.backward();
     }
+  }
+}
+
+impl<S> DiffOperatorOutput<f32, f32> for SeqOperator<f32, S, CommonOperatorOutput<f32>> {
+  fn get_output(&mut self) -> &[f32] {
+    unimplemented!();
+    //self.loss_op.output().out_buf.borrow()
   }
 }

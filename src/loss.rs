@@ -73,10 +73,6 @@ impl<S> Operator<f32, S> for SoftmaxNLLClassLossOperator where S: SampleClass + 
     }
     self.out.batch_size = actual_batch_size;
   }
-
-  fn store_loss(&mut self) -> f32 {
-    self.loss1
-  }
 }
 
 impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
@@ -89,6 +85,14 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
 
   fn reset_loss(&mut self) {
     self.loss1 = 0.0;
+  }
+
+  fn add_loss(&mut self, extra_loss: f32) {
+    self.loss1 += extra_loss;
+  }
+
+  fn store_loss(&mut self) -> f32 {
+    self.loss1
   }
 
   fn forward(&mut self, _phase: OpPhase) {
