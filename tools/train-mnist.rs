@@ -20,6 +20,7 @@ fn main() {
   op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     stride:     784,
+    scale:      Some(1.0 / 255.0),
   }));
   /*op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,

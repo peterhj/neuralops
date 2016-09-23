@@ -97,6 +97,7 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
 
   fn forward(&mut self, _phase: OpPhase) {
     self.out.batch_size = self.in_.batch_size;
+    //println!("DEBUG: softmax loss: batch size: {}", self.in_.batch_size);
     for idx in 0 .. self.in_.batch_size {
       let range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(self.in_.out_buf.borrow()[range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
@@ -119,12 +120,14 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
   fn backward(&mut self) {
     assert_eq!(self.out.batch_size, self.in_.batch_size);
     let out_buf = self.out.out_buf.borrow();
-    let mut in_grad = self.in_.out_grad.as_mut().unwrap().borrow_mut();
-    for idx in 0 .. self.in_.batch_size {
-      for k in 0 .. self.cfg.num_classes {
-        in_grad[idx * self.cfg.num_classes + k] =
-            self.weights[idx] *
-            (out_buf[idx * self.cfg.num_classes + k] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
+    if let Some(ref mut in_grad) = self.in_.out_grad.as_mut() {
+      let mut in_grad = in_grad.borrow_mut();
+      for idx in 0 .. self.in_.batch_size {
+        for k in 0 .. self.cfg.num_classes {
+          in_grad[idx * self.cfg.num_classes + k] =
+              self.weights[idx] *
+              (out_buf[idx * self.cfg.num_classes + k] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
+        }
       }
     }
   }

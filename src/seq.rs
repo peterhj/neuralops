@@ -194,6 +194,7 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
     for op in self.inner_ops.iter_mut().rev() {
       op.backward();
     }
+    self.input_op.backward();
   }
 }
 

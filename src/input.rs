@@ -8,6 +8,7 @@ use operator::data::{SampleExtractInput};
 pub struct SimpleInputOperatorConfig {
   pub batch_sz: usize,
   pub stride:   usize,
+  pub scale:    Option<f32>,
 }
 
 pub struct SimpleInputOperator {
@@ -35,8 +36,10 @@ impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtract
       assert_eq!(sample.input.stride(), sample.input.dim().least_stride());*/
       sample.extract_input(&mut (&mut *output)[idx * self.cfg.stride .. (idx+1) * self.cfg.stride]);
     }
-    output.reshape_mut(batch_size * self.cfg.stride)
-      .vector_scale(1.0 / 255.0);
+    if let Some(scale) = self.cfg.scale {
+      output.reshape_mut(batch_size * self.cfg.stride)
+        .vector_scale(scale);
+    }
     self.out.batch_size = batch_size;
   }
 }
