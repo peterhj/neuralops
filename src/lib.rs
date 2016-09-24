@@ -24,5 +24,6 @@ pub mod kernels;
 pub mod loss;
 pub mod prelude;
 pub mod seq;
+pub mod softmax;
 
 mod ops;

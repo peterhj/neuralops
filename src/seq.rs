@@ -20,9 +20,9 @@ pub enum SeqOperatorConfig {
 }
 
 pub struct SeqOperator<T, S> {
-  input_op:     Box<DiffOperatorInput<T, S, Output=CommonOperatorOutput<f32>>>,
-  loss_op:      Box<DiffOperatorInput<T, S, Output=CommonOperatorOutput<f32>>>,
-  inner_ops:    Vec<Box<DiffOperator<T, Output=CommonOperatorOutput<f32>>>>,
+  input_op:     Box<DiffOperatorInput<T, S, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>,
+  loss_op:      Box<DiffOperatorInput<T, S, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>,
+  inner_ops:    Vec<Box<DiffOperator<T, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>>,
   /*input_op:     Box<DiffOperatorInput<T, S>>,
   input_out:    CommonOperatorOutput<f32>,
   loss_op:      Box<DiffOperatorInput<T, S>>,
@@ -42,13 +42,13 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
       }
       _ => unreachable!(),
     };
-    let mut inner_ops: Vec<Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>>>> = vec![];
+    let mut inner_ops: Vec<Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>> = vec![];
     let mut inner_outs = vec![];
     for (idx, cfg) in cfgs[1 .. num_ops-1].iter().enumerate() {
-      let (op, out): (Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>>>, _) = {
+      let (op, out): (Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>, _) = {
         let prev_op = match idx {
-          0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
-          _ => &*inner_ops[idx-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
+          0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
+          _ => &*inner_ops[idx-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
         };
         match cfg {
           &SeqOperatorConfig::Affine(cfg) => {
@@ -70,8 +70,8 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
     let (loss_op, loss_out) = match cfgs[num_ops-1] {
       SeqOperatorConfig::SoftmaxNLLClassLoss(cfg) => {
         let prev_op = match inner_ops.len() {
-          0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
-          _ => &*inner_ops[inner_ops.len()-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>>,
+          0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
+          _ => &*inner_ops[inner_ops.len()-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
         };
         let op = SoftmaxNLLClassLossOperator::new(cfg, cap, prev_op, 0);
         let out = op._output(0);
@@ -99,6 +99,7 @@ impl<T, S> DiffOperatorInput<T, S> for SeqOperator<T, S> {
 
 impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
   type Output = CommonOperatorOutput<f32>;
+  type Rng = Xorshiftplus128Rng;
 
   fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);

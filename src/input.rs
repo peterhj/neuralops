@@ -3,6 +3,7 @@ use common::{ArmOutput, CommonOperatorOutput};
 use densearray::{ReshapeMut, ArrayIndex};
 use operator::prelude::*;
 use operator::data::{SampleExtractInput};
+use rng::xorshift::{Xorshiftplus128Rng};
 
 #[derive(Clone, Copy)]
 pub struct SimpleInputOperatorConfig {
@@ -47,6 +48,7 @@ impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtract
 //impl ArmOutput for SimpleInputOperator {
 impl DiffOperator<f32> for SimpleInputOperator {
   type Output = CommonOperatorOutput<f32>;
+  type Rng = Xorshiftplus128Rng;
 
   fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);

@@ -4,6 +4,7 @@ use float::ord::{F32InfNan};
 use iter_utils::{argmax}; //, KahanSum};
 use operator::prelude::*;
 use operator::data::{SampleClass, SampleWeight};
+use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::iter::{Sum};
 
@@ -29,7 +30,7 @@ pub struct SoftmaxNLLClassLossOperator {
 }
 
 impl SoftmaxNLLClassLossOperator {
-  pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> SoftmaxNLLClassLossOperator {
+  pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize) -> SoftmaxNLLClassLossOperator {
     let mut max_log = Vec::with_capacity(cfg.batch_sz);
     unsafe { max_log.set_len(cfg.batch_sz) };
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
@@ -77,6 +78,7 @@ impl<S> DiffOperatorInput<f32, S> for SoftmaxNLLClassLossOperator where S: Sampl
 
 impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
   type Output = CommonOperatorOutput<f32>;
+  type Rng = Xorshiftplus128Rng;
 
   fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);

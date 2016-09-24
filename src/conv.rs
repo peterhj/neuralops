@@ -56,7 +56,7 @@ pub struct Conv2dOperator {
 }
 
 impl Conv2dOperator {
-  pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>>, prev_arm: usize) -> Conv2dOperator {
+  pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize) -> Conv2dOperator {
     assert_eq!(1, cfg.stride_w);
     assert_eq!(1, cfg.stride_h);
     let mut bias = Vec::with_capacity(cfg.out_chan);
@@ -86,6 +86,7 @@ impl Conv2dOperator {
 
 impl DiffOperator<f32> for Conv2dOperator {
   type Output = CommonOperatorOutput<f32>;
+  type Rng = Xorshiftplus128Rng;
 
   fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
     assert_eq!(0, _arm);
