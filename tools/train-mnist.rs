@@ -4,9 +4,10 @@ extern crate rand;
 extern crate rng;
 
 use neuralops::prelude::*;
-use neuralops::data::{CyclicDataIter, RandomSampleDataIter, RandomSubsampleDataIter};
+use neuralops::data::{CyclicDataIter, SubsampleDataIter};
 use neuralops::data::mnist::{MnistDataShard};
 use operator::prelude::*;
+use operator::opt::{StepSize};
 use operator::opt::sgd::{SgdOptConfig, SgdOptWorker};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -35,14 +36,14 @@ fn main() {
     in_dim:     784,
     out_dim:    50,
     act_kind:   ActivationKind::Rect,
-    w_init:     ParamInitKind::Xavier,
+    w_init:     ParamInitKind::Kaiming,
   }));
   op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     50,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
-    w_init:     ParamInitKind::Xavier,
+    w_init:     ParamInitKind::Kaiming,
   }));
   op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
     batch_sz:       batch_sz,
@@ -85,9 +86,7 @@ fn main() {
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let mut train_data =
-      //CyclicDataIter::new(
-      //RandomSampleDataIter::new(
-      RandomSubsampleDataIter::new(
+      SubsampleDataIter::new(
       batch_sz,
       MnistDataShard::new(
           PathBuf::from("mnist/train-images-idx3-ubyte"),
@@ -102,9 +101,8 @@ fn main() {
 
   let sgd_cfg = SgdOptConfig{
     batch_sz:       batch_sz,
-    //minibatch_sz:   train_data.len(),
     minibatch_sz:   batch_sz,
-    step_size:      0.01,
+    step_size:      StepSize::Constant(0.1),
     momentum:       Some(0.9),
     l2_reg:         Some(1.0e-4),
   };

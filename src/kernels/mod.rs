@@ -1,5 +1,7 @@
 use common::{ActivationKind, PoolKind};
 
+pub mod activate;
+
 pub fn activate_fwd(act_kind: ActivationKind, in_buf: &[f32], out_buf: &mut [f32]) {
   match act_kind {
     ActivationKind::Identity => {

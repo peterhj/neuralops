@@ -1,4 +1,4 @@
-use common::{CommonOperatorOutput};
+use common::{CommonResources, CommonOperatorOutput};
 
 use float::ord::{F32InfNan};
 use iter_utils::{argmax}; //, KahanSum};
@@ -30,7 +30,7 @@ pub struct SoftmaxNLLClassLossOperator {
 }
 
 impl SoftmaxNLLClassLossOperator {
-  pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize) -> SoftmaxNLLClassLossOperator {
+  pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> SoftmaxNLLClassLossOperator {
     let mut max_log = Vec::with_capacity(cfg.batch_sz);
     unsafe { max_log.set_len(cfg.batch_sz) };
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);

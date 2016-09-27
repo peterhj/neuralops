@@ -1,22 +1,32 @@
+use nnpack::{NnpackPthreadPool};
 use operator::{OpCapability};
 use sharedmem::{RwMem};
 
 use std::cell::{RefCell};
 use std::rc::{Rc};
 
-pub trait ArmOutput {
+/*pub trait ArmOutput {
   type Output;
 
   fn _output(&self, arm: usize) -> Self::Output;
+}*/
+
+#[derive(Clone)]
+pub struct CommonResources {
+  pub nnp_pool: Rc<NnpackPthreadPool>,
+}
+
+impl CommonResources {
+  pub fn new() -> CommonResources {
+    CommonResources{
+      nnp_pool: Rc::new(NnpackPthreadPool::new(1)),
+    }
+  }
 }
 
 #[derive(Clone)]
 pub struct CommonOperatorOutput<T> where T: Copy {
   pub batch_size:   usize,
-  /*pub out_buf:      Rc<RefCell<Vec<T>>>,
-  pub out_grad:     Option<Rc<RefCell<Vec<T>>>>,
-  pub out_r_buf:    Option<Rc<RefCell<Vec<T>>>>,
-  pub out_r_grad:   Option<Rc<RefCell<Vec<T>>>>,*/
   pub out_buf:      RwMem<T>,
   pub out_grad:     Option<RwMem<T>>,
   pub out_r_buf:    Option<RwMem<T>>,
@@ -43,6 +53,20 @@ impl CommonOperatorOutput<f32> {
       out_r_grad:   None,
     }
   }
+}
+
+#[derive(Clone)]
+pub struct CommonOperatorFwdOut<T> where T: Copy {
+  pub batch_size:   usize,
+  pub out_buf:      RwMem<T>,
+  pub out_r_buf:    Option<RwMem<T>>,
+}
+
+#[derive(Clone)]
+pub struct CommonOperatorBwdOut<T> where T: Copy {
+  pub batch_size:   usize,
+  pub out_grad:     Option<RwMem<T>>,
+  pub out_r_grad:   Option<RwMem<T>>,
 }
 
 #[derive(Clone, Copy, Debug)]

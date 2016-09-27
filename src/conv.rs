@@ -1,5 +1,5 @@
-use common::{CommonOperatorOutput, ActivationKind, ParamInitKind};
-use kernels::{activate_fwd, activate_bwd};
+use common::{CommonResources, CommonOperatorOutput, ActivationKind, ParamInitKind};
+use kernels::activate::{ActivateKernel};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array4d};
 use densearray::linalg::{Transpose};
@@ -14,6 +14,7 @@ use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
 use std::cmp::{max, min};
 use std::ptr::{null_mut};
+use std::rc::{Rc};
 
 #[derive(Clone, Copy)]
 pub struct Conv2dOperatorConfig {
@@ -50,13 +51,14 @@ pub struct Conv2dOperator {
   b_grad:   Vec<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
+  act_kern: ActivateKernel,
   out:      CommonOperatorOutput<f32>,
   nnp_h:    NnpackHandle,
-  nnp_pool: NnpackPthreadPool,
+  nnp_pool: Rc<NnpackPthreadPool>,
 }
 
 impl Conv2dOperator {
-  pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize) -> Conv2dOperator {
+  pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> Conv2dOperator {
     assert_eq!(1, cfg.stride_w);
     assert_eq!(1, cfg.stride_h);
     let mut bias = Vec::with_capacity(cfg.out_chan);
@@ -77,9 +79,11 @@ impl Conv2dOperator {
       b_grad:   b_grad,
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
       nnp_h:    NnpackHandle::new(),
-      nnp_pool: NnpackPthreadPool::new(1),
+      //nnp_pool: NnpackPthreadPool::new(1),
+      nnp_pool: res.nnp_pool,
     }
   }
 }
@@ -194,14 +198,16 @@ impl DiffOperator<f32> for Conv2dOperator {
       panic!("nnpack convolution failed: {:?}", status);
     }
 
-    activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    //activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(self.out.batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
   }
 
   fn backward(&mut self) {
     assert!(self.in_.batch_size <= self.cfg.batch_sz);
     assert_eq!(self.out.batch_size, self.in_.batch_size);
 
-    activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(self.out.batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,

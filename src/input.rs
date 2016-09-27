@@ -1,4 +1,4 @@
-use common::{ArmOutput, CommonOperatorOutput};
+use common::{CommonResources, CommonOperatorOutput};
 
 use densearray::{ReshapeMut, ArrayIndex};
 use operator::prelude::*;
@@ -18,7 +18,7 @@ pub struct SimpleInputOperator {
 }
 
 impl SimpleInputOperator {
-  pub fn new(cfg: SimpleInputOperatorConfig, _cap: OpCapability) -> SimpleInputOperator {
+  pub fn new(cfg: SimpleInputOperatorConfig, _cap: OpCapability, res: CommonResources) -> SimpleInputOperator {
     SimpleInputOperator{
       cfg:  cfg,
       out:  CommonOperatorOutput::new(cfg.batch_sz, cfg.stride, OpCapability::Forward),

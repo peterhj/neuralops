@@ -1,5 +1,5 @@
-use common::{ArmOutput, CommonOperatorOutput, ActivationKind, ParamInitKind};
-use kernels::{activate_fwd, activate_bwd};
+use common::{CommonResources, CommonOperatorOutput, ActivationKind, ParamInitKind};
+use kernels::activate::{ActivateKernel};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array2d};
 use densearray::linalg::{Transpose};
@@ -30,11 +30,12 @@ pub struct AffineOperator {
   b_grad:   Array1d<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
+  act_kern: ActivateKernel,
   out:      CommonOperatorOutput<f32>,
 }
 
 impl AffineOperator {
-  pub fn new(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize) -> AffineOperator {
+  pub fn new(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> AffineOperator {
     let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
     unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim) };
     let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
@@ -48,6 +49,7 @@ impl AffineOperator {
       b_grad:   Array1d::zeros(cfg.out_dim),
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim, cfg.act_kind, res.nnp_pool),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim, cap),
     }
   }
@@ -182,14 +184,16 @@ impl DiffOperator<f32> for AffineOperator {
         );
     }
 
-    activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    //activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(self.out.batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
   }
 
   fn backward(&mut self) {
     assert!(self.in_.batch_size <= self.cfg.batch_sz);
     assert_eq!(self.out.batch_size, self.in_.batch_size);
 
-    activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(self.out.batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     self.w_grad.as_view_mut()
       .matrix_prod(

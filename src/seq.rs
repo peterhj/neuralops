@@ -1,5 +1,5 @@
 use prelude::*;
-use common::{ArmOutput};
+use common::{CommonResources};
 use ops::*;
 
 use operator::prelude::*;
@@ -33,10 +33,11 @@ pub struct SeqOperator<T, S> {
 
 impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + SampleWeight {
   pub fn new(cfgs: Vec<SeqOperatorConfig>, cap: OpCapability) -> SeqOperator<f32, S> {
+    let res = CommonResources::new();
     let num_ops = cfgs.len();
     let (input_op, input_out) = match cfgs[0] {
       SeqOperatorConfig::SimpleInput(cfg) => {
-        let op = SimpleInputOperator::new(cfg, cap);
+        let op = SimpleInputOperator::new(cfg, cap, res.clone());
         let out = op._output(0);
         (Box::new(op), out)
       }
@@ -52,12 +53,12 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
         };
         match cfg {
           &SeqOperatorConfig::Affine(cfg) => {
-            let op = AffineOperator::new(cfg, cap, prev_op, 0);
+            let op = AffineOperator::new(cfg, cap, prev_op, 0, res.clone());
             let out = op._output(0);
             (Box::new(op), out)
           }
           &SeqOperatorConfig::Conv2d(cfg) => {
-            let op = Conv2dOperator::new(cfg, cap, prev_op, 0);
+            let op = Conv2dOperator::new(cfg, cap, prev_op, 0, res.clone());
             let out = op._output(0);
             (Box::new(op), out)
           }
@@ -73,7 +74,7 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
           0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
           _ => &*inner_ops[inner_ops.len()-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
         };
-        let op = SoftmaxNLLClassLossOperator::new(cfg, cap, prev_op, 0);
+        let op = SoftmaxNLLClassLossOperator::new(cfg, cap, prev_op, 0, res.clone());
         let out = op._output(0);
         (Box::new(op), out)
       }

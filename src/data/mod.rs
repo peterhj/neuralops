@@ -194,7 +194,7 @@ impl<S, Shard> Iterator for RandomSampleDataIter<S, Shard> where Shard: IndexedD
   }
 }
 
-pub struct RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+pub struct SubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   batch_sz: usize,
   idxs_set: HashSet<usize>,
   rng:      Xorshiftplus128Rng,
@@ -202,10 +202,10 @@ pub struct RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   _marker:  PhantomData<S>,
 }
 
-impl<S, Shard> RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
-  pub fn new(batch_sz: usize, inner: Shard) -> RandomSubsampleDataIter<S, Shard> {
+impl<S, Shard> SubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+  pub fn new(batch_sz: usize, inner: Shard) -> SubsampleDataIter<S, Shard> {
     assert!(batch_sz <= inner.len());
-    RandomSubsampleDataIter{
+    SubsampleDataIter{
       batch_sz: batch_sz,
       idxs_set: HashSet::with_capacity(batch_sz),
       rng:      Xorshiftplus128Rng::new(&mut thread_rng()),
@@ -219,7 +219,7 @@ impl<S, Shard> RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S
   }
 }
 
-impl<S, Shard> Iterator for RandomSubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
+impl<S, Shard> Iterator for SubsampleDataIter<S, Shard> where Shard: IndexedDataShard<S> {
   type Item = S;
 
   fn next(&mut self) -> Option<S> {
