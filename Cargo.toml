@@ -2,6 +2,7 @@
 name = "neuralops"
 version = "0.1.0"
 authors = ["Peter Jin <peterhaijin@gmail.com>"]
+build = "build.rs"
 
 [lib]
 name = "neuralops"
@@ -10,6 +11,9 @@ path = "src/lib.rs"
 [[bin]]
 name = "train-mnist"
 path = "tools/train-mnist.rs"
+
+[build-dependencies]
+gcc = "*"
 
 [dependencies]
 byteorder = "*"

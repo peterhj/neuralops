@@ -1,5 +1,6 @@
 use common::{CommonResources, CommonOperatorOutput, ActivationKind, ParamInitKind};
 use kernels::activate::{ActivateKernel};
+use kernels::conv::*;
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array4d};
 use densearray::linalg::{Transpose};
@@ -227,7 +228,15 @@ impl DiffOperator<f32> for Conv2dOperator {
       panic!("nnpack convolution failed: {:?}", status);
     }
 
-    // FIXME(20160915): missing gradient w.r.t. the bias.
+    let out_dim = self.cfg.out_dim();
+    unsafe { neuralops_conv2d_bias_bwd(
+        self.out.batch_size,
+        out_dim.0,
+        out_dim.1,
+        out_dim.2,
+        self.in_.out_buf.borrow().as_ptr(),
+        self.b_grad.as_mut_ptr(),
+    ) };
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
       let status = unsafe { nnp_convolution_input_gradient(

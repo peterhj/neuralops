@@ -6,6 +6,7 @@ extern crate rng;
 use neuralops::prelude::*;
 use neuralops::data::{CyclicDataIter, SubsampleDataIter};
 use neuralops::data::mnist::{MnistDataShard};
+use neuralops::input::{InputPreproc};
 use operator::prelude::*;
 use operator::opt::{StepSize};
 use operator::opt::sgd::{SgdOptConfig, SgdOptWorker};
@@ -21,7 +22,9 @@ fn main() {
   op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     stride:     784,
-    scale:      Some(1.0 / 255.0),
+    preprocs:   vec![
+      InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
+    ],
   }));
   /*op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
@@ -89,14 +92,14 @@ fn main() {
       SubsampleDataIter::new(
       batch_sz,
       MnistDataShard::new(
-          PathBuf::from("mnist/train-images-idx3-ubyte"),
-          PathBuf::from("mnist/train-labels-idx1-ubyte"),
+          PathBuf::from("datasets/mnist/train-images-idx3-ubyte"),
+          PathBuf::from("datasets/mnist/train-labels-idx1-ubyte"),
       ));
   let mut valid_data =
       CyclicDataIter::new(
       MnistDataShard::new(
-          PathBuf::from("mnist/t10k-images-idx3-ubyte"),
-          PathBuf::from("mnist/t10k-labels-idx1-ubyte"),
+          PathBuf::from("datasets/mnist/t10k-images-idx3-ubyte"),
+          PathBuf::from("datasets/mnist/t10k-labels-idx1-ubyte"),
       ));
 
   let sgd_cfg = SgdOptConfig{
@@ -114,8 +117,8 @@ fn main() {
   sgd.init_param(&mut rng);
   for iter_nr in 0 .. 1000 {
     sgd.step(&mut train_data);
-    if iter_nr % 10 == 0 {
-      println!("DEBUG: iter: {} stats: {:?}", iter_nr, sgd.get_opt_stats());
+    if (iter_nr + 1) % 20 == 0 {
+      println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }
   }

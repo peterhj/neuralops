@@ -12,6 +12,7 @@ use sharedmem::{RwSlice};
 use std::cell::{Ref};
 use std::ops::{Deref};
 
+#[derive(Clone)]
 pub enum SeqOperatorConfig {
   SimpleInput(SimpleInputOperatorConfig),
   Affine(AffineOperatorConfig),
@@ -35,9 +36,9 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
   pub fn new(cfgs: Vec<SeqOperatorConfig>, cap: OpCapability) -> SeqOperator<f32, S> {
     let res = CommonResources::new();
     let num_ops = cfgs.len();
-    let (input_op, input_out) = match cfgs[0] {
-      SeqOperatorConfig::SimpleInput(cfg) => {
-        let op = SimpleInputOperator::new(cfg, cap, res.clone());
+    let (input_op, input_out) = match &cfgs[0] {
+      &SeqOperatorConfig::SimpleInput(ref cfg) => {
+        let op = SimpleInputOperator::new(cfg.clone(), cap, res.clone());
         let out = op._output(0);
         (Box::new(op), out)
       }

@@ -1,4 +1,5 @@
 use common::{CommonResources, CommonOperatorOutput};
+use kernels::softmax::{SoftmaxKernel};
 
 use float::ord::{F32InfNan};
 use iter_utils::{argmax}; //, KahanSum};
@@ -18,25 +19,26 @@ pub struct ClassLossOperatorConfig {
 pub struct SoftmaxNLLClassLossOperator {
   cfg:      ClassLossOperatorConfig,
   in_:      CommonOperatorOutput<f32>,
-  max_log:  Vec<f32>,
+  /*max_log:  Vec<f32>,
   facts:    Vec<f32>,
-  sum_fact: Vec<f32>,
+  sum_fact: Vec<f32>,*/
   hats:     Vec<u32>,
   losses:   Vec<f32>,
   loss1:    f32,
   labels:   Vec<u32>,
   weights:  Vec<f32>,
+  sm_kern:  SoftmaxKernel,
   out:      CommonOperatorOutput<f32>,
 }
 
 impl SoftmaxNLLClassLossOperator {
   pub fn new(cfg: ClassLossOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> SoftmaxNLLClassLossOperator {
-    let mut max_log = Vec::with_capacity(cfg.batch_sz);
+    /*let mut max_log = Vec::with_capacity(cfg.batch_sz);
     unsafe { max_log.set_len(cfg.batch_sz) };
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
     unsafe { facts.set_len(cfg.batch_sz * cfg.num_classes) };
     let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
-    unsafe { sum_fact.set_len(cfg.batch_sz) };
+    unsafe { sum_fact.set_len(cfg.batch_sz) };*/
     let mut hats = Vec::with_capacity(cfg.batch_sz);
     unsafe { hats.set_len(cfg.batch_sz) };
     let mut losses = Vec::with_capacity(cfg.batch_sz);
@@ -48,14 +50,15 @@ impl SoftmaxNLLClassLossOperator {
     SoftmaxNLLClassLossOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
-      max_log:  max_log,
+      /*max_log:  max_log,
       facts:    facts,
-      sum_fact: sum_fact,
+      sum_fact: sum_fact,*/
       hats:     hats,
       losses:   losses,
       loss1:    0.0,
       labels:   labels,
       weights:  weights,
+      sm_kern:  SoftmaxKernel::new(cfg.batch_sz, cfg.num_classes, res.nnp_pool),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.num_classes, cap),
     }
   }
@@ -99,8 +102,7 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
 
   fn forward(&mut self, _phase: OpPhase) {
     self.out.batch_size = self.in_.batch_size;
-    //println!("DEBUG: softmax loss: batch size: {}", self.in_.batch_size);
-    for idx in 0 .. self.in_.batch_size {
+    /*for idx in 0 .. self.in_.batch_size {
       let range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(self.in_.out_buf.borrow()[range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
       let max_logit = self.in_.out_buf.borrow()[idx * self.cfg.num_classes + max_logit_k];
@@ -114,9 +116,15 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
         self.out.out_buf.borrow_mut()[idx * self.cfg.num_classes + k] = self.facts[idx * self.cfg.num_classes + k] / sum_fact;
       }
       self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
+    }*/
+    self.sm_kern.forward(self.out.batch_size, &*self.in_.out_buf.borrow(), &mut *self.out.out_buf.borrow_mut());
+    for idx in 0 .. self.out.batch_size {
+      let idx_range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
+      let max_logit_k = argmax(self.in_.out_buf.borrow()[idx_range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
+      self.hats[idx] = max_logit_k as u32;
+      self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
     }
-    self.loss1 += Sum::sum(self.losses.iter().map(|&x| x));
-    //println!("DEBUG: softmax nll loss: loss1: {:?} loss[0]: {:?} w[0]: {:?} y[0]: {:?} p[0]: {:e}", self.loss1, self.losses[0], self.weights[0], self.labels[0], self.out.out_buf.borrow()[self.labels[0] as usize]);
+    self.loss1 += Sum::sum(self.losses[ .. self.out.batch_size].iter().map(|&x| x));
   }
 
   fn backward(&mut self) {
@@ -124,11 +132,13 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
     let out_buf = self.out.out_buf.borrow();
     if let Some(ref mut in_grad) = self.in_.out_grad.as_mut() {
       let mut in_grad = in_grad.borrow_mut();
+      let mut p = 0;
       for idx in 0 .. self.in_.batch_size {
         for k in 0 .. self.cfg.num_classes {
-          in_grad[idx * self.cfg.num_classes + k] =
+          in_grad[p] =
               self.weights[idx] *
-              (out_buf[idx * self.cfg.num_classes + k] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
+              (out_buf[p] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
+          p += 1;
         }
       }
     }
