@@ -8,6 +8,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 #[derive(Clone)]
 pub enum InputPreproc {
   ShiftScale{shift: Option<f32>, scale: Option<f32>},
+  ExperimentGammaCorrect{gamma: f32},
   ExperimentPerturb2d{width: usize, height: usize, chan: usize, scale: f32},
 }
 
@@ -15,7 +16,6 @@ pub enum InputPreproc {
 pub struct SimpleInputOperatorConfig {
   pub batch_sz: usize,
   pub stride:   usize,
-  //pub scale:    Option<f32>,
   pub preprocs: Vec<InputPreproc>,
 }
 
@@ -64,6 +64,12 @@ impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtract
           }
           if let Some(scale) = scale {
             out.reshape_mut(batch_size * self.cfg.stride).vector_scale(scale);
+          }
+        }
+        &InputPreproc::ExperimentGammaCorrect{gamma} => {
+          let mut out = &mut (&mut *out_buf)[ .. batch_size * self.cfg.stride];
+          for i in 0 .. batch_size * self.cfg.stride {
+            out[i] = out[i].powf(gamma);
           }
         }
         &InputPreproc::ExperimentPerturb2d{width, height, chan, scale} => {
