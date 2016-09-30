@@ -156,7 +156,7 @@ void neuralops_batchnorm2d_bwd_mean(
       // FIXME(20160928): try rsqrtps intrinsic here.
       float rs = 1.0f / sqrtf(v + epsilon);
       float dv = var_grad[a];
-      float c = 2.0f / ((float)(width * height * chan - 1));
+      float c = 2.0f / ((float)(width * height * batch_sz - 1));
       for (size_t y = 0; y < height; y += 1) {
         for (size_t x = 0; x < width; x += 1) {
           mean_grad[a] += out_grad[p] * rs + dv * c * (in_buf[p] - m);
@@ -192,12 +192,12 @@ void neuralops_batchnorm2d_bwd_input(
     for (size_t a = 0; a < chan; a += 1) {
       float m = mean_acc[a] * (1.0f - gamma) + mean[a] * gamma;
       float dm = mean_grad[a];
-      float cm = 1.0f / ((float)(width * height * chan));
+      float cm = 1.0f / ((float)(width * height * batch_sz));
       float v = var_acc[a] * (1.0f - gamma) + var[a] * gamma;
       // FIXME(20160928): try rsqrtps intrinsic here.
       float rs = 1.0f / sqrtf(v + epsilon);
       float dv = var_grad[a];
-      float cv = 2.0f / ((float)(width * height * chan - 1));
+      float cv = 2.0f / ((float)(width * height * batch_sz - 1));
       for (size_t y = 0; y < height; y += 1) {
         for (size_t x = 0; x < width; x += 1) {
           in_grad[a] = out_grad[p] * rs + dm * cm + dv * cv * (in_buf[p] - m);

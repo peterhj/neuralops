@@ -50,7 +50,6 @@ fn main() {
   }));
   op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
     batch_sz:       batch_sz,
-    minibatch_sz:   batch_sz,
     num_classes:    10,
   }));
 

@@ -17,7 +17,20 @@ use std::cmp::{max, min};
 use std::ptr::{null_mut};
 use std::rc::{Rc};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
+pub enum Conv2dBackend {
+  Auto,
+  Nnpack,
+  Mkl,
+}
+
+impl Default for Conv2dBackend {
+  fn default() -> Conv2dBackend {
+    Conv2dBackend::Nnpack
+  }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Conv2dOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   (usize, usize, usize),

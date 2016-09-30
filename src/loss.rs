@@ -12,7 +12,7 @@ use std::iter::{Sum};
 #[derive(Clone, Copy)]
 pub struct ClassLossOperatorConfig {
   pub batch_sz:     usize,
-  pub minibatch_sz: usize,
+  //pub minibatch_sz: usize,
   pub num_classes:  usize,
 }
 

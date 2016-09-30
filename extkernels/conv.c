@@ -8,7 +8,7 @@ void neuralops_conv2d_bias_fwd(
     size_t out_chan,
     const float *restrict in_buf,
     const float *restrict bias,
-    float *out_buf)
+    float *restrict out_buf)
 {
   size_t p = 0;
   for (size_t idx = 0; idx < batch_sz; idx += 1) {
@@ -32,7 +32,7 @@ void neuralops_conv2d_scale_bias_fwd(
     const float *restrict in_buf,
     const float *restrict scale,
     const float *restrict bias,
-    float *out_buf)
+    float *restrict out_buf)
 {
   size_t p = 0;
   for (size_t idx = 0; idx < batch_sz; idx += 1) {
