@@ -1,4 +1,4 @@
-use common::{ActivationKind, PoolKind};
+use common::{ActivationKind};
 
 pub mod activate;
 pub mod batchnorm;

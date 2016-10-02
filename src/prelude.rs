@@ -1,7 +1,12 @@
 //pub use super::{OperatorConfig};
 pub use affine::{AffineOperatorConfig};
 pub use common::{ActivationKind, ParamInitKind};
-pub use conv::{Conv2dOperatorConfig};
+pub use conv::{
+  Conv2dOperatorConfig,
+  BatchNormConv2dOperatorConfig,
+  ResidualConv2dOperatorConfig,
+  ProjResidualConv2dOperatorConfig,
+};
 pub use graph::{GraphOperator, GraphOperatorConfig};
 pub use input::{SimpleInputOperatorConfig};
 pub use loss::{ClassLossConfig};

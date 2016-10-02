@@ -18,9 +18,9 @@ pub struct ClassLossConfig {
 pub struct SoftmaxNLLClassLossOperator {
   cfg:      ClassLossConfig,
   in_:      CommonOperatorOutput<f32>,
-  max_log:  Vec<f32>,
+  /*max_log:  Vec<f32>,
   facts:    Vec<f32>,
-  sum_fact: Vec<f32>,
+  sum_fact: Vec<f32>,*/
   hats:     Vec<u32>,
   losses:   Vec<f32>,
   loss1:    f32,
@@ -32,12 +32,12 @@ pub struct SoftmaxNLLClassLossOperator {
 
 impl SoftmaxNLLClassLossOperator {
   pub fn new(cfg: ClassLossConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> SoftmaxNLLClassLossOperator {
-    let mut max_log = Vec::with_capacity(cfg.batch_sz);
+    /*let mut max_log = Vec::with_capacity(cfg.batch_sz);
     unsafe { max_log.set_len(cfg.batch_sz) };
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
     unsafe { facts.set_len(cfg.batch_sz * cfg.num_classes) };
     let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
-    unsafe { sum_fact.set_len(cfg.batch_sz) };
+    unsafe { sum_fact.set_len(cfg.batch_sz) };*/
     let mut hats = Vec::with_capacity(cfg.batch_sz);
     unsafe { hats.set_len(cfg.batch_sz) };
     let mut losses = Vec::with_capacity(cfg.batch_sz);
@@ -49,9 +49,9 @@ impl SoftmaxNLLClassLossOperator {
     SoftmaxNLLClassLossOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
-      max_log:  max_log,
+      /*max_log:  max_log,
       facts:    facts,
-      sum_fact: sum_fact,
+      sum_fact: sum_fact,*/
       hats:     hats,
       losses:   losses,
       loss1:    0.0,
@@ -76,7 +76,7 @@ impl<S> DiffOperatorInput<f32, S> for SoftmaxNLLClassLossOperator where S: Sampl
       }
       self.weights[idx] = sample.weight().unwrap_or(1.0);
     }
-    self.out.batch_size = actual_batch_size;
+    *self.out.batch_size.borrow_mut() = actual_batch_size;
   }
 }
 
@@ -93,17 +93,16 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
     self.loss1 = 0.0;
   }
 
-  /*fn add_loss(&mut self, extra_loss: f32) {
-    self.loss1 += extra_loss;
-  }*/
-
   fn store_loss(&mut self) -> f32 {
     self.loss1
   }
 
   fn forward(&mut self, _phase: OpPhase) {
-    self.out.batch_size = self.in_.batch_size;
-    /*for idx in 0 .. self.in_.batch_size {
+    //self.out.batch_size = self.in_.batch_size;
+    let batch_size = *self.in_.batch_size.borrow();
+    assert_eq!(batch_size, *self.out.batch_size.borrow());
+
+    /*for idx in 0 .. batch_size {
       let range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(self.in_.out_buf.borrow()[range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
       let max_logit = self.in_.out_buf.borrow()[idx * self.cfg.num_classes + max_logit_k];
@@ -120,8 +119,8 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
     }*/
     let in_buf = self.in_.out_buf.borrow();
     let mut out_buf = self.out.out_buf.borrow_mut();
-    self.sm_kern.forward(self.out.batch_size, &*in_buf, &mut *out_buf);
-    for idx in 0 .. self.out.batch_size {
+    self.sm_kern.forward(batch_size, &*in_buf, &mut *out_buf);
+    for idx in 0 .. batch_size {
       let idx_range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(in_buf[idx_range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
       self.hats[idx] = max_logit_k as u32;
@@ -129,16 +128,21 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
       self.losses[idx] = loss;
       self.loss1 += loss;
     }
-    //self.loss1 += Sum::sum(self.losses[ .. self.out.batch_size].iter().map(|&x| x));
+    //self.loss1 += Sum::sum(self.losses[ .. batch_size].iter().map(|&x| x));
+
+    let in_loss = *self.in_.out_loss.borrow();
+    self.loss1 += in_loss;
+    *self.out.out_loss.borrow_mut() = self.loss1;
   }
 
   fn backward(&mut self) {
-    assert_eq!(self.out.batch_size, self.in_.batch_size);
+    //assert_eq!(self.out.batch_size, self.in_.batch_size);
+    let batch_size = *self.out.batch_size.borrow();
     if let Some(ref mut in_grad) = self.in_.out_grad.as_mut() {
       let out_buf = self.out.out_buf.borrow();
       let mut in_grad = in_grad.borrow_mut();
       let mut p = 0;
-      for idx in 0 .. self.in_.batch_size {
+      for idx in 0 .. batch_size {
         for k in 0 .. self.cfg.num_classes {
           in_grad[p] =
               self.weights[idx] *

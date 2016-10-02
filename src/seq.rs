@@ -9,14 +9,17 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use sharedmem::{RwSlice};
 
 //use rand::{Rng};
-use std::cell::{Ref};
-use std::ops::{Deref};
+//use std::cell::{Ref};
+//use std::ops::{Deref};
 
 #[derive(Clone)]
 pub enum SeqOperatorConfig {
   SimpleInput(SimpleInputOperatorConfig),
   Affine(AffineOperatorConfig),
   Conv2d(Conv2dOperatorConfig),
+  BatchNormConv2d(BatchNormConv2dOperatorConfig),
+  ResidualConv2d(ResidualConv2dOperatorConfig),
+  ProjResidualConv2d(ProjResidualConv2dOperatorConfig),
   SoftmaxNLLClassLoss(ClassLossConfig),
 }
 
@@ -36,18 +39,17 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
   pub fn new(cfgs: Vec<SeqOperatorConfig>, cap: OpCapability) -> SeqOperator<f32, S> {
     let res = CommonResources::new();
     let num_ops = cfgs.len();
-    let (input_op, input_out) = match &cfgs[0] {
+    let input_op = match &cfgs[0] {
       &SeqOperatorConfig::SimpleInput(ref cfg) => {
         let op = SimpleInputOperator::new(cfg.clone(), cap, res.clone());
-        let out = op._output(0);
-        (Box::new(op), out)
+        Box::new(op)
       }
       _ => unreachable!(),
     };
     let mut inner_ops: Vec<Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>> = vec![];
-    let mut inner_outs = vec![];
+    //let mut inner_outs = vec![];
     for (idx, cfg) in cfgs[1 .. num_ops-1].iter().enumerate() {
-      let (op, out): (Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>, _) = {
+      let op: Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>> = {
         let prev_op = match idx {
           0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
           _ => &*inner_ops[idx-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
@@ -55,29 +57,26 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
         match cfg {
           &SeqOperatorConfig::Affine(cfg) => {
             let op = AffineOperator::new(cfg, cap, prev_op, 0, res.clone());
-            let out = op._output(0);
-            (Box::new(op), out)
+            Box::new(op)
           }
           &SeqOperatorConfig::Conv2d(cfg) => {
             let op = Conv2dOperator::new(cfg, cap, prev_op, 0, res.clone());
-            let out = op._output(0);
-            (Box::new(op), out)
+            Box::new(op)
           }
           _ => unreachable!(),
         }
       };
       inner_ops.push(op);
-      inner_outs.push(out);
+      //inner_outs.push(out);
     }
-    let (loss_op, loss_out) = match cfgs[num_ops-1] {
+    let loss_op = match cfgs[num_ops-1] {
       SeqOperatorConfig::SoftmaxNLLClassLoss(cfg) => {
         let prev_op = match inner_ops.len() {
           0 => &*input_op as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
           _ => &*inner_ops[inner_ops.len()-1] as &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>,
         };
         let op = SoftmaxNLLClassLossOperator::new(cfg, cap, prev_op, 0, res.clone());
-        let out = op._output(0);
-        (Box::new(op), out)
+        Box::new(op)
       }
       _ => unreachable!(),
     };

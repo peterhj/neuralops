@@ -10,7 +10,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
-use std::cmp::{max, min};
+use std::cmp::{max};
 
 #[derive(Clone, Copy)]
 pub struct AffineOperatorConfig {
@@ -165,18 +165,19 @@ impl DiffOperator<f32> for AffineOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
-    assert!(self.in_.batch_size <= self.cfg.batch_sz);
-    self.out.batch_size = self.in_.batch_size;
+    let batch_size = *self.in_.batch_size.borrow();
+    *self.out.batch_size.borrow_mut() = batch_size;
+    assert!(batch_size <= self.cfg.batch_sz);
 
-    self.tmp_buf.reshape_mut((self.cfg.out_dim, self.out.batch_size))
+    self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
       .matrix_prod(
           1.0,
           self.weights.as_view(), Transpose::T,
-          self.in_.out_buf.borrow().reshape((self.cfg.in_dim, self.in_.batch_size)), Transpose::N,
+          self.in_.out_buf.borrow().reshape((self.cfg.in_dim, batch_size)), Transpose::N,
           0.0,
       );
-    for j in 0 .. self.out.batch_size {
-      self.tmp_buf.reshape_mut((self.cfg.out_dim, self.out.batch_size))
+    for j in 0 .. batch_size {
+      self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
         .view_mut((0, j), (self.cfg.out_dim, j+1))
         .matrix_add(
             1.0,
@@ -185,40 +186,63 @@ impl DiffOperator<f32> for AffineOperator {
     }
 
     //activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
-    self.act_kern.forward(self.out.batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+
+    let in_loss = *self.in_.out_loss.borrow();
+    *self.out.out_loss.borrow_mut() = in_loss;
+  }
+
+  fn fwd_reg(&mut self, reg: Regularization) {
+    match reg {
+      Regularization::L2(lambda) => {
+        // FIXME(20161002): regularize the bias too?
+        let w_norm = self.weights.as_view().reshape(self.cfg.in_dim * self.cfg.out_dim).l2_norm();
+        *self.out.out_loss.borrow_mut() = 0.5 * lambda * w_norm * w_norm;
+      }
+    }
   }
 
   fn backward(&mut self) {
-    assert!(self.in_.batch_size <= self.cfg.batch_sz);
-    assert_eq!(self.out.batch_size, self.in_.batch_size);
+    //assert!(self.in_.batch_size <= self.cfg.batch_sz);
+    //assert_eq!(self.out.batch_size, self.in_.batch_size);
+    let batch_size = *self.out.batch_size.borrow();
 
     //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    self.act_kern.backward(self.out.batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     self.w_grad.as_view_mut()
       .matrix_prod(
           1.0,
-          self.in_.out_buf.borrow().reshape((self.cfg.in_dim, self.in_.batch_size)), Transpose::N,
-          self.tmp_grad.reshape((self.cfg.out_dim, self.out.batch_size)), Transpose::T,
+          self.in_.out_buf.borrow().reshape((self.cfg.in_dim, batch_size)), Transpose::N,
+          self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::T,
           1.0,
       );
-    for j in 0 .. self.out.batch_size {
+    for j in 0 .. batch_size {
       self.b_grad.as_view_mut().reshape_mut((self.cfg.out_dim, 1))
         .matrix_add(
             1.0,
-            self.tmp_grad.reshape((self.cfg.out_dim, self.out.batch_size))
+            self.tmp_grad.reshape((self.cfg.out_dim, batch_size))
               .view((0, j), (self.cfg.out_dim, j+1)),
         );
     }
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
-      in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, self.in_.batch_size))
+      in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, batch_size))
         .matrix_prod(
             1.0,
             self.weights.as_view(), Transpose::N,
-            self.tmp_grad.reshape((self.cfg.out_dim, self.out.batch_size)), Transpose::N,
+            self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
             0.0,
         );
+    }
+  }
+
+  fn bwd_reg(&mut self, reg: Regularization) {
+    match reg {
+      Regularization::L2(_lambda) => {
+        // FIXME(20161002)
+        unimplemented!();
+      }
     }
   }
 }

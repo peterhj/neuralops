@@ -1,4 +1,4 @@
-use common::{ActivationKind, PoolKind};
+use common::{ActivationKind};
 
 use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;

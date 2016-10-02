@@ -13,7 +13,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
-use std::cmp::{max, min};
+use std::cmp::{max};
 use std::ptr::{null_mut};
 use std::rc::{Rc};
 
@@ -193,12 +193,15 @@ impl DiffOperator<f32> for Conv2dOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
-    assert!(self.in_.batch_size <= self.cfg.batch_sz);
-    self.out.batch_size = self.in_.batch_size;
+    //assert!(self.in_.batch_size <= self.cfg.batch_sz);
+    //self.out.batch_size = self.in_.batch_size;
+    let batch_size = *self.in_.batch_size.borrow();
+    *self.out.batch_size.borrow_mut() = batch_size;
+    assert!(batch_size <= self.cfg.batch_sz);
 
     let status = unsafe { nnp_convolution_output(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-        self.out.batch_size,
+        batch_size,
         self.cfg.in_dim.2,
         self.cfg.out_chan,
         nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
@@ -217,19 +220,33 @@ impl DiffOperator<f32> for Conv2dOperator {
     }
 
     //activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
-    self.act_kern.forward(self.out.batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+
+    let in_loss = *self.in_.out_loss.borrow();
+    *self.out.out_loss.borrow_mut() = in_loss;
+  }
+
+  fn fwd_reg(&mut self, reg: Regularization) {
+    match reg {
+      Regularization::L2(lambda) => {
+        // FIXME(20161002): regularize the bias too?
+        let w_norm = self.weights.as_view().reshape(self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan).l2_norm();
+        *self.out.out_loss.borrow_mut() = 0.5 * lambda * w_norm * w_norm;
+      }
+    }
   }
 
   fn backward(&mut self) {
-    assert!(self.in_.batch_size <= self.cfg.batch_sz);
-    assert_eq!(self.out.batch_size, self.in_.batch_size);
+    //assert!(self.in_.batch_size <= self.cfg.batch_sz);
+    //assert_eq!(self.out.batch_size, self.in_.batch_size);
+    let batch_size = *self.out.batch_size.borrow();
 
     //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    self.act_kern.backward(self.out.batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-        self.out.batch_size,
+        batch_size,
         self.cfg.in_dim.2,
         self.cfg.out_chan,
         nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
@@ -248,7 +265,7 @@ impl DiffOperator<f32> for Conv2dOperator {
 
     let out_dim = self.cfg.out_dim();
     unsafe { neuralops_conv2d_bias_bwd(
-        self.out.batch_size,
+        batch_size,
         out_dim.0,
         out_dim.1,
         out_dim.2,
@@ -259,7 +276,7 @@ impl DiffOperator<f32> for Conv2dOperator {
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
       let status = unsafe { nnp_convolution_input_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-          self.out.batch_size,
+          batch_size,
           self.cfg.in_dim.2,
           self.cfg.out_chan,
           nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
@@ -277,6 +294,15 @@ impl DiffOperator<f32> for Conv2dOperator {
       }
     }
   }
+
+  fn bwd_reg(&mut self, reg: Regularization) {
+    match reg {
+      Regularization::L2(lambda) => {
+        // FIXME(20161002)
+        unimplemented!();
+      }
+    }
+  }
 }
 
 #[derive(Clone, Copy)]
@@ -290,6 +316,7 @@ pub struct BatchNormConv2dOperatorConfig {
   pub pad_w:    usize,
   pub pad_h:    usize,
   pub out_chan: usize,
+  pub avg_rate: f32,
   pub act_kind: ActivationKind,
   pub w_init:   ParamInitKind,
 }
@@ -432,12 +459,15 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
-    assert!(self.in_.batch_size <= self.cfg.batch_sz);
-    self.out.batch_size = self.in_.batch_size;
+    //assert!(self.in_.batch_size <= self.cfg.batch_sz);
+    //self.out.batch_size = self.in_.batch_size;
+    let batch_size = *self.in_.batch_size.borrow();
+    *self.out.batch_size.borrow_mut() = batch_size;
+    assert!(batch_size <= self.cfg.batch_sz);
 
     let status = unsafe { nnp_convolution_output(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-        self.out.batch_size,
+        batch_size,
         self.cfg.in_dim.2,
         self.cfg.out_chan,
         nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
@@ -455,20 +485,37 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       panic!("nnpack convolution failed: {:?}", status);
     }
 
+    // FIXME(20161002): batch norm kernels.
+
     //activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
-    self.act_kern.forward(self.out.batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+
+    let in_loss = *self.in_.out_loss.borrow();
+    *self.out.out_loss.borrow_mut() = in_loss;
+  }
+
+  fn fwd_reg(&mut self, reg: Regularization) {
+    match reg {
+      Regularization::L2(lambda) => {
+        let w_norm = self.weights.as_view().reshape(self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan).l2_norm();
+        *self.out.out_loss.borrow_mut() = 0.5 * lambda * w_norm * w_norm;
+      }
+    }
   }
 
   fn backward(&mut self) {
-    assert!(self.in_.batch_size <= self.cfg.batch_sz);
-    assert_eq!(self.out.batch_size, self.in_.batch_size);
+    //assert!(self.in_.batch_size <= self.cfg.batch_sz);
+    //assert_eq!(self.out.batch_size, self.in_.batch_size);
+    let batch_size = *self.out.batch_size.borrow();
 
     //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    self.act_kern.backward(self.out.batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+
+    // FIXME(20161002): batch norm kernels.
 
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-        self.out.batch_size,
+        batch_size,
         self.cfg.in_dim.2,
         self.cfg.out_chan,
         nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
@@ -487,7 +534,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
 
     /*let out_dim = self.cfg.out_dim();
     unsafe { neuralops_conv2d_bias_bwd(
-        self.out.batch_size,
+        batch_size,
         out_dim.0,
         out_dim.1,
         out_dim.2,
@@ -498,7 +545,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
       let status = unsafe { nnp_convolution_input_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-          self.out.batch_size,
+          batch_size,
           self.cfg.in_dim.2,
           self.cfg.out_chan,
           nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
@@ -516,4 +563,32 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       }
     }
   }
+
+  fn bwd_reg(&mut self, reg: Regularization) {
+    match reg {
+      Regularization::L2(lambda) => {
+        // FIXME(20161002)
+        unimplemented!();
+      }
+    }
+  }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ResidualConv2dOperatorConfig {
+  pub batch_sz: usize,
+  pub in_dim:   (usize, usize, usize),
+  pub avg_rate: f32,
+  pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ProjResidualConv2dOperatorConfig {
+  pub batch_sz: usize,
+  pub in_dim:   (usize, usize, usize),
+  pub out_chan: usize,
+  pub avg_rate: f32,
+  pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
 }

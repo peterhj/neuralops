@@ -1,8 +1,7 @@
 use common::{CommonResources, CommonOperatorOutput};
 
-use float::ord::{F32InfNan};
 use operator::prelude::*;
-use operator::data::{SampleScalarTarget}; //, SampleWeight};
+use operator::data::{SampleScalarTarget};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::f32::consts::{PI};
@@ -23,7 +22,7 @@ pub struct LeastSquaresRegressLossOperator {
 }
 
 impl LeastSquaresRegressLossOperator {
-  pub fn new(cfg: RegressLossConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> LeastSquaresRegressLossOperator {
+  pub fn new(cfg: RegressLossConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, _res: CommonResources) -> LeastSquaresRegressLossOperator {
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     unsafe { losses.set_len(cfg.batch_sz) };
     let mut targets = Vec::with_capacity(cfg.batch_sz);
@@ -54,7 +53,7 @@ impl<S> DiffOperatorInput<f32, S> for LeastSquaresRegressLossOperator where S: S
       }
       self.weights[idx] = sample.scalar_target_weight().unwrap_or(1.0);
     }
-    self.out.batch_size = actual_batch_size;
+    *self.out.batch_size.borrow_mut() = actual_batch_size;
   }
 }
 
@@ -72,24 +71,30 @@ impl DiffOperator<f32> for LeastSquaresRegressLossOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
-    self.out.batch_size = self.in_.batch_size;
+    //self.out.batch_size = self.in_.batch_size;
+    let batch_size = *self.in_.batch_size.borrow();
+    assert_eq!(batch_size, *self.out.batch_size.borrow());
     let in_buf = self.in_.out_buf.borrow();
     let mut out_buf = self.out.out_buf.borrow_mut();
-    out_buf[ .. self.out.batch_size].copy_from_slice(&in_buf[ .. self.out.batch_size]);
-    for idx in 0 .. self.out.batch_size {
+    out_buf[ .. batch_size].copy_from_slice(&in_buf[ .. batch_size]);
+    for idx in 0 .. batch_size {
       let dx = in_buf[idx] - self.targets[idx];
       let loss = 0.5 * self.weights[idx] * dx * dx;
       self.losses[idx] = loss;
       self.loss1 += loss;
     }
+    let in_loss = *self.in_.out_loss.borrow();
+    self.loss1 += in_loss;
+    *self.out.out_loss.borrow_mut() = self.loss1;
   }
 
   fn backward(&mut self) {
-    assert_eq!(self.out.batch_size, self.in_.batch_size);
+    //assert_eq!(self.out.batch_size, self.in_.batch_size);
+    let batch_size = *self.in_.batch_size.borrow();
     if let Some(ref mut in_grad) = self.in_.out_grad.as_mut() {
       let out_buf = self.out.out_buf.borrow();
       let mut in_grad = in_grad.borrow_mut();
-      for idx in 0 .. self.out.batch_size {
+      for idx in 0 .. batch_size {
         in_grad[idx] = self.weights[idx] * (out_buf[idx] - self.targets[idx]);
       }
     }
@@ -116,7 +121,7 @@ pub struct NormLstSqRegressLossOperator {
 }
 
 impl NormLstSqRegressLossOperator {
-  pub fn new(cfg: NormLstSqRegressLossConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> NormLstSqRegressLossOperator {
+  pub fn new(cfg: NormLstSqRegressLossConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, _res: CommonResources) -> NormLstSqRegressLossOperator {
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     unsafe { losses.set_len(cfg.batch_sz) };
     let mut targets = Vec::with_capacity(cfg.batch_sz);
@@ -150,7 +155,7 @@ impl<S> DiffOperatorInput<f32, S> for NormLstSqRegressLossOperator where S: Samp
       }
       self.weights[idx] = sample.scalar_target_weight().unwrap_or(1.0);
     }
-    self.out.batch_size = actual_batch_size;
+    *self.out.batch_size.borrow_mut() = actual_batch_size;
   }
 }
 
@@ -180,12 +185,14 @@ impl DiffOperator<f32> for NormLstSqRegressLossOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
-    self.out.batch_size = self.in_.batch_size;
+    //self.out.batch_size = self.in_.batch_size;
+    let batch_size = *self.in_.batch_size.borrow();
+    assert_eq!(batch_size, *self.out.batch_size.borrow());
     let in_buf = self.in_.out_buf.borrow();
     let mut out_buf = self.out.out_buf.borrow_mut();
-    out_buf[ .. self.out.batch_size].copy_from_slice(&in_buf[ .. self.out.batch_size]);
+    out_buf[ .. batch_size].copy_from_slice(&in_buf[ .. batch_size]);
     let loss_norm_term = (2.0 * PI * self.run_var).ln();
-    for idx in 0 .. self.out.batch_size {
+    for idx in 0 .. batch_size {
       let dx = in_buf[idx] - self.targets[idx];
       self.nsamples += 1;
       self.var += dx * dx;
@@ -193,14 +200,18 @@ impl DiffOperator<f32> for NormLstSqRegressLossOperator {
       self.losses[idx] = loss;
       self.loss1 += loss;
     }
+    let in_loss = *self.in_.out_loss.borrow();
+    self.loss1 += in_loss;
+    *self.out.out_loss.borrow_mut() = self.loss1;
   }
 
   fn backward(&mut self) {
-    assert_eq!(self.out.batch_size, self.in_.batch_size);
+    //assert_eq!(self.out.batch_size, batch_size);
+    let batch_size = *self.in_.batch_size.borrow();
     if let Some(ref mut in_grad) = self.in_.out_grad.as_mut() {
       let out_buf = self.out.out_buf.borrow();
       let mut in_grad = in_grad.borrow_mut();
-      for idx in 0 .. self.out.batch_size {
+      for idx in 0 .. batch_size {
         in_grad[idx] = self.weights[idx] * (out_buf[idx] - self.targets[idx]) / self.run_var;
       }
     }

@@ -26,7 +26,8 @@ impl CommonResources {
 
 #[derive(Clone)]
 pub struct CommonOperatorOutput<T> where T: Copy {
-  pub batch_size:   usize,
+  pub batch_size:   Rc<RefCell<usize>>,
+  pub out_loss:     Rc<RefCell<f32>>,
   pub out_buf:      RwMem<T>,
   pub out_grad:     Option<RwMem<T>>,
   pub out_r_buf:    Option<RwMem<T>>,
@@ -46,7 +47,8 @@ impl CommonOperatorOutput<f32> {
       None
     };
     CommonOperatorOutput{
-      batch_size:   batch_size,
+      batch_size:   Rc::new(RefCell::new(batch_size)),
+      out_loss:     Rc::new(RefCell::new(0.0)),
       out_buf:      out_buf,
       out_grad:     out_grad,
       out_r_buf:    None,

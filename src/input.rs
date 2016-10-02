@@ -94,7 +94,7 @@ impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtract
       out_buf.reshape_mut(batch_size * self.cfg.stride)
         .vector_scale(scale);
     }*/
-    self.out.batch_size = batch_size;
+    *self.out.batch_size.borrow_mut() = batch_size;
   }
 }
 
@@ -109,6 +109,7 @@ impl DiffOperator<f32> for SimpleInputOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
+    *self.out.out_loss.borrow_mut() = 0.0;
   }
 
   fn backward(&mut self) {
