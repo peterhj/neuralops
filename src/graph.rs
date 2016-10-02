@@ -21,7 +21,7 @@ impl GraphOperatorConfig {
     unimplemented!();
   }
 
-  pub fn softmax_nll_class_loss(&mut self, name: &str, prev_name: &str, cfg: ClassLossOperatorConfig) -> &mut Self {
+  pub fn softmax_nll_class_loss(&mut self, name: &str, prev_name: &str, cfg: ClassLossConfig) -> &mut Self {
     unimplemented!();
   }
 }

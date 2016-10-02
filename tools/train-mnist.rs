@@ -48,7 +48,7 @@ fn main() {
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
   }));
-  op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossConfig{
     batch_sz:       batch_sz,
     num_classes:    10,
   }));
@@ -106,7 +106,8 @@ fn main() {
     minibatch_sz:   batch_sz,
     step_size:      StepSize::Constant(0.1),
     momentum:       Some(0.9),
-    l2_reg:         Some(1.0e-4),
+    l2_reg:         None,
+    //l2_reg:         Some(1.0e-4),
   };
   let mut sgd = SgdOptWorker::new(sgd_cfg, op);
 

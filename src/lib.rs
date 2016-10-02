@@ -15,6 +15,7 @@ use prelude::*;
 
 pub mod affine;
 pub mod checkpoint;
+//pub mod class_loss;
 pub mod common;
 pub mod conv;
 pub mod data;
@@ -23,6 +24,7 @@ pub mod input;
 pub mod kernels;
 pub mod loss;
 pub mod prelude;
+pub mod regress_loss;
 pub mod seq;
 pub mod softmax;
 

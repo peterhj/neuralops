@@ -5,6 +5,8 @@ use operator::prelude::*;
 use operator::data::{SampleExtractInput};
 use rng::xorshift::{Xorshiftplus128Rng};
 
+use rand::{Rng, thread_rng};
+
 #[derive(Clone)]
 pub enum InputPreproc {
   ShiftScale{shift: Option<f32>, scale: Option<f32>},
@@ -23,7 +25,7 @@ pub struct SimpleInputOperator {
   cfg:  SimpleInputOperatorConfig,
   out:  CommonOperatorOutput<f32>,
   tmp:  Vec<f32>,
-  //rng:  Xorshiftplus128Rng,
+  rng:  Xorshiftplus128Rng,
   //rng_state:    Vec<u8>,
 }
 
@@ -36,7 +38,7 @@ impl SimpleInputOperator {
       cfg:  cfg,
       out:  out,
       tmp:  tmp_buf,
-      //rng:  Xorshiftplus128Rng::new(&mut thread_rng()),
+      rng:  Xorshiftplus128Rng::new(&mut thread_rng()),
       //rng_state:    vec![],
     }
   }
@@ -77,8 +79,10 @@ impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtract
           for idx in 0 .. batch_size {
             let mut out = &mut (&mut *out_buf)[idx * self.cfg.stride .. (idx+1) * self.cfg.stride];
             // FIXME(20160927)
-            let offset_x = width / 2;
-            let offset_y = height / 2;
+            //let offset_x = width / 2;
+            //let offset_y = height / 2;
+            let offset_x = self.rng.gen_range(0, width);
+            let offset_y = self.rng.gen_range(0, height);
             for a in 0 .. chan {
               out[offset_x + width * (offset_y + chan * a)] *= scale;
             }

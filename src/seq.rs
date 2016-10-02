@@ -17,7 +17,7 @@ pub enum SeqOperatorConfig {
   SimpleInput(SimpleInputOperatorConfig),
   Affine(AffineOperatorConfig),
   Conv2d(Conv2dOperatorConfig),
-  SoftmaxNLLClassLoss(ClassLossOperatorConfig),
+  SoftmaxNLLClassLoss(ClassLossConfig),
 }
 
 pub struct SeqOperator<T, S> {
@@ -120,6 +120,7 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
     for op in self.inner_ops.iter_mut() {
       op.init_param(rng);
     }
+    self.loss_op.update_nondiff_param();
   }
 
   fn load_param(&mut self, param_reader: &mut ReadBuffer<T>, init_offset: usize) -> usize {
@@ -144,6 +145,13 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
       offset += op.update_param(alpha, beta, grad_reader, offset);
     }
     offset - init_offset
+  }
+
+  fn update_nondiff_param(&mut self) {
+    for op in self.inner_ops.iter_mut() {
+      op.update_nondiff_param();
+    }
+    self.loss_op.update_nondiff_param();
   }
 
   fn reset_grad(&mut self) {

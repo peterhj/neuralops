@@ -3,6 +3,7 @@ use common::{ActivationKind, PoolKind};
 pub mod activate;
 pub mod batchnorm;
 pub mod conv;
+pub mod pool;
 pub mod softmax;
 
 pub fn activate_fwd(act_kind: ActivationKind, in_buf: &[f32], out_buf: &mut [f32]) {

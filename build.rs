@@ -9,6 +9,7 @@ fn main() {
     .flag("--std=gnu99")
     .file("extkernels/batchnorm.c")
     .file("extkernels/conv.c")
+    .file("extkernels/pool.c")
     .compile("libneuralops_extkernels.a");
 
   //println!("cargo:rustc-flags=-L /usr/local/cuda/lib64");
