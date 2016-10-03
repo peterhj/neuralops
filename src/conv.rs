@@ -1,13 +1,16 @@
 use common::{CommonResources, CommonOperatorOutput, ActivationKind, ParamInitKind};
+use join::{AddJoinOperator};
 use kernels::activate::{ActivateKernel};
+use kernels::batchnorm::{BatchNorm2dKernel};
 use kernels::conv::*;
+use split::{CopySplitOperator};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
 use densearray::linalg::{Transpose};
 use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;
 use operator::prelude::*;
-use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
+use operator::rw::{ReadBuffer, ReadAccumulateBuffer, WriteBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::distributions::{IndependentSample};
@@ -38,10 +41,6 @@ pub struct Conv2dOperatorConfig {
   pub kernel_h: usize,
   pub stride_w: usize,
   pub stride_h: usize,
-  /*pub pad_left: usize,
-  pub pad_right: usize,
-  pub pad_bot:  usize,
-  pub pad_top:  usize,*/
   pub pad_w:    usize,
   pub pad_h:    usize,
   pub out_chan: usize,
@@ -67,6 +66,8 @@ pub struct Conv2dOperator {
   w_grad:   Array4d<f32>,
   bias:     Vec<f32>,
   b_grad:   Vec<f32>,
+  //bias:     Array1d<f32>,
+  //b_grad:   Array1d<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   act_kern: ActivateKernel,
@@ -83,7 +84,6 @@ impl Conv2dOperator {
     unsafe { bias.set_len(cfg.out_chan) };
     let mut b_grad = Vec::with_capacity(cfg.out_chan);
     unsafe { b_grad.set_len(cfg.out_chan) };
-    // FIXME
     let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
     unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
     let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
@@ -115,6 +115,10 @@ impl DiffOperator<f32> for Conv2dOperator {
   }
 
   fn param_len(&self) -> usize {
+    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan + self.cfg.out_chan
+  }
+
+  fn diff_param_sz(&self) -> usize {
     self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan + self.cfg.out_chan
   }
 
@@ -336,10 +340,14 @@ pub struct BatchNormConv2dOperator {
   weights:  Array4d<f32>,
   w_grad:   Array4d<f32>,
   zerobias: Array1d<f32>,
-  //bnorm_k:  BatchNorm2dKernel,
-  //scale_k:  Scale2dKernel,
-  tmp_buf:  Vec<f32>,
-  tmp_grad: Vec<f32>,
+  tmp_buf:      Vec<f32>,
+  tmp_grad:     Vec<f32>,
+  tmp2_buf:     Vec<f32>,
+  tmp2_grad:    Vec<f32>,
+  tmp3_buf:     Vec<f32>,
+  tmp3_grad:    Vec<f32>,
+  bnorm_k:  BatchNorm2dKernel,
+  scale_k:  ConvScale2dKernel,
   act_kern: ActivateKernel,
   out:      CommonOperatorOutput<f32>,
   nnp_h:    NnpackHandle,
@@ -350,19 +358,32 @@ impl BatchNormConv2dOperator {
   pub fn new(cfg: BatchNormConv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> BatchNormConv2dOperator {
     assert_eq!(1, cfg.stride_w);
     assert_eq!(1, cfg.stride_h);
-    // FIXME
     let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
     unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
     let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
     unsafe { tmp_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
+    let mut tmp2_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
+    unsafe { tmp2_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
+    let mut tmp2_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
+    unsafe { tmp2_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
+    let mut tmp3_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
+    unsafe { tmp3_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
+    let mut tmp3_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
+    unsafe { tmp3_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
     BatchNormConv2dOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
       weights:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       w_grad:   Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       zerobias: Array1d::zeros(cfg.out_chan),
-      tmp_buf:  tmp_buf,
-      tmp_grad: tmp_grad,
+      tmp_buf:      tmp_buf,
+      tmp_grad:     tmp_grad,
+      tmp2_buf:     tmp2_buf,
+      tmp2_grad:    tmp2_grad,
+      tmp3_buf:     tmp3_buf,
+      tmp3_grad:    tmp3_grad,
+      bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim()),
+      scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
       nnp_h:    NnpackHandle::new(),
@@ -381,7 +402,17 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
   }
 
   fn param_len(&self) -> usize {
-    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan + self.cfg.out_chan
+    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan +
+        2 * self.cfg.out_chan
+  }
+
+  fn diff_param_sz(&self) -> usize {
+    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan +
+        2 * self.cfg.out_chan
+  }
+
+  fn nondiff_param_sz(&self) -> usize {
+    2 * self.cfg.out_chan
   }
 
   fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
@@ -416,23 +447,42 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         }
       }
     }
-    /*for e in self.bias.iter_mut() {
-      *e = 0.0;
-    }*/
+    self.scale_k.scale.as_view_mut().set_constant(1.0);
+    self.scale_k.bias.as_view_mut().set_constant(0.0);
+  }
+
+  fn load_param(&mut self, param_reader: &mut ReadBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += param_reader.read(offset, self.weights.as_mut_slice());
+    offset += param_reader.read(offset, self.scale_k.scale.as_mut_slice());
+    offset += param_reader.read(offset, self.scale_k.bias.as_mut_slice());
+    offset - init_offset
+  }
+
+  fn store_param(&mut self, param_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += param_writer.write(offset, self.weights.as_slice());
+    offset += param_writer.write(offset, self.scale_k.scale.as_slice());
+    offset += param_writer.write(offset, self.scale_k.bias.as_slice());
+    offset - init_offset
   }
 
   fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_reader.read_accumulate(alpha, beta, offset, self.weights.as_mut_slice());
-    //offset += grad_reader.read_accumulate(alpha, beta, offset, &mut self.bias);
+    offset += grad_reader.read_accumulate(alpha, beta, offset, self.scale_k.scale.as_mut_slice());
+    offset += grad_reader.read_accumulate(alpha, beta, offset, self.scale_k.bias.as_mut_slice());
     offset - init_offset
+  }
+
+  fn update_nondiff_param(&mut self) {
+    self.bnorm_k.update(self.cfg.avg_rate);
   }
 
   fn reset_grad(&mut self) {
     self.w_grad.as_view_mut().set_constant(0.0);
-    /*for e in self.b_grad.iter_mut() {
-      *e = 0.0;
-    }*/
+    self.scale_k.scale_grad.as_view_mut().set_constant(0.0);
+    self.scale_k.bias_grad.as_view_mut().set_constant(0.0);
   }
 
   fn apply_grad_reg(&mut self, reg: Regularization) {
@@ -454,7 +504,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
   fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_accum.accumulate(alpha, beta, offset, self.w_grad.as_slice());
-    //offset += grad_accum.accumulate(alpha, beta, offset, &self.b_grad);
+    offset += grad_accum.accumulate(alpha, beta, offset, self.scale_k.scale_grad.as_slice());
+    offset += grad_accum.accumulate(alpha, beta, offset, self.scale_k.bias_grad.as_slice());
     offset - init_offset
   }
 
@@ -485,10 +536,11 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       panic!("nnpack convolution failed: {:?}", status);
     }
 
-    // FIXME(20161002): batch norm kernels.
+    self.bnorm_k.forward(batch_size, &self.tmp_buf, &mut self.tmp2_buf, 1.0);
+    self.scale_k.forward(batch_size, &self.tmp2_buf, &mut self.tmp3_buf);
 
-    //activate_fwd(self.cfg.act_kind, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
-    self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    //activate_fwd(self.cfg.act_kind, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
 
     let in_loss = *self.in_.out_loss.borrow();
     *self.out.out_loss.borrow_mut() = in_loss;
@@ -508,10 +560,11 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     //assert_eq!(self.out.batch_size, self.in_.batch_size);
     let batch_size = *self.out.batch_size.borrow();
 
-    //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    //activate_bwd(self.cfg.act_kind, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
+    self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
 
-    // FIXME(20161002): batch norm kernels.
+    self.scale_k.backward(batch_size, &self.tmp2_buf, &self.tmp3_grad, &mut self.tmp2_grad);
+    self.bnorm_k.backward(batch_size, &self.tmp_buf, &self.tmp2_grad, &mut self.tmp_grad, 1.0);
 
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
@@ -531,16 +584,6 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     if status.is_err() {
       panic!("nnpack convolution failed: {:?}", status);
     }
-
-    /*let out_dim = self.cfg.out_dim();
-    unsafe { neuralops_conv2d_bias_bwd(
-        batch_size,
-        out_dim.0,
-        out_dim.1,
-        out_dim.2,
-        self.in_.out_buf.borrow().as_ptr(),
-        self.b_grad.as_mut_ptr(),
-    ) };*/
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
       let status = unsafe { nnp_convolution_input_gradient(
@@ -583,6 +626,14 @@ pub struct ResidualConv2dOperatorConfig {
   pub w_init:   ParamInitKind,
 }
 
+pub struct ResidualConv2dOperator {
+  split:    CopySplitOperator,
+  conv1:    BatchNormConv2dOperator,
+  conv2:    BatchNormConv2dOperator,
+  join:     AddJoinOperator,
+  //act_k:    ActivateKernel,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ProjResidualConv2dOperatorConfig {
   pub batch_sz: usize,
@@ -591,4 +642,13 @@ pub struct ProjResidualConv2dOperatorConfig {
   pub avg_rate: f32,
   pub act_kind: ActivationKind,
   pub w_init:   ParamInitKind,
+}
+
+pub struct ProjResidualConv2dOperator {
+  split:    CopySplitOperator,
+  conv0:    BatchNormConv2dOperator,
+  conv1:    BatchNormConv2dOperator,
+  conv2:    BatchNormConv2dOperator,
+  join:     AddJoinOperator,
+  //act_k:    ActivateKernel,
 }

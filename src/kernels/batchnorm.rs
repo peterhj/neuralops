@@ -1,4 +1,4 @@
-use densearray::{Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
+use densearray::{ArrayIndex, Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
 
 #[link(name = "neuralops_extkernels", kind = "static")]
 extern "C" {
@@ -78,22 +78,39 @@ extern "C" {
 }
 
 pub struct BatchMean2dKernel {
-  batch_sz: usize,
-  dim:      (usize, usize, usize),
-  mean:     Array1d<f32>,
-  run_mean: Array1d<f32>,
+  pub batch_sz: usize,
+  pub dim:      (usize, usize, usize),
+  pub mean:     Array1d<f32>,
+  pub run_mean: Array1d<f32>,
 }
 
 pub struct BatchNorm2dKernel {
-  batch_sz: usize,
-  dim:      (usize, usize, usize),
-  mean:     Array1d<f32>,
-  var:      Array1d<f32>,
-  run_mean: Array1d<f32>,
-  run_var:  Array1d<f32>,
+  pub batch_sz: usize,
+  pub dim:      (usize, usize, usize),
+  pub mean:     Array1d<f32>,
+  pub var:      Array1d<f32>,
+  pub run_mean: Array1d<f32>,
+  pub run_var:  Array1d<f32>,
 }
 
 impl BatchNorm2dKernel {
+  pub fn new(batch_sz: usize, dim: (usize, usize, usize)) -> BatchNorm2dKernel {
+    let mean = Array1d::zeros(dim.flat_len());
+    let mut var = Array1d::zeros(dim.flat_len());
+    var.as_view_mut().set_constant(1.0);
+    let run_mean = Array1d::zeros(dim.flat_len());
+    let mut run_var = Array1d::zeros(dim.flat_len());
+    run_var.as_view_mut().set_constant(1.0);
+    BatchNorm2dKernel{
+      batch_sz: batch_sz,
+      dim:      dim,
+      mean:     mean,
+      var:      var,
+      run_mean: run_mean,
+      run_var:  run_var,
+    }
+  }
+
   pub fn forward(&mut self, batch_sz: usize, in_buf: &[f32], out_buf: &mut [f32], gamma: f32) {
     assert!(batch_sz <= self.batch_sz);
     unimplemented!();

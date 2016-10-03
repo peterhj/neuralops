@@ -1,4 +1,4 @@
-use densearray::{Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
+use densearray::{ArrayIndex, Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
 
 #[link(name = "neuralops_extkernels", kind = "static")]
 extern "C" {
@@ -41,15 +41,31 @@ extern "C" {
 }
 
 pub struct ConvScale2dKernel {
-  batch_sz:     usize,
-  dim:          (usize, usize, usize),
-  scale:        Array1d<f32>,
-  scale_grad:   Array1d<f32>,
-  bias:         Array1d<f32>,
-  bias_grad:    Array1d<f32>,
+  pub batch_sz:     usize,
+  pub dim:          (usize, usize, usize),
+  pub scale:        Array1d<f32>,
+  pub scale_grad:   Array1d<f32>,
+  pub bias:         Array1d<f32>,
+  pub bias_grad:    Array1d<f32>,
 }
 
 impl ConvScale2dKernel {
+  pub fn new(batch_sz: usize, dim: (usize, usize, usize)) -> ConvScale2dKernel {
+    let mut scale = Array1d::zeros(dim.flat_len());
+    scale.as_view_mut().set_constant(1.0);
+    let bias = Array1d::zeros(dim.flat_len());
+    let scale_grad = Array1d::zeros(dim.flat_len());
+    let bias_grad = Array1d::zeros(dim.flat_len());
+    ConvScale2dKernel{
+      batch_sz:     batch_sz,
+      dim:          dim,
+      scale:        scale,
+      scale_grad:   scale_grad,
+      bias:         bias,
+      bias_grad:    bias_grad,
+    }
+  }
+
   pub fn forward(&mut self, batch_sz: usize, in_buf: &[f32], out_buf: &mut [f32]) {
     assert!(batch_sz <= self.batch_sz);
     unsafe { neuralops_conv2d_scale_bias_fwd(

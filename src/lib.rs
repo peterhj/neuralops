@@ -20,6 +20,7 @@ pub mod conv;
 pub mod data;
 pub mod graph;
 pub mod input;
+pub mod join;
 pub mod kernels;
 pub mod loss;
 pub mod pool;
@@ -27,5 +28,6 @@ pub mod prelude;
 pub mod regress_loss;
 pub mod seq;
 //pub mod softmax;
+pub mod split;
 
 mod ops;

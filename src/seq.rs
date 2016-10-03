@@ -20,6 +20,7 @@ pub enum SeqOperatorConfig {
   BatchNormConv2d(BatchNormConv2dOperatorConfig),
   ResidualConv2d(ResidualConv2dOperatorConfig),
   ProjResidualConv2d(ProjResidualConv2dOperatorConfig),
+  Pool2d(Pool2dOperatorConfig),
   SoftmaxNLLClassLoss(ClassLossConfig),
 }
 

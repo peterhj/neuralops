@@ -168,6 +168,10 @@ impl DiffOperator<f32> for NormLstSqRegressLossOperator {
     self.out.clone()
   }
 
+  fn nondiff_param_sz(&self) -> usize {
+    1
+  }
+
   fn init_param(&mut self, _rng: &mut Xorshiftplus128Rng) {
     self.nsamples = 0;
     self.var = 0.0;
@@ -191,7 +195,7 @@ impl DiffOperator<f32> for NormLstSqRegressLossOperator {
     let in_buf = self.in_.out_buf.borrow();
     let mut out_buf = self.out.out_buf.borrow_mut();
     out_buf[ .. batch_size].copy_from_slice(&in_buf[ .. batch_size]);
-    let loss_norm_term = (2.0 * PI * self.run_var).ln();
+    let loss_norm_term = 0.5 * (2.0 * PI * self.run_var).ln();
     for idx in 0 .. batch_size {
       let dx = in_buf[idx] - self.targets[idx];
       self.nsamples += 1;

@@ -35,7 +35,9 @@ pub struct Pool2dOperatorConfig {
 
 impl Pool2dOperatorConfig {
   pub fn out_dim(&self) -> (usize, usize, usize) {
-    unimplemented!();
+    // FIXME(20161002)
+    //unimplemented!();
+    (self.in_dim.0 / self.stride_w, self.in_dim.1 / self.stride_h, self.in_dim.2)
   }
 }
 
@@ -67,17 +69,36 @@ impl DiffOperator<f32> for Pool2dOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
+    let batch_size = *self.in_.batch_size.borrow();
+    assert!(batch_size <= self.cfg.batch_sz);
+    *self.out.batch_size.borrow_mut() = batch_size;
     match self.cfg.kind {
       PoolKind::Average => {
         if self.cfg.pad_w == 0 && self.cfg.pad_h == 0 {
           if self.cfg.pool_w == 2 && self.cfg.pool_h == 2 &&
               self.cfg.stride_w == 2 && self.cfg.stride_h == 2
           {
-            unimplemented!();
+            unsafe { neuralops_avgpool2d_2x2_fwd(
+                batch_size,
+                self.cfg.in_dim.0,
+                self.cfg.in_dim.1,
+                self.cfg.in_dim.2,
+                self.in_.out_buf.borrow().as_ptr(),
+                self.out.out_buf.borrow_mut().as_mut_ptr(),
+            ) };
           } else if self.cfg.pool_w == self.cfg.stride_w &&
               self.cfg.pool_h == self.cfg.stride_h
           {
-            unimplemented!();
+            unsafe { neuralops_avgpool2d_fwd(
+                batch_size,
+                self.cfg.in_dim.0,
+                self.cfg.in_dim.1,
+                self.cfg.in_dim.2,
+                self.in_.out_buf.borrow().as_ptr(),
+                self.out.out_buf.borrow_mut().as_mut_ptr(),
+                self.cfg.pool_w,
+                self.cfg.pool_h,
+            ) };
           } else {
             unimplemented!();
           }
@@ -90,6 +111,46 @@ impl DiffOperator<f32> for Pool2dOperator {
   }
 
   fn backward(&mut self) {
-    unimplemented!();
+    let batch_size = *self.out.batch_size.borrow();
+    if let Some(in_grad) = self.in_.out_grad.as_ref() {
+      match self.cfg.kind {
+        PoolKind::Average => {
+          if self.cfg.pad_w == 0 && self.cfg.pad_h == 0 {
+            if self.cfg.pool_w == 2 && self.cfg.pool_h == 2 &&
+                self.cfg.stride_w == 2 && self.cfg.stride_h == 2
+            {
+              unsafe { neuralops_avgpool2d_2x2_bwd(
+                  batch_size,
+                  self.cfg.in_dim.0,
+                  self.cfg.in_dim.1,
+                  self.cfg.in_dim.2,
+                  self.in_.out_buf.borrow().as_ptr(),
+                  self.out.out_grad.as_ref().unwrap().borrow().as_ptr(),
+                  in_grad.borrow_mut().as_mut_ptr(),
+              ) };
+            } else if self.cfg.pool_w == self.cfg.stride_w &&
+                self.cfg.pool_h == self.cfg.stride_h
+            {
+              unsafe { neuralops_avgpool2d_bwd(
+                  batch_size,
+                  self.cfg.in_dim.0,
+                  self.cfg.in_dim.1,
+                  self.cfg.in_dim.2,
+                  self.in_.out_buf.borrow().as_ptr(),
+                  self.out.out_grad.as_ref().unwrap().borrow().as_ptr(),
+                  in_grad.borrow_mut().as_mut_ptr(),
+                  self.cfg.pool_w,
+                  self.cfg.pool_h,
+              ) };
+            } else {
+              unimplemented!();
+            }
+          } else {
+            unimplemented!();
+          }
+        }
+        _ => unimplemented!(),
+      }
+    }
   }
 }

@@ -120,19 +120,20 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
     let in_buf = self.in_.out_buf.borrow();
     let mut out_buf = self.out.out_buf.borrow_mut();
     self.sm_kern.forward(batch_size, &*in_buf, &mut *out_buf);
+    let mut batch_loss = 0.0;
     for idx in 0 .. batch_size {
       let idx_range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(in_buf[idx_range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
       self.hats[idx] = max_logit_k as u32;
       let loss = -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
       self.losses[idx] = loss;
-      self.loss1 += loss;
+      batch_loss += loss;
     }
     //self.loss1 += Sum::sum(self.losses[ .. batch_size].iter().map(|&x| x));
 
     let in_loss = *self.in_.out_loss.borrow();
-    self.loss1 += in_loss;
-    *self.out.out_loss.borrow_mut() = self.loss1;
+    self.loss1 += batch_loss + in_loss;
+    *self.out.out_loss.borrow_mut() = batch_loss + in_loss;
   }
 
   fn backward(&mut self) {
