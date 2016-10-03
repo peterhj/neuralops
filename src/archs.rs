@@ -1,16 +1,42 @@
 use prelude::*;
 use input::{InputPreproc};
 
-pub fn build_cifar10_resnet20_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
-  build_cifar10_resnet_seq(batch_sz, 20)
-}
-
-pub fn build_cifar10_resnet110_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
-  build_cifar10_resnet_seq(batch_sz, 110)
-}
-
-pub fn build_cifar10_resnet1202_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
-  build_cifar10_resnet_seq(batch_sz, 1202)
+pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
+  let mut op_cfg = vec![];
+  op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+    batch_sz:   batch_sz,
+    stride:     32 * 32 * 3,
+    preprocs:   vec![
+      InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
+    ],
+  }));
+  op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
+    batch_sz:   batch_sz,
+    in_dim:     (32, 32, 3),
+    kernel_w:   3,
+    kernel_h:   3,
+    stride_w:   1,
+    stride_h:   1,
+    pad_w:      1,
+    pad_h:      1,
+    out_chan:   16,
+    avg_rate:   0.05,
+    act_kind:   ActivationKind::Rect,
+    w_init:     ParamInitKind::Kaiming,
+  }));
+  op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
+    batch_sz:   batch_sz,
+    in_dim:     64,
+    out_dim:    10,
+    act_kind:   ActivationKind::Identity,
+    w_init:     ParamInitKind::Xavier,
+  }));
+  op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossConfig{
+    batch_sz:       batch_sz,
+    num_classes:    10,
+  }));
+  // FIXME(20161002): unimplemented.
+  op_cfg
 }
 
 pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {

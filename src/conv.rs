@@ -1,4 +1,5 @@
-use common::{CommonResources, CommonOperatorOutput, ActivationKind, ParamInitKind};
+use prelude::*;
+use common::{CommonResources, CommonOperatorOutput};
 use join::{AddJoinOperator};
 use kernels::activate::{ActivateKernel};
 use kernels::batchnorm::{BatchNorm2dKernel};
@@ -72,7 +73,7 @@ pub struct Conv2dOperator {
   tmp_grad: Vec<f32>,
   act_kern: ActivateKernel,
   out:      CommonOperatorOutput<f32>,
-  nnp_h:    NnpackHandle,
+  _nnp_h:   NnpackHandle,
   nnp_pool: Rc<NnpackPthreadPool>,
 }
 
@@ -99,7 +100,7 @@ impl Conv2dOperator {
       tmp_grad: tmp_grad,
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
-      nnp_h:    NnpackHandle::new(),
+      _nnp_h:   NnpackHandle::new(),
       nnp_pool: res.nnp_pool,
     }
   }
@@ -350,7 +351,7 @@ pub struct BatchNormConv2dOperator {
   scale_k:  ConvScale2dKernel,
   act_kern: ActivateKernel,
   out:      CommonOperatorOutput<f32>,
-  nnp_h:    NnpackHandle,
+  _nnp_h:   NnpackHandle,
   nnp_pool: Rc<NnpackPthreadPool>,
 }
 
@@ -386,7 +387,7 @@ impl BatchNormConv2dOperator {
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
-      nnp_h:    NnpackHandle::new(),
+      _nnp_h:   NnpackHandle::new(),
       nnp_pool: res.nnp_pool,
     }
   }
@@ -627,11 +628,68 @@ pub struct ResidualConv2dOperatorConfig {
 }
 
 pub struct ResidualConv2dOperator {
+  cfg:      ResidualConv2dOperatorConfig,
   split:    CopySplitOperator,
   conv1:    BatchNormConv2dOperator,
   conv2:    BatchNormConv2dOperator,
   join:     AddJoinOperator,
-  //act_k:    ActivateKernel,
+  act_k:    ActivateKernel,
+}
+
+impl ResidualConv2dOperator {
+  pub fn new(cfg: ResidualConv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> ResidualConv2dOperator {
+    let split_cfg = SplitOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      out_arms: 2,
+      dim:      cfg.in_dim.flat_len(),
+    };
+    let conv1_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.in_dim.2,
+      avg_rate: cfg.avg_rate,
+      act_kind: ActivationKind::Rect,
+      w_init:   cfg.w_init,
+    };
+    let conv2_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.in_dim.2,
+      avg_rate: cfg.avg_rate,
+      act_kind: ActivationKind::Identity,
+      w_init:   cfg.w_init,
+    };
+    let join_cfg = JoinOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_arms:  2,
+      dim:      cfg.in_dim.flat_len(),
+    };
+    let split = CopySplitOperator::new(split_cfg, cap, prev_op, prev_arm, res.clone());
+    let conv1 = BatchNormConv2dOperator::new(conv1_cfg, cap, &split, 1, res.clone());
+    let conv2 = BatchNormConv2dOperator::new(conv2_cfg, cap, &conv1, 0, res.clone());
+    let join = AddJoinOperator::new(join_cfg, cap, &[(&split, 0), (&conv2, 0)], res.clone());
+    let act_k = ActivateKernel::new(cfg.batch_sz, cfg.in_dim.flat_len(), cfg.act_kind, res.nnp_pool.clone());
+    ResidualConv2dOperator{
+      cfg:      cfg,
+      split:    split,
+      conv1:    conv1,
+      conv2:    conv2,
+      join:     join,
+      act_k:    act_k,
+    }
+  }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -644,11 +702,90 @@ pub struct ProjResidualConv2dOperatorConfig {
   pub w_init:   ParamInitKind,
 }
 
+impl ProjResidualConv2dOperatorConfig {
+  pub fn out_dim(&self) -> (usize, usize, usize) {
+    (self.in_dim.0, self.in_dim.1, self.out_chan)
+  }
+}
+
 pub struct ProjResidualConv2dOperator {
+  cfg:      ProjResidualConv2dOperatorConfig,
   split:    CopySplitOperator,
   conv0:    BatchNormConv2dOperator,
   conv1:    BatchNormConv2dOperator,
   conv2:    BatchNormConv2dOperator,
   join:     AddJoinOperator,
-  //act_k:    ActivateKernel,
+  act_k:    ActivateKernel,
+}
+
+impl ProjResidualConv2dOperator {
+  pub fn new(cfg: ProjResidualConv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> ProjResidualConv2dOperator {
+    let split_cfg = SplitOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      out_arms: 2,
+      dim:      cfg.in_dim.flat_len(),
+    };
+    let conv0_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 1,
+      kernel_h: 1,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    0,
+      pad_h:    0,
+      out_chan: cfg.out_chan,
+      avg_rate: cfg.avg_rate,
+      act_kind: ActivationKind::Identity,
+      w_init:   cfg.w_init,
+    };
+    let conv1_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.out_chan,
+      avg_rate: cfg.avg_rate,
+      act_kind: ActivationKind::Rect,
+      w_init:   cfg.w_init,
+    };
+    let conv2_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.out_dim(),
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.out_chan,
+      avg_rate: cfg.avg_rate,
+      act_kind: ActivationKind::Identity,
+      w_init:   cfg.w_init,
+    };
+    let join_cfg = JoinOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_arms:  2,
+      dim:      cfg.out_dim().flat_len(),
+    };
+    let split = CopySplitOperator::new(split_cfg, cap, prev_op, prev_arm, res.clone());
+    let conv0 = BatchNormConv2dOperator::new(conv0_cfg, cap, &split, 0, res.clone());
+    let conv1 = BatchNormConv2dOperator::new(conv1_cfg, cap, &split, 1, res.clone());
+    let conv2 = BatchNormConv2dOperator::new(conv2_cfg, cap, &conv1, 0, res.clone());
+    let join = AddJoinOperator::new(join_cfg, cap, &[(&split, 0), (&conv2, 0)], res.clone());
+    let act_k = ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone());
+    ProjResidualConv2dOperator{
+      cfg:      cfg,
+      split:    split,
+      conv0:    conv0,
+      conv1:    conv1,
+      conv2:    conv2,
+      join:     join,
+      act_k:    act_k,
+    }
+  }
 }

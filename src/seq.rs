@@ -64,6 +64,10 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
             let op = Conv2dOperator::new(cfg, cap, prev_op, 0, res.clone());
             Box::new(op)
           }
+          &SeqOperatorConfig::BatchNormConv2d(cfg) => {
+            let op = BatchNormConv2dOperator::new(cfg, cap, prev_op, 0, res.clone());
+            Box::new(op)
+          }
           _ => unreachable!(),
         }
       };
