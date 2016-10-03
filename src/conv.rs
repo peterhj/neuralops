@@ -634,6 +634,7 @@ pub struct ResidualConv2dOperator {
   conv2:    BatchNormConv2dOperator,
   join:     AddJoinOperator,
   act_k:    ActivateKernel,
+  out:      CommonOperatorOutput<f32>,
 }
 
 impl ResidualConv2dOperator {
@@ -688,7 +689,26 @@ impl ResidualConv2dOperator {
       conv2:    conv2,
       join:     join,
       act_k:    act_k,
+      out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.in_dim.flat_len(), cap),
     }
+  }
+}
+
+impl DiffOperator<f32> for ResidualConv2dOperator {
+  type Output = CommonOperatorOutput<f32>;
+  type Rng = Xorshiftplus128Rng;
+
+  fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
+    assert_eq!(0, _arm);
+    self.out.clone()
+  }
+
+  fn forward(&mut self, _phase: OpPhase) {
+    unimplemented!();
+  }
+
+  fn backward(&mut self) {
+    unimplemented!();
   }
 }
 
@@ -716,6 +736,7 @@ pub struct ProjResidualConv2dOperator {
   conv2:    BatchNormConv2dOperator,
   join:     AddJoinOperator,
   act_k:    ActivateKernel,
+  out:      CommonOperatorOutput<f32>,
 }
 
 impl ProjResidualConv2dOperator {
@@ -776,7 +797,7 @@ impl ProjResidualConv2dOperator {
     let conv0 = BatchNormConv2dOperator::new(conv0_cfg, cap, &split, 0, res.clone());
     let conv1 = BatchNormConv2dOperator::new(conv1_cfg, cap, &split, 1, res.clone());
     let conv2 = BatchNormConv2dOperator::new(conv2_cfg, cap, &conv1, 0, res.clone());
-    let join = AddJoinOperator::new(join_cfg, cap, &[(&split, 0), (&conv2, 0)], res.clone());
+    let join = AddJoinOperator::new(join_cfg, cap, &[(&conv0, 0), (&conv2, 0)], res.clone());
     let act_k = ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone());
     ProjResidualConv2dOperator{
       cfg:      cfg,
@@ -786,6 +807,25 @@ impl ProjResidualConv2dOperator {
       conv2:    conv2,
       join:     join,
       act_k:    act_k,
+      out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
     }
+  }
+}
+
+impl DiffOperator<f32> for ProjResidualConv2dOperator {
+  type Output = CommonOperatorOutput<f32>;
+  type Rng = Xorshiftplus128Rng;
+
+  fn _output(&self, _arm: usize) -> CommonOperatorOutput<f32> {
+    assert_eq!(0, _arm);
+    self.out.clone()
+  }
+
+  fn forward(&mut self, _phase: OpPhase) {
+    unimplemented!();
+  }
+
+  fn backward(&mut self) {
+    unimplemented!();
   }
 }
