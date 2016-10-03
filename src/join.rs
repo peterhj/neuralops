@@ -62,8 +62,11 @@ impl DiffOperator<f32> for AddJoinOperator {
   fn backward(&mut self) {
     let batch_size = *self.out.batch_size.borrow();
     for arm in 0 .. self.cfg.in_arms {
-      self.in_[arm].out_buf.borrow_mut()[ .. batch_size * self.cfg.dim]
-        .copy_from_slice(&self.out.out_buf.borrow()[ .. batch_size * self.cfg.dim]);
+      if let Some(in_grad) = self.in_[arm].out_grad.as_ref() {
+        let mut in_grad = in_grad.borrow_mut();
+        in_grad[ .. batch_size * self.cfg.dim]
+          .copy_from_slice(&self.out.out_grad.as_ref().unwrap().borrow()[ .. batch_size * self.cfg.dim]);
+      }
     }
   }
 }

@@ -9,7 +9,8 @@ use neuralops::data::mnist::{MnistDataShard};
 use neuralops::input::{InputPreproc};
 use operator::prelude::*;
 use operator::opt::{StepSize};
-use operator::opt::sgd::{SgdOptConfig, SgdOptWorker};
+use operator::opt::adam::{AdamConfig, AdamWorker};
+use operator::opt::sgd::{SgdConfig, SgdWorker};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::{thread_rng};
@@ -101,7 +102,7 @@ fn main() {
           PathBuf::from("datasets/mnist/t10k-labels-idx1-ubyte"),
       ));
 
-  let sgd_cfg = SgdOptConfig{
+  let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     step_size:      StepSize::Constant(0.1),
@@ -109,7 +110,18 @@ fn main() {
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),
   };
-  let mut sgd = SgdOptWorker::new(sgd_cfg, op);
+  let mut sgd = SgdWorker::new(sgd_cfg, op);
+  /*let sgd_cfg = AdamConfig{
+    batch_sz:       batch_sz,
+    minibatch_sz:   batch_sz,
+    step_size:      StepSize::Constant(0.01),
+    gamma1:         0.1,
+    gamma2:         0.05,
+    epsilon:        1.0e-12,
+    l2_reg:         None,
+    //l2_reg:         Some(1.0e-4),
+  };
+  let mut sgd = AdamWorker::new(sgd_cfg, op);*/
 
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
   println!("DEBUG: training...");
