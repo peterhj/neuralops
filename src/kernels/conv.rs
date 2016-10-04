@@ -4,34 +4,34 @@ use densearray::{ArrayIndex, Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
 extern "C" {
   pub fn neuralops_conv2d_bias_fwd(
       batch_sz: usize,
-      width: usize,
-      height: usize,
-      chan: usize,
+      out_width: usize,
+      out_height: usize,
+      out_chan: usize,
       in_buf: *const f32,
-      bias: *const f32,
-      out_buf: *mut f32);
-  pub fn neuralops_conv2d_scale_bias_fwd(
-      batch_sz: usize,
-      width: usize,
-      height: usize,
-      chan: usize,
-      in_buf: *const f32,
-      scale: *const f32,
       bias: *const f32,
       out_buf: *mut f32);
   pub fn neuralops_conv2d_bias_bwd(
       batch_sz: usize,
-      width: usize,
-      height: usize,
-      chan: usize,
+      out_width: usize,
+      out_height: usize,
+      out_chan: usize,
       out_grad: *const f32,
       bias_grad: *mut f32);
       //in_grad: *mut f32);
+  pub fn neuralops_conv2d_scale_bias_fwd(
+      batch_sz: usize,
+      out_width: usize,
+      out_height: usize,
+      out_chan: usize,
+      in_buf: *const f32,
+      scale: *const f32,
+      bias: *const f32,
+      out_buf: *mut f32);
   pub fn neuralops_conv2d_scale_bias_bwd(
       batch_sz: usize,
-      width: usize,
-      height: usize,
-      chan: usize,
+      out_width: usize,
+      out_height: usize,
+      out_chan: usize,
       in_buf: *const f32,
       scale: *const f32,
       out_grad: *const f32,
@@ -51,11 +51,11 @@ pub struct ConvScale2dKernel {
 
 impl ConvScale2dKernel {
   pub fn new(batch_sz: usize, dim: (usize, usize, usize)) -> ConvScale2dKernel {
-    let mut scale = Array1d::zeros(dim.flat_len());
+    let mut scale = Array1d::zeros(dim.2);
     scale.as_view_mut().set_constant(1.0);
-    let bias = Array1d::zeros(dim.flat_len());
-    let scale_grad = Array1d::zeros(dim.flat_len());
-    let bias_grad = Array1d::zeros(dim.flat_len());
+    let bias = Array1d::zeros(dim.2);
+    let scale_grad = Array1d::zeros(dim.2);
+    let bias_grad = Array1d::zeros(dim.2);
     ConvScale2dKernel{
       batch_sz:     batch_sz,
       dim:          dim,

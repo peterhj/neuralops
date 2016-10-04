@@ -8,3 +8,4 @@ pub use conv::{
 };
 pub use input::{SimpleInputOperator};
 pub use loss::{SoftmaxNLLClassLossOperator};
+pub use pool::{Pool2dOperator};

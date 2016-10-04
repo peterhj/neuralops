@@ -82,13 +82,22 @@ impl Conv2dOperator {
     assert_eq!(1, cfg.stride_w);
     assert_eq!(1, cfg.stride_h);
     let mut bias = Vec::with_capacity(cfg.out_chan);
-    unsafe { bias.set_len(cfg.out_chan) };
+    for _ in 0 .. cfg.out_chan {
+      bias.push(0.0);
+    }
     let mut b_grad = Vec::with_capacity(cfg.out_chan);
-    unsafe { b_grad.set_len(cfg.out_chan) };
-    let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
-    let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
+    for _ in 0 .. cfg.out_chan {
+      b_grad.push(0.0);
+    }
+    let out_len = cfg.batch_sz * cfg.out_dim().flat_len();
+    let mut tmp_buf = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp_buf.push(0.0);
+    }
+    let mut tmp_grad = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp_grad.push(0.0);
+    }
     Conv2dOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
@@ -160,6 +169,20 @@ impl DiffOperator<f32> for Conv2dOperator {
     }
   }
 
+  fn load_param(&mut self, param_reader: &mut ReadBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += param_reader.read(offset, self.weights.as_mut_slice());
+    offset += param_reader.read(offset, &mut self.bias);
+    offset - init_offset
+  }
+
+  fn store_param(&mut self, param_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += param_writer.write(offset, self.weights.as_slice());
+    offset += param_writer.write(offset, &self.bias);
+    offset - init_offset
+  }
+
   fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_reader.read_accumulate(alpha, beta, offset, self.weights.as_mut_slice());
@@ -190,6 +213,13 @@ impl DiffOperator<f32> for Conv2dOperator {
     }
   }
 
+  fn store_grad(&mut self, grad_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += grad_writer.write(offset, self.w_grad.as_slice());
+    offset += grad_writer.write(offset, &self.b_grad);
+    offset - init_offset
+  }
+
   fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {
     let mut offset = init_offset;
     offset += grad_accum.accumulate(alpha, beta, offset, self.w_grad.as_slice());
@@ -198,8 +228,6 @@ impl DiffOperator<f32> for Conv2dOperator {
   }
 
   fn forward(&mut self, _phase: OpPhase) {
-    //assert!(self.in_.batch_size <= self.cfg.batch_sz);
-    //self.out.batch_size = self.in_.batch_size;
     let batch_size = *self.in_.batch_size.borrow();
     *self.out.batch_size.borrow_mut() = batch_size;
     assert!(batch_size <= self.cfg.batch_sz);
@@ -249,6 +277,16 @@ impl DiffOperator<f32> for Conv2dOperator {
     //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
     self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
+    let out_dim = self.cfg.out_dim();
+    unsafe { neuralops_conv2d_bias_bwd(
+        batch_size,
+        out_dim.0,
+        out_dim.1,
+        out_dim.2,
+        self.tmp_grad.as_ptr(),
+        self.b_grad.as_mut_ptr(),
+    ) };
+
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
         batch_size,
@@ -267,16 +305,6 @@ impl DiffOperator<f32> for Conv2dOperator {
     if status.is_err() {
       panic!("nnpack convolution failed: {:?}", status);
     }
-
-    let out_dim = self.cfg.out_dim();
-    unsafe { neuralops_conv2d_bias_bwd(
-        batch_size,
-        out_dim.0,
-        out_dim.1,
-        out_dim.2,
-        self.in_.out_buf.borrow().as_ptr(),
-        self.b_grad.as_mut_ptr(),
-    ) };
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
       let status = unsafe { nnp_convolution_input_gradient(
@@ -359,18 +387,31 @@ impl BatchNormConv2dOperator {
   pub fn new(cfg: BatchNormConv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> BatchNormConv2dOperator {
     assert_eq!(1, cfg.stride_w);
     assert_eq!(1, cfg.stride_h);
-    let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
-    let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
-    let mut tmp2_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp2_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
-    let mut tmp2_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp2_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
-    let mut tmp3_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp3_buf.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
-    let mut tmp3_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim().flat_len());
-    unsafe { tmp3_grad.set_len(cfg.batch_sz * cfg.out_dim().flat_len()) };
+    let out_len = cfg.batch_sz * cfg.out_dim().flat_len();
+    let mut tmp_buf = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp_buf.push(0.0);
+    }
+    let mut tmp_grad = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp_grad.push(0.0);
+    }
+    let mut tmp2_buf = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp2_buf.push(0.0);
+    }
+    let mut tmp2_grad = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp2_grad.push(0.0);
+    }
+    let mut tmp3_buf = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp3_buf.push(0.0);
+    }
+    let mut tmp3_grad = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp3_grad.push(0.0);
+    }
     BatchNormConv2dOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
@@ -383,7 +424,7 @@ impl BatchNormConv2dOperator {
       tmp2_grad:    tmp2_grad,
       tmp3_buf:     tmp3_buf,
       tmp3_grad:    tmp3_grad,
-      bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim()),
+      bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, 1.0e-6, cfg.out_dim()),
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
@@ -403,13 +444,13 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
   }
 
   fn param_len(&self) -> usize {
-    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan +
-        2 * self.cfg.out_chan
+    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan
+        + 2 * self.cfg.out_chan
   }
 
   fn diff_param_sz(&self) -> usize {
-    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan +
-        2 * self.cfg.out_chan
+    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan
+        + 2 * self.cfg.out_chan
   }
 
   fn nondiff_param_sz(&self) -> usize {
@@ -448,6 +489,9 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         }
       }
     }
+    self.zerobias.as_view_mut().set_constant(0.0);
+    self.bnorm_k.run_mean.as_view_mut().set_constant(0.0);
+    self.bnorm_k.run_var.as_view_mut().set_constant(1.0);
     self.scale_k.scale.as_view_mut().set_constant(1.0);
     self.scale_k.bias.as_view_mut().set_constant(0.0);
   }
@@ -465,6 +509,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     offset += param_writer.write(offset, self.weights.as_slice());
     offset += param_writer.write(offset, self.scale_k.scale.as_slice());
     offset += param_writer.write(offset, self.scale_k.bias.as_slice());
+    assert_eq!(self.param_len(), offset - init_offset);
     offset - init_offset
   }
 
@@ -476,8 +521,12 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     offset - init_offset
   }
 
-  fn update_nondiff_param(&mut self) {
-    self.bnorm_k.update(self.cfg.avg_rate);
+  fn update_nondiff_param(&mut self, iter: usize) {
+    if iter == 0 {
+      self.bnorm_k.update(1.0);
+    } else {
+      self.bnorm_k.update(self.cfg.avg_rate);
+    }
   }
 
   fn reset_grad(&mut self) {
@@ -529,6 +578,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         self.in_.out_buf.borrow().as_ptr(),
         self.weights.as_view().as_ptr(),
         self.zerobias.as_view().as_ptr(),
+        //self.tmp3_buf.as_mut_ptr(),
         self.tmp_buf.as_mut_ptr(),
         self.nnp_pool.as_raw(),
         null_mut(),
@@ -536,9 +586,14 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     if status.is_err() {
       panic!("nnpack convolution failed: {:?}", status);
     }
+    //println!("DEBUG: bnorm conv: tmp_buf[100]: {:e}", self.tmp_buf[100]);
 
-    self.bnorm_k.forward(batch_size, &self.tmp_buf, &mut self.tmp2_buf, 1.0);
-    self.scale_k.forward(batch_size, &self.tmp2_buf, &mut self.tmp3_buf);
+    //self.bnorm_k.forward(batch_size, &self.tmp_buf, &mut self.tmp3_buf, 1.0);
+    //self.scale_k.forward(batch_size, &self.tmp_buf, &mut self.tmp3_buf);
+
+    let out_len = batch_size * self.cfg.out_dim().flat_len();
+    self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
+    self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
 
     //activate_fwd(self.cfg.act_kind, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
     self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
@@ -560,12 +615,16 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     //assert!(self.in_.batch_size <= self.cfg.batch_sz);
     //assert_eq!(self.out.batch_size, self.in_.batch_size);
     let batch_size = *self.out.batch_size.borrow();
+    let out_len = batch_size * self.cfg.out_dim().flat_len();
 
     //activate_bwd(self.cfg.act_kind, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
     self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
 
-    self.scale_k.backward(batch_size, &self.tmp2_buf, &self.tmp3_grad, &mut self.tmp2_grad);
-    self.bnorm_k.backward(batch_size, &self.tmp_buf, &self.tmp2_grad, &mut self.tmp_grad, 1.0);
+    //self.scale_k.backward(batch_size, &self.tmp_buf, &self.tmp3_grad, &mut self.tmp_grad);
+    //self.bnorm_k.backward(batch_size, &self.tmp_buf, &self.tmp3_grad, &mut self.tmp_grad, 1.0);
+
+    self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
+    self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
@@ -577,6 +636,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         nnp_padding{left: self.cfg.pad_w, right: self.cfg.pad_w, bottom: self.cfg.pad_h, top: self.cfg.pad_h},
         nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
         self.in_.out_buf.borrow().as_ptr(),
+        //self.tmp3_grad.as_ptr(),
         self.tmp_grad.as_ptr(),
         self.w_grad.as_view_mut().as_mut_ptr(),
         self.nnp_pool.as_raw(),
@@ -596,6 +656,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
           //nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
           nnp_padding{left: self.cfg.pad_w, right: self.cfg.pad_w, bottom: self.cfg.pad_h, top: self.cfg.pad_h},
           nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
+          //self.tmp3_grad.as_ptr(),
           self.tmp_grad.as_ptr(),
           self.weights.as_view().as_ptr(),
           in_grad.borrow_mut().as_mut_ptr(),
@@ -703,12 +764,92 @@ impl DiffOperator<f32> for ResidualConv2dOperator {
     self.out.clone()
   }
 
-  fn forward(&mut self, _phase: OpPhase) {
-    unimplemented!();
+  fn param_len(&self) -> usize {
+    self.conv1.param_len()
+        + self.conv2.param_len()
+  }
+
+  fn diff_param_sz(&self) -> usize {
+    self.conv1.diff_param_sz()
+        + self.conv2.diff_param_sz()
+  }
+
+  fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
+    self.conv1.init_param(rng);
+    self.conv2.init_param(rng);
+  }
+
+  fn load_param(&mut self, param_reader: &mut ReadBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv1.load_param(param_reader, offset);
+    offset += self.conv2.load_param(param_reader, offset);
+    offset - init_offset
+  }
+
+  fn store_param(&mut self, param_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv1.store_param(param_writer, offset);
+    offset += self.conv2.store_param(param_writer, offset);
+    offset - init_offset
+  }
+
+  fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv1.update_param(alpha, beta, grad_reader, offset);
+    offset += self.conv2.update_param(alpha, beta, grad_reader, offset);
+    offset - init_offset
+  }
+
+  fn update_nondiff_param(&mut self, iter: usize) {
+    self.conv1.update_nondiff_param(iter);
+    self.conv2.update_nondiff_param(iter);
+  }
+
+  fn reset_grad(&mut self) {
+    self.conv1.reset_grad();
+    self.conv2.reset_grad();
+  }
+
+  fn apply_grad_reg(&mut self, reg: Regularization) {
+    self.conv1.apply_grad_reg(reg);
+    self.conv2.apply_grad_reg(reg);
+  }
+
+  fn store_grad(&mut self, grad_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv1.store_grad(grad_writer, offset);
+    offset += self.conv2.store_grad(grad_writer, offset);
+    offset - init_offset
+  }
+
+  fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv1.accumulate_grad(alpha, beta, grad_accum, offset);
+    offset += self.conv2.accumulate_grad(alpha, beta, grad_accum, offset);
+    offset - init_offset
+  }
+
+  fn forward(&mut self, phase: OpPhase) {
+    let split_out = self.split._output(0);
+    let batch_size = *split_out.batch_size.borrow();
+    *self.out.batch_size.borrow_mut() = batch_size;
+    self.split.forward(phase);
+    self.conv1.forward(phase);
+    self.conv2.forward(phase);
+    self.join.forward(phase);
+    let join_out = self.join._output(0);
+    self.act_k.forward(batch_size, &*join_out.out_buf.borrow(), &mut *self.out.out_buf.borrow_mut());
+    *self.out.batch_size.borrow_mut() = batch_size;
   }
 
   fn backward(&mut self) {
-    unimplemented!();
+    let batch_size = *self.out.batch_size.borrow();
+    let join_out = self.join._output(0);
+    self.act_k.backward(batch_size, &*join_out.out_buf.borrow(), &*self.out.out_grad.as_ref().unwrap().borrow(), &mut *join_out.out_grad.as_ref().unwrap().borrow_mut());
+    self.join.backward();
+    self.conv2.backward();
+    self.conv1.backward();
+    self.split.backward();
   }
 }
 
@@ -821,11 +962,104 @@ impl DiffOperator<f32> for ProjResidualConv2dOperator {
     self.out.clone()
   }
 
-  fn forward(&mut self, _phase: OpPhase) {
-    unimplemented!();
+  fn param_len(&self) -> usize {
+    self.conv0.param_len()
+        + self.conv1.param_len()
+        + self.conv2.param_len()
+  }
+
+  fn diff_param_sz(&self) -> usize {
+    self.conv0.diff_param_sz()
+        + self.conv1.diff_param_sz()
+        + self.conv2.diff_param_sz()
+  }
+
+  fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
+    self.conv0.init_param(rng);
+    self.conv1.init_param(rng);
+    self.conv2.init_param(rng);
+  }
+
+  fn load_param(&mut self, param_reader: &mut ReadBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv0.load_param(param_reader, offset);
+    offset += self.conv1.load_param(param_reader, offset);
+    offset += self.conv2.load_param(param_reader, offset);
+    offset - init_offset
+  }
+
+  fn store_param(&mut self, param_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv0.store_param(param_writer, offset);
+    offset += self.conv1.store_param(param_writer, offset);
+    offset += self.conv2.store_param(param_writer, offset);
+    offset - init_offset
+  }
+
+  fn update_param(&mut self, alpha: f32, beta: f32, grad_reader: &mut ReadAccumulateBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv0.update_param(alpha, beta, grad_reader, offset);
+    offset += self.conv1.update_param(alpha, beta, grad_reader, offset);
+    offset += self.conv2.update_param(alpha, beta, grad_reader, offset);
+    offset - init_offset
+  }
+
+  fn update_nondiff_param(&mut self, iter: usize) {
+    self.conv0.update_nondiff_param(iter);
+    self.conv1.update_nondiff_param(iter);
+    self.conv2.update_nondiff_param(iter);
+  }
+
+  fn reset_grad(&mut self) {
+    self.conv0.reset_grad();
+    self.conv1.reset_grad();
+    self.conv2.reset_grad();
+  }
+
+  fn apply_grad_reg(&mut self, reg: Regularization) {
+    self.conv0.apply_grad_reg(reg);
+    self.conv1.apply_grad_reg(reg);
+    self.conv2.apply_grad_reg(reg);
+  }
+
+  fn store_grad(&mut self, grad_writer: &mut WriteBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv0.store_grad(grad_writer, offset);
+    offset += self.conv1.store_grad(grad_writer, offset);
+    offset += self.conv2.store_grad(grad_writer, offset);
+    offset - init_offset
+  }
+
+  fn accumulate_grad(&mut self, alpha: f32, beta: f32, grad_accum: &mut AccumulateBuffer<f32>, init_offset: usize) -> usize {
+    let mut offset = init_offset;
+    offset += self.conv0.accumulate_grad(alpha, beta, grad_accum, offset);
+    offset += self.conv1.accumulate_grad(alpha, beta, grad_accum, offset);
+    offset += self.conv2.accumulate_grad(alpha, beta, grad_accum, offset);
+    offset - init_offset
+  }
+
+  fn forward(&mut self, phase: OpPhase) {
+    let split_out = self.split._output(0);
+    let batch_size = *split_out.batch_size.borrow();
+    *self.out.batch_size.borrow_mut() = batch_size;
+    self.split.forward(phase);
+    self.conv0.forward(phase);
+    self.conv1.forward(phase);
+    self.conv2.forward(phase);
+    self.join.forward(phase);
+    let join_out = self.join._output(0);
+    self.act_k.forward(batch_size, &*join_out.out_buf.borrow(), &mut *self.out.out_buf.borrow_mut());
+    *self.out.batch_size.borrow_mut() = batch_size;
   }
 
   fn backward(&mut self) {
-    unimplemented!();
+    let batch_size = *self.out.batch_size.borrow();
+    let join_out = self.join._output(0);
+    self.act_k.backward(batch_size, &*join_out.out_buf.borrow(), &*self.out.out_grad.as_ref().unwrap().borrow(), &mut *join_out.out_grad.as_ref().unwrap().borrow_mut());
+    self.join.backward();
+    self.conv2.backward();
+    self.conv1.backward();
+    self.conv0.backward();
+    self.split.backward();
   }
 }

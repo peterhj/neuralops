@@ -118,18 +118,25 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
       self.losses[idx] = -self.weights[idx] * self.out.out_buf.borrow()[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
     }*/
     let in_buf = self.in_.out_buf.borrow();
+    //println!("DEBUG: softmax: in buf: {:?}", &in_buf[ .. 10]);
     let mut out_buf = self.out.out_buf.borrow_mut();
     self.sm_kern.forward(batch_size, &*in_buf, &mut *out_buf);
     let mut batch_loss = 0.0;
+    let mut batch_accuracy = 0;
     for idx in 0 .. batch_size {
       let idx_range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(in_buf[idx_range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
       self.hats[idx] = max_logit_k as u32;
+      if self.hats[idx] == self.labels[idx] {
+        batch_accuracy += 1;
+      }
       let loss = -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
       self.losses[idx] = loss;
       batch_loss += loss;
     }
     //self.loss1 += Sum::sum(self.losses[ .. batch_size].iter().map(|&x| x));
+    //println!("DEBUG: softmax: out buf: {:?}", &out_buf[ .. 10]);
+    //println!("DEBUG: softmax: accuracy: {}/{}", batch_accuracy, batch_size);
 
     let in_loss = *self.in_.out_loss.borrow();
     self.loss1 += batch_loss + in_loss;

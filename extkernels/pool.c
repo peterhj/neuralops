@@ -100,8 +100,8 @@ void neuralops_avgpool2d_bwd(
     size_t pool_w,
     size_t pool_h)
 {
-  size_t out_width = (in_width + 1) / 2;
-  size_t out_height = (in_height + 1) / 2;
+  size_t out_width = (in_width + pool_w - 1) / pool_w;
+  size_t out_height = (in_height + pool_h - 1) / pool_h;
   float normalizer = 1.0f / ((float)(pool_w * pool_h));
   size_t p = 0;
   for (size_t idx = 0; idx < batch_sz; idx += 1) {

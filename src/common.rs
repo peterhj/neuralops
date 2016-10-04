@@ -36,12 +36,17 @@ pub struct CommonOperatorOutput<T> where T: Copy {
 
 impl CommonOperatorOutput<f32> {
   pub fn new(batch_size: usize, frame_size: usize, cap: OpCapability) -> Self {
-    let mut out_buf = Vec::with_capacity(batch_size * frame_size);
-    unsafe { out_buf.set_len(batch_size * frame_size) };
+    let out_len = batch_size * frame_size;
+    let mut out_buf = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      out_buf.push(0.0);
+    }
     let out_buf = RwMem::new(out_buf);
     let out_grad = if cap.enable_backward() {
-      let mut out_grad = Vec::with_capacity(batch_size * frame_size);
-      unsafe { out_grad.set_len(batch_size * frame_size) };
+      let mut out_grad = Vec::with_capacity(out_len);
+      for _ in 0 .. out_len {
+        out_grad.push(0.0);
+      }
       Some(RwMem::new(out_grad))
     } else {
       None

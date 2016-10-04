@@ -178,7 +178,7 @@ impl DiffOperator<f32> for NormLstSqRegressLossOperator {
     self.run_var = 1.0;
   }
 
-  fn update_nondiff_param(&mut self) {
+  fn update_nondiff_param(&mut self, _iter: usize) {
     self.run_var += self.cfg.avg_rate * (self.var / self.nsamples as f32 - self.run_var);
     self.nsamples = 0;
     self.var = 0.0;

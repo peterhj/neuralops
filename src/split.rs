@@ -45,9 +45,9 @@ impl DiffOperator<f32> for CopySplitOperator {
     let batch_loss = *self.in_.out_loss.borrow();
     for arm in 0 .. self.cfg.out_arms {
       *self.out[arm].batch_size.borrow_mut() = batch_size;
+      *self.out[arm].out_loss.borrow_mut() = batch_loss;
       self.out[arm].out_buf.borrow_mut()[ .. batch_size * self.cfg.dim]
         .copy_from_slice(&self.in_.out_buf.borrow()[ .. batch_size * self.cfg.dim]);
-      *self.out[arm].out_loss.borrow_mut() = batch_loss;
     }
   }
 
@@ -56,7 +56,7 @@ impl DiffOperator<f32> for CopySplitOperator {
       let batch_size = *self.out[0].batch_size.borrow();
       let mut in_grad = in_grad.borrow_mut();
       in_grad[ .. batch_size * self.cfg.dim]
-        .copy_from_slice(&self.out[0].out_buf.borrow()[ .. batch_size * self.cfg.dim]);
+        .copy_from_slice(&self.out[0].out_grad.as_ref().unwrap().borrow()[ .. batch_size * self.cfg.dim]);
       for arm in 1 .. self.cfg.out_arms {
         let arm_batch_size = *self.out[arm].batch_size.borrow();
         assert_eq!(batch_size, arm_batch_size);

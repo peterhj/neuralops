@@ -24,6 +24,28 @@ void neuralops_conv2d_bias_fwd(
   }
 }
 
+void neuralops_conv2d_bias_bwd(
+    size_t batch_sz,
+    size_t out_width,
+    size_t out_height,
+    size_t out_chan,
+    const float *restrict out_grad,
+    float *restrict bias_grad)
+{
+  size_t p = 0;
+  for (size_t idx = 0; idx < batch_sz; idx += 1) {
+    for (size_t a = 0; a < out_chan; a += 1) {
+      for (size_t y = 0; y < out_height; y += 1) {
+        for (size_t x = 0; x < out_width; x += 1) {
+          float g = out_grad[p];
+          bias_grad[a] += g;
+          p += 1;
+        }
+      }
+    }
+  }
+}
+
 void neuralops_conv2d_scale_bias_fwd(
     size_t batch_sz,
     size_t out_width,
@@ -42,28 +64,6 @@ void neuralops_conv2d_scale_bias_fwd(
       for (size_t y = 0; y < out_height; y += 1) {
         for (size_t x = 0; x < out_width; x += 1) {
           out_buf[p] = in_buf[p] * s + b;
-          p += 1;
-        }
-      }
-    }
-  }
-}
-
-void neuralops_conv2d_bias_bwd(
-    size_t batch_sz,
-    size_t out_width,
-    size_t out_height,
-    size_t out_chan,
-    const float *restrict out_grad,
-    float *restrict bias_grad)
-{
-  size_t p = 0;
-  for (size_t idx = 0; idx < batch_sz; idx += 1) {
-    for (size_t a = 0; a < out_chan; a += 1) {
-      for (size_t y = 0; y < out_height; y += 1) {
-        for (size_t x = 0; x < out_width; x += 1) {
-          float g = out_grad[p];
-          bias_grad[a] += g;
           p += 1;
         }
       }

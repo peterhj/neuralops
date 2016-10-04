@@ -19,8 +19,10 @@ use std::path::{PathBuf};
 fn main() {
   let batch_sz = 128;
 
-  let op_cfg = build_cifar10_krizh_seq(batch_sz);
-  //let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
+  //let op_cfg = build_cifar10_simple_seq(batch_sz);
+  //let op_cfg = build_cifar10_simple2_seq(batch_sz);
+  //let op_cfg = build_cifar10_krizh_seq(batch_sz);
+  let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let mut train_data =
@@ -40,7 +42,8 @@ fn main() {
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.1),
+    step_size:      StepSize::Constant(0.01),
+    //momentum:       None,
     momentum:       Some(0.9),
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),
@@ -51,15 +54,15 @@ fn main() {
   println!("DEBUG: training...");
   sgd.reset_opt_stats();
   sgd.init_param(&mut rng);
-  for iter_nr in 0 .. 1000 {
+  for iter_nr in 0 .. 100000 {
     sgd.step(&mut train_data);
-    if (iter_nr + 1) % 20 == 0 {
+    if (iter_nr + 1) % 1 == 0 {
       println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }
   }
-  println!("DEBUG: validation...");
+  /*println!("DEBUG: validation...");
   sgd.reset_opt_stats();
   sgd.eval(valid_data.len(), &mut valid_data);
-  println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
+  println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());*/
 }

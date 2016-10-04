@@ -36,10 +36,15 @@ pub struct AffineOperator {
 
 impl AffineOperator {
   pub fn new(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> AffineOperator {
-    let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
-    unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.out_dim) };
-    let mut tmp_grad = Vec::with_capacity(cfg.batch_sz * cfg.out_dim);
-    unsafe { tmp_grad.set_len(cfg.batch_sz * cfg.out_dim) };
+    let out_len = cfg.batch_sz * cfg.out_dim;
+    let mut tmp_buf = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp_buf.push(0.0);
+    }
+    let mut tmp_grad = Vec::with_capacity(out_len);
+    for _ in 0 .. out_len {
+      tmp_grad.push(0.0);
+    }
     AffineOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
@@ -65,6 +70,10 @@ impl DiffOperator<f32> for AffineOperator {
   }
 
   fn param_len(&self) -> usize {
+    self.cfg.in_dim * self.cfg.out_dim + self.cfg.out_dim
+  }
+
+  fn diff_param_sz(&self) -> usize {
     self.cfg.in_dim * self.cfg.out_dim + self.cfg.out_dim
   }
 

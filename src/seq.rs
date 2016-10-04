@@ -28,12 +28,6 @@ pub struct SeqOperator<T, S> {
   input_op:     Box<DiffOperatorInput<T, S, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>,
   loss_op:      Box<DiffOperatorInput<T, S, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>,
   inner_ops:    Vec<Box<DiffOperator<T, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>>,
-  /*input_op:     Box<DiffOperatorInput<T, S>>,
-  input_out:    CommonOperatorOutput<f32>,
-  loss_op:      Box<DiffOperatorInput<T, S>>,
-  loss_out:     CommonOperatorOutput<f32>,
-  inner_ops:    Vec<Box<DiffOperator<T>>>,
-  inner_outs:   Vec<CommonOperatorOutput<f32>>,*/
 }
 
 impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + SampleWeight {
@@ -48,7 +42,6 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
       _ => unreachable!(),
     };
     let mut inner_ops: Vec<Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>>> = vec![];
-    //let mut inner_outs = vec![];
     for (idx, cfg) in cfgs[1 .. num_ops-1].iter().enumerate() {
       let op: Box<DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>> = {
         let prev_op = match idx {
@@ -66,6 +59,18 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
           }
           &SeqOperatorConfig::BatchNormConv2d(cfg) => {
             let op = BatchNormConv2dOperator::new(cfg, cap, prev_op, 0, res.clone());
+            Box::new(op)
+          }
+          &SeqOperatorConfig::ResidualConv2d(cfg) => {
+            let op = ResidualConv2dOperator::new(cfg, cap, prev_op, 0, res.clone());
+            Box::new(op)
+          }
+          &SeqOperatorConfig::ProjResidualConv2d(cfg) => {
+            let op = ProjResidualConv2dOperator::new(cfg, cap, prev_op, 0, res.clone());
+            Box::new(op)
+          }
+          &SeqOperatorConfig::Pool2d(cfg) => {
+            let op = Pool2dOperator::new(cfg, cap, prev_op, 0, res.clone());
             Box::new(op)
           }
           _ => unreachable!(),
@@ -87,11 +92,8 @@ impl<S> SeqOperator<f32, S> where S: SampleExtractInput<f32> + SampleClass + Sam
     };
     SeqOperator{
       input_op:     input_op,
-      //input_out:    input_out,
       loss_op:      loss_op,
-      //loss_out:     loss_out,
       inner_ops:    inner_ops,
-      //inner_outs:   inner_outs,
     }
   }
 }
@@ -124,7 +126,7 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
     for op in self.inner_ops.iter_mut() {
       op.init_param(rng);
     }
-    self.loss_op.update_nondiff_param();
+    self.loss_op.init_param(rng);
   }
 
   fn load_param(&mut self, param_reader: &mut ReadBuffer<T>, init_offset: usize) -> usize {
@@ -151,11 +153,11 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
     offset - init_offset
   }
 
-  fn update_nondiff_param(&mut self) {
+  fn update_nondiff_param(&mut self, iter: usize) {
     for op in self.inner_ops.iter_mut() {
-      op.update_nondiff_param();
+      op.update_nondiff_param(iter);
     }
-    self.loss_op.update_nondiff_param();
+    self.loss_op.update_nondiff_param(iter);
   }
 
   fn reset_grad(&mut self) {

@@ -52,9 +52,9 @@ impl DiffOperator<f32> for AddJoinOperator {
     for arm in 1 .. self.cfg.in_arms {
       let arm_batch_size = *self.in_[arm].batch_size.borrow();
       assert_eq!(batch_size, arm_batch_size);
+      batch_loss += *self.in_[arm].out_loss.borrow();
       self.out.out_buf.borrow_mut().reshape_mut(batch_size * self.cfg.dim)
         .vector_add(1.0, self.in_[arm].out_buf.borrow().reshape(batch_size * self.cfg.dim));
-      batch_loss += *self.in_[arm].out_loss.borrow();
     }
     *self.out.out_loss.borrow_mut() = batch_loss;
   }
