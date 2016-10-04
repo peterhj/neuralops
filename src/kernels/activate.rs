@@ -3,6 +3,7 @@ use common::{ActivationKind};
 use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;
 
+use std::ptr::{null_mut};
 use std::rc::{Rc};
 
 pub struct ActivateKernel {
@@ -39,7 +40,8 @@ impl ActivateKernel {
             in_buf.as_ptr(),
             out_buf.as_mut_ptr(),
             0.0,
-            self.nnp_pool.as_raw(),
+            //self.nnp_pool.as_raw(),
+            null_mut(),
         ) };
         assert!(status.is_ok());
       }
@@ -65,7 +67,8 @@ impl ActivateKernel {
             in_buf.as_ptr(),
             in_grad.as_mut_ptr(),
             0.0,
-            self.nnp_pool.as_raw(),
+            //self.nnp_pool.as_raw(),
+            null_mut(),
         ) };
         assert!(status.is_ok());
       }

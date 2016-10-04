@@ -1,14 +1,13 @@
-use common::{ActivationKind, PoolKind};
-
 use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;
 
+use std::ptr::{null_mut};
 use std::rc::{Rc};
 
 pub struct SoftmaxKernel {
   batch_sz: usize,
   dim:      usize,
-  nnp_h:    NnpackHandle,
+  _nnp_h:   NnpackHandle,
   nnp_pool: Rc<NnpackPthreadPool>,
 }
 
@@ -17,7 +16,7 @@ impl SoftmaxKernel {
     SoftmaxKernel{
       batch_sz: batch_sz,
       dim:      dim,
-      nnp_h:    NnpackHandle::new(),
+      _nnp_h:   NnpackHandle::new(),
       nnp_pool: nnp_pool,
     }
   }
@@ -29,7 +28,8 @@ impl SoftmaxKernel {
         self.dim,
         in_buf.as_ptr(),
         out_buf.as_mut_ptr(),
-        self.nnp_pool.as_raw(),
+        //self.nnp_pool.as_raw(),
+        null_mut(),
     ) };
     assert!(status.is_ok());
   }

@@ -245,7 +245,8 @@ impl DiffOperator<f32> for Conv2dOperator {
         self.weights.as_view().as_ptr(),
         self.bias.as_ptr(),
         self.tmp_buf.as_mut_ptr(),
-        self.nnp_pool.as_raw(),
+        //self.nnp_pool.as_raw(),
+        null_mut(),
         null_mut(),
     ) };
     if status.is_err() {
@@ -299,7 +300,8 @@ impl DiffOperator<f32> for Conv2dOperator {
         self.in_.out_buf.borrow().as_ptr(),
         self.tmp_grad.as_ptr(),
         self.w_grad.as_view_mut().as_mut_ptr(),
-        self.nnp_pool.as_raw(),
+        //self.nnp_pool.as_raw(),
+        null_mut(),
         null_mut(),
     ) };
     if status.is_err() {
@@ -319,7 +321,8 @@ impl DiffOperator<f32> for Conv2dOperator {
           self.tmp_grad.as_ptr(),
           self.weights.as_view().as_ptr(),
           in_grad.borrow_mut().as_mut_ptr(),
-          self.nnp_pool.as_raw(),
+          //self.nnp_pool.as_raw(),
+          null_mut(),
           null_mut(),
       ) };
       if status.is_err() {
@@ -544,9 +547,6 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         for j in 0 .. weights_len {
           w_grad[j] += lambda * weights[j];
         }
-        /*for j in 0 .. self.bias.len() {
-          self.b_grad[j] += lambda * self.bias[j];
-        }*/
       }
     }
   }
@@ -578,9 +578,9 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         self.in_.out_buf.borrow().as_ptr(),
         self.weights.as_view().as_ptr(),
         self.zerobias.as_view().as_ptr(),
-        //self.tmp3_buf.as_mut_ptr(),
         self.tmp_buf.as_mut_ptr(),
-        self.nnp_pool.as_raw(),
+        //self.nnp_pool.as_raw(),
+        null_mut(),
         null_mut(),
     ) };
     if status.is_err() {
@@ -588,15 +588,12 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     }
     //println!("DEBUG: bnorm conv: tmp_buf[100]: {:e}", self.tmp_buf[100]);
 
-    //self.bnorm_k.forward(batch_size, &self.tmp_buf, &mut self.tmp3_buf, 1.0);
-    //self.scale_k.forward(batch_size, &self.tmp_buf, &mut self.tmp3_buf);
-
     let out_len = batch_size * self.cfg.out_dim().flat_len();
     self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
     self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
 
     //activate_fwd(self.cfg.act_kind, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
-    self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(batch_size, &self.tmp3_buf[ .. out_len], &mut self.out.out_buf.borrow_mut()[ .. out_len]);
 
     let in_loss = *self.in_.out_loss.borrow();
     *self.out.out_loss.borrow_mut() = in_loss;
@@ -618,7 +615,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     let out_len = batch_size * self.cfg.out_dim().flat_len();
 
     //activate_bwd(self.cfg.act_kind, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
-    self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
+    self.act_kern.backward(batch_size, &self.tmp3_buf[ .. out_len], &self.out.out_grad.as_ref().unwrap().borrow()[ .. out_len], &mut self.tmp3_grad[ .. out_len]);
 
     //self.scale_k.backward(batch_size, &self.tmp_buf, &self.tmp3_grad, &mut self.tmp_grad);
     //self.bnorm_k.backward(batch_size, &self.tmp_buf, &self.tmp3_grad, &mut self.tmp_grad, 1.0);
@@ -636,10 +633,10 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         nnp_padding{left: self.cfg.pad_w, right: self.cfg.pad_w, bottom: self.cfg.pad_h, top: self.cfg.pad_h},
         nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
         self.in_.out_buf.borrow().as_ptr(),
-        //self.tmp3_grad.as_ptr(),
         self.tmp_grad.as_ptr(),
         self.w_grad.as_view_mut().as_mut_ptr(),
-        self.nnp_pool.as_raw(),
+        //self.nnp_pool.as_raw(),
+        null_mut(),
         null_mut(),
     ) };
     if status.is_err() {
@@ -656,11 +653,11 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
           //nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
           nnp_padding{left: self.cfg.pad_w, right: self.cfg.pad_w, bottom: self.cfg.pad_h, top: self.cfg.pad_h},
           nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
-          //self.tmp3_grad.as_ptr(),
           self.tmp_grad.as_ptr(),
           self.weights.as_view().as_ptr(),
           in_grad.borrow_mut().as_mut_ptr(),
-          self.nnp_pool.as_raw(),
+          //self.nnp_pool.as_raw(),
+          null_mut(),
           null_mut(),
       ) };
       if status.is_err() {
