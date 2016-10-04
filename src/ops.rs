@@ -1,11 +1,21 @@
 pub use common::{CommonOperatorOutput};
 pub use affine::{AffineOperator};
 pub use conv::{
-  Conv2dOperator,
-  BatchNormConv2dOperator,
   ResidualConv2dOperator,
   ProjResidualConv2dOperator,
 };
+#[cfg(feature = "mkl")]
+pub use conv_mkl::{
+  Conv2dOperator,
+  BatchNormConv2dOperator,
+};
+#[cfg(not(feature = "mkl"))]
+pub use conv_nnpack::{
+  Conv2dOperator,
+  BatchNormConv2dOperator,
+};
 pub use input::{SimpleInputOperator};
+pub use join::{AddJoinOperator};
 pub use loss::{SoftmaxNLLClassLossOperator};
 pub use pool::{Pool2dOperator};
+pub use split::{CopySplitOperator};

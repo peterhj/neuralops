@@ -3,6 +3,8 @@
 extern crate densearray;
 extern crate float;
 extern crate iter_utils;
+#[cfg(feature = "mkl")]
+extern crate mkl_dnn;
 extern crate nnpack;
 extern crate operator;
 extern crate rng;
@@ -17,6 +19,10 @@ pub mod checkpoint;
 //pub mod class_loss;
 pub mod common;
 pub mod conv;
+#[cfg(feature = "mkl")]
+pub mod conv_mkl;
+#[cfg(not(feature = "mkl"))]
+pub mod conv_nnpack;
 pub mod data;
 pub mod graph;
 pub mod input;
