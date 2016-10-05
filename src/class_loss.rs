@@ -24,6 +24,7 @@ pub struct SoftmaxNLLClassLossOperator {
   hats:     Vec<u32>,
   losses:   Vec<f32>,
   loss1:    f32,
+  accuracy: usize,
   labels:   Vec<u32>,
   weights:  Vec<f32>,
   sm_kern:  SoftmaxKernel,
@@ -63,6 +64,7 @@ impl SoftmaxNLLClassLossOperator {
       hats:     hats,
       losses:   losses,
       loss1:    0.0,
+      accuracy: 0,
       labels:   labels,
       weights:  weights,
       sm_kern:  SoftmaxKernel::new(cfg.batch_sz, cfg.num_classes, res.nnp_pool),
@@ -99,6 +101,7 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
 
   fn reset_loss(&mut self) {
     self.loss1 = 0.0;
+    self.accuracy = 0;
   }
 
   fn store_loss(&mut self) -> f32 {
@@ -148,6 +151,7 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
 
     let in_loss = *self.in_.out_loss.borrow();
     self.loss1 += batch_loss + in_loss;
+    self.accuracy += batch_accuracy;
     *self.out.out_loss.borrow_mut() = batch_loss + in_loss;
   }
 

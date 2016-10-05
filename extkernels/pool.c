@@ -1,13 +1,36 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+void neuralops_maxpool2d_2x2_fwd(
+    size_t batch_sz,
+    size_t in_width,
+    size_t in_height,
+    size_t chan,
+    const float *in_buf,
+    float *out_buf)
+{
+  // FIXME(20161005): unimplemented.
+}
+
+void neuralops_maxpool2d_2x2_bwd(
+    size_t batch_sz,
+    size_t in_width,
+    size_t in_height,
+    size_t chan,
+    const float *in_buf,
+    const float *out_grad,
+    float *in_grad)
+{
+  // FIXME(20161005): unimplemented.
+}
+
 void neuralops_avgpool2d_2x2_fwd(
     size_t batch_sz,
     size_t in_width,
     size_t in_height,
     size_t chan,
-    const float *restrict in_buf,
-    float *restrict out_buf)
+    const float *in_buf,
+    float *out_buf)
 {
   // XXX(20161002): fast case when in_dims are even, for simplicity.
   size_t out_width = (in_width + 1) / 2;
@@ -36,9 +59,9 @@ void neuralops_avgpool2d_2x2_bwd(
     size_t in_width,
     size_t in_height,
     size_t chan,
-    const float *restrict in_buf,
-    const float *restrict out_grad,
-    float *restrict in_grad)
+    const float *in_buf,
+    const float *out_grad,
+    float *in_grad)
 {
   // XXX(20161002): fast case when in_dims are even, for simplicity.
   size_t out_width = (in_width + 1) / 2;
@@ -61,8 +84,8 @@ void neuralops_avgpool2d_fwd(
     size_t in_width,
     size_t in_height,
     size_t chan,
-    const float *restrict in_buf,
-    float *restrict out_buf,
+    const float *in_buf,
+    float *out_buf,
     size_t pool_w,
     size_t pool_h)
 {
@@ -94,9 +117,9 @@ void neuralops_avgpool2d_bwd(
     size_t in_width,
     size_t in_height,
     size_t chan,
-    const float *restrict in_buf,
-    const float *restrict out_grad,
-    float *restrict in_grad,
+    const float *in_buf,
+    const float *out_grad,
+    float *in_grad,
     size_t pool_w,
     size_t pool_h)
 {

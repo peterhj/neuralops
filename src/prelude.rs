@@ -1,5 +1,6 @@
 //pub use super::{OperatorConfig};
 pub use affine::{AffineOperatorConfig};
+pub use class_loss::{ClassLossConfig};
 pub use common::{ActivationKind, ParamInitKind, PoolKind};
 pub use conv::{
   Conv2dOperatorConfig,
@@ -10,7 +11,6 @@ pub use conv::{
 pub use graph::{GraphOperator, GraphOperatorConfig};
 pub use input::{SimpleInputOperatorConfig};
 pub use join::{JoinOperatorConfig};
-pub use loss::{ClassLossConfig};
 pub use pool::{Pool2dOperatorConfig};
 pub use regress_loss::{RegressLossConfig};
 pub use seq::{SeqOperator, SeqOperatorConfig};

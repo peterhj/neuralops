@@ -7,6 +7,7 @@ fn main() {
     .pic(true)
     .flag("-march=native")
     .flag("--std=gnu99")
+    .file("extkernels/activate.c")
     .file("extkernels/batchnorm.c")
     .file("extkernels/conv.c")
     .file("extkernels/pool.c")

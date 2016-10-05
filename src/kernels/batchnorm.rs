@@ -100,7 +100,7 @@ pub struct BatchNorm2dKernel {
 }
 
 impl BatchNorm2dKernel {
-  pub fn new(batch_sz: usize, /*gamma: f32,*/ epsilon: f32, dim: (usize, usize, usize)) -> BatchNorm2dKernel {
+  pub fn new(batch_sz: usize, dim: (usize, usize, usize), epsilon: f32,) -> BatchNorm2dKernel {
     let run_mean = Array1d::zeros(dim.2);
     let mut run_var = Array1d::zeros(dim.2);
     run_var.as_view_mut().set_constant(1.0);

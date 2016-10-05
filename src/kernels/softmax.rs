@@ -8,7 +8,7 @@ pub struct SoftmaxKernel {
   batch_sz: usize,
   dim:      usize,
   _nnp_h:   NnpackHandle,
-  nnp_pool: Rc<NnpackPthreadPool>,
+  //nnp_pool: Rc<NnpackPthreadPool>,
 }
 
 impl SoftmaxKernel {
@@ -17,7 +17,7 @@ impl SoftmaxKernel {
       batch_sz: batch_sz,
       dim:      dim,
       _nnp_h:   NnpackHandle::new(),
-      nnp_pool: nnp_pool,
+      //nnp_pool: nnp_pool,
     }
   }
 

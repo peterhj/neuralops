@@ -1,5 +1,6 @@
 pub use common::{CommonOperatorOutput};
 pub use affine::{AffineOperator};
+pub use class_loss::{SoftmaxNLLClassLossOperator};
 pub use conv::{
   ResidualConv2dOperator,
   ProjResidualConv2dOperator,
@@ -16,6 +17,6 @@ pub use conv_nnpack::{
 };
 pub use input::{SimpleInputOperator};
 pub use join::{AddJoinOperator};
-pub use loss::{SoftmaxNLLClassLossOperator};
 pub use pool::{Pool2dOperator};
+pub use regress_loss::{LeastSquaresRegressLossOperator};
 pub use split::{CopySplitOperator};
