@@ -32,7 +32,9 @@ pub struct SimpleInputOperator {
 impl SimpleInputOperator {
   pub fn new(cfg: SimpleInputOperatorConfig, _cap: OpCapability, _res: CommonResources) -> SimpleInputOperator {
     let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.stride);
-    unsafe { tmp_buf.set_len(cfg.batch_sz * cfg.stride) };
+    for _ in 0 .. cfg.batch_sz * cfg.stride {
+      tmp_buf.push(0.0);
+    }
     let out = CommonOperatorOutput::new(cfg.batch_sz, cfg.stride, OpCapability::Forward);
     SimpleInputOperator{
       cfg:  cfg,

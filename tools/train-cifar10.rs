@@ -9,7 +9,7 @@ use neuralops::data::{CyclicDataIter, SubsampleDataIter};
 use neuralops::data::cifar::{CifarFlavor, CifarDataShard};
 //use neuralops::input::{InputPreproc};
 use operator::prelude::*;
-use operator::opt::{StepSize};
+//use operator::opt::{StepSize};
 use operator::opt::sgd::{SgdConfig, SgdWorker};
 use rng::xorshift::{Xorshiftplus128Rng};
 
@@ -17,7 +17,7 @@ use rand::{thread_rng};
 use std::path::{PathBuf};
 
 fn main() {
-  let batch_sz = 128;
+  let batch_sz = 64;
 
   //let op_cfg = build_cifar10_simple_seq(batch_sz);
   //let op_cfg = build_cifar10_simple2_seq(batch_sz);
@@ -43,6 +43,7 @@ fn main() {
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     step_size:      StepSize::Constant(0.01),
+    //step_size:      StepSize::Adaptive{init_step: 1.0, test_iters: 100, epoch_iters: 1600, sched: AdaptiveStepSizeSchedule::Pow10},
     //momentum:       None,
     momentum:       Some(0.9),
     l2_reg:         None,
@@ -56,7 +57,7 @@ fn main() {
   sgd.init_param(&mut rng);
   for iter_nr in 0 .. 100000 {
     sgd.step(&mut train_data);
-    if (iter_nr + 1) % 1 == 0 {
+    if (iter_nr + 1) % 5 == 0 {
       println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }

@@ -11,8 +11,7 @@ pub struct ActivateKernel {
   dim:      usize,
   act_kind: ActivationKind,
   nnp_h:    NnpackHandle,
-  //nnp_pool: NnpackPthreadPool,
-  nnp_pool: Rc<NnpackPthreadPool>,
+  //nnp_pool: Rc<NnpackPthreadPool>,
 }
 
 impl ActivateKernel {
@@ -22,8 +21,7 @@ impl ActivateKernel {
       dim:      dim,
       act_kind: act_kind,
       nnp_h:    NnpackHandle::new(),
-      //nnp_pool: NnpackPthreadPool::new(1),
-      nnp_pool: nnp_pool,
+      //nnp_pool: nnp_pool,
     }
   }
 

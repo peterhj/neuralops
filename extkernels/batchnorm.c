@@ -66,11 +66,11 @@ void neuralops_batchnorm2d_fwd_output(
     size_t chan,
     const float *restrict in_buf,
     const float *restrict mean,
-    const float *restrict run_mean,
+    //const float *restrict run_mean,
     const float *restrict var,
-    const float *restrict run_var,
+    //const float *restrict run_var,
     float *restrict out_buf,
-    float gamma,
+    //float gamma,
     float epsilon)
 {
   size_t p = 0;
@@ -99,12 +99,12 @@ void neuralops_batchnorm2d_bwd_var(
     size_t chan,
     const float *restrict in_buf,
     const float *restrict mean,
-    const float *restrict run_mean,
+    //const float *restrict run_mean,
     const float *restrict var,
-    const float *restrict run_var,
+    //const float *restrict run_var,
     const float *restrict out_grad,
     float *restrict var_grad,
-    float gamma,
+    //float gamma,
     float epsilon)
 {
   for (size_t a = 0; a < chan; a += 1) {
@@ -138,13 +138,13 @@ void neuralops_batchnorm2d_bwd_mean(
     size_t chan,
     const float *restrict in_buf,
     const float *restrict mean,
-    const float *restrict run_mean,
+    //const float *restrict run_mean,
     const float *restrict var,
-    const float *restrict run_var,
+    //const float *restrict run_var,
     const float *restrict var_grad,
     const float *restrict out_grad,
     float *restrict mean_grad,
-    float gamma,
+    //float gamma,
     float epsilon)
 {
   for (size_t a = 0; a < chan; a += 1) {
@@ -180,14 +180,14 @@ void neuralops_batchnorm2d_bwd_input(
     size_t chan,
     const float *restrict in_buf,
     const float *restrict mean,
-    const float *restrict run_mean,
+    //const float *restrict run_mean,
     const float *restrict mean_grad,
     const float *restrict var,
-    const float *restrict run_var,
+    //const float *restrict run_var,
     const float *restrict var_grad,
     const float *restrict out_grad,
     float *restrict in_grad,
-    float gamma,
+    //float gamma,
     float epsilon)
 {
   size_t p = 0;

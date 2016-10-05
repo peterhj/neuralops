@@ -39,13 +39,21 @@ impl SoftmaxNLLClassLossOperator {
     let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
     unsafe { sum_fact.set_len(cfg.batch_sz) };*/
     let mut hats = Vec::with_capacity(cfg.batch_sz);
-    unsafe { hats.set_len(cfg.batch_sz) };
+    for _ in 0 .. cfg.batch_sz {
+      hats.push(0);
+    }
     let mut losses = Vec::with_capacity(cfg.batch_sz);
-    unsafe { losses.set_len(cfg.batch_sz) };
+    for _ in 0 .. cfg.batch_sz {
+      losses.push(0.0);
+    }
     let mut labels = Vec::with_capacity(cfg.batch_sz);
-    unsafe { labels.set_len(cfg.batch_sz) };
+    for _ in 0 .. cfg.batch_sz {
+      labels.push(0);
+    }
     let mut weights = Vec::with_capacity(cfg.batch_sz);
-    unsafe { weights.set_len(cfg.batch_sz) };
+    for _ in 0 .. cfg.batch_sz {
+      weights.push(0.0);
+    }
     SoftmaxNLLClassLossOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),

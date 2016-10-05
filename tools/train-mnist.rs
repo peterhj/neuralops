@@ -8,7 +8,6 @@ use neuralops::data::{CyclicDataIter, SubsampleDataIter};
 use neuralops::data::mnist::{MnistDataShard};
 use neuralops::input::{InputPreproc};
 use operator::prelude::*;
-use operator::opt::{StepSize};
 use operator::opt::adam::{AdamConfig, AdamWorker};
 use operator::opt::sgd::{SgdConfig, SgdWorker};
 use rng::xorshift::{Xorshiftplus128Rng};
@@ -27,14 +26,6 @@ fn main() {
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
     ],
   }));
-  /*op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
-    batch_sz:   batch_sz,
-    in_dim:     784,
-    out_dim:    10,
-    act_kind:   ActivationKind::Identity,
-    //act_kind:   ActivationKind::Rect,
-    w_init:     ParamInitKind::Xavier,
-  }));*/
   op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     784,
@@ -53,38 +44,6 @@ fn main() {
     batch_sz:       batch_sz,
     num_classes:    10,
   }));
-
-  /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
-    batch_sz:   batch_sz,
-    frame_sz:   784,
-  }));
-  op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
-    batch_sz:   batch_sz,
-    in_dim:     (28, 28, 1),
-    kernel_w:   5,
-    kernel_h:   5,
-    stride_w:   1,
-    stride_h:   1,
-    pad_left:   2,
-    pad_right:  2,
-    pad_bot:    2,
-    pad_top:    2,
-    out_chan:   10,
-    act_kind:   ActivationKind::Rect,
-    w_init:     ParamInitKind::Xavier,
-  }));
-  op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
-    batch_sz:   batch_sz,
-    in_dim:     7840,
-    out_dim:    10,
-    act_kind:   ActivationKind::Identity,
-    w_init:     ParamInitKind::Xavier,
-  }));
-  op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossOperatorConfig{
-    batch_sz:       batch_sz,
-    minibatch_sz:   batch_sz,
-    num_classes:    10,
-  }));*/
 
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
@@ -105,7 +64,8 @@ fn main() {
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.1),
+    //step_size:      StepSize::Constant(0.1),
+    step_size:      StepSize::Adaptive{init_step: 1.0, test_iters: 20, epoch_iters: 2000, sched: AdaptiveStepSizeSchedule::Pow10},
     momentum:       Some(0.9),
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),

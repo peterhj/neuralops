@@ -122,6 +122,24 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
     p
   }
 
+  fn diff_param_sz(&self) -> usize {
+    let mut p = 0;
+    for op in self.inner_ops.iter() {
+      p += op.diff_param_sz();
+    }
+    p += self.loss_op.diff_param_sz();
+    p
+  }
+
+  fn nondiff_param_sz(&self) -> usize {
+    let mut p = 0;
+    for op in self.inner_ops.iter() {
+      p += op.nondiff_param_sz();
+    }
+    p += self.loss_op.nondiff_param_sz();
+    p
+  }
+
   fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
     for op in self.inner_ops.iter_mut() {
       op.init_param(rng);

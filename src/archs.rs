@@ -11,6 +11,7 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     ],
   }));
   op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
+  //op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 3),
     kernel_w:   3,
@@ -20,7 +21,7 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   16,
-    //avg_rate:   0.05,
+    //avg_rate:   0.01,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -50,7 +51,7 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     in_dim:     64,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
-    w_init:     ParamInitKind::Xavier,
+    w_init:     ParamInitKind::Kaiming,
   }));
   op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossConfig{
     batch_sz:       batch_sz,
@@ -68,8 +69,8 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
     ],
   }));
-  op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
-  //op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
+  //op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 3),
     kernel_w:   3,
@@ -79,7 +80,7 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   16,
-    //avg_rate:   0.05,
+    avg_rate:   0.05,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -120,7 +121,8 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_h:      0,
     kind:       PoolKind::Average,
   }));
-  op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
+  //op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
+  op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (8, 8, 32),
     kernel_w:   3,
@@ -130,7 +132,7 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   64,
-    //avg_rate:   0.05,
+    avg_rate:   0.05,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -150,7 +152,7 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     in_dim:     64,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
-    w_init:     ParamInitKind::Xavier,
+    w_init:     ParamInitKind::Kaiming,
   }));
   op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossConfig{
     batch_sz:       batch_sz,

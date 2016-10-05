@@ -102,7 +102,8 @@ impl DiffOperator<f32> for AffineOperator {
         }
       }
       ParamInitKind::Kaiming => {
-        let std = (2.0 / max(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
+        //let std = (2.0 / max(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
+        let std = (2.0 / self.cfg.in_dim as f64).sqrt();
         let dist = Normal::new(0.0, std);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;

@@ -11,6 +11,7 @@ extern crate rng;
 extern crate sharedmem;
 
 extern crate byteorder;
+extern crate libc;
 extern crate rand;
 
 pub mod affine;

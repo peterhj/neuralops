@@ -26,6 +26,7 @@ gcc = "*"
 [dependencies]
 byteorder = "*"
 float = "*"
+libc = "*"
 rand = "*"
 densearray = { path = "../libdensearray" }
 iter_utils = { path = "../libiter_utils" }
