@@ -49,18 +49,18 @@ fn main() {
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),
   };
-  let mut sgd = SgdWorker::new(sgd_cfg, op);
-  /*let sgd_cfg = AdamConfig{
+  //let mut sgd = SgdWorker::new(sgd_cfg, op);
+  let sgd_cfg = AdamConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     step_size:      StepSize::Constant(0.01),
     gamma1:         0.1,
-    gamma2:         0.001,
+    gamma2:         0.05,
     epsilon:        1.0e-12,
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),
   };
-  let mut sgd = AdamWorker::new(sgd_cfg, op);*/
+  let mut sgd = AdamWorker::new(sgd_cfg, op);
 
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
   println!("DEBUG: training...");
@@ -68,7 +68,7 @@ fn main() {
   sgd.init_param(&mut rng);
   for iter_nr in 0 .. 100000 {
     sgd.step(&mut train_data);
-    if (iter_nr + 1) % 5 == 0 {
+    if (iter_nr + 1) % 10 == 0 {
       println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }
