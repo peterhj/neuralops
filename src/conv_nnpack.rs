@@ -80,10 +80,6 @@ impl DiffOperator<f32> for Conv2dOperator {
     self.out.clone()
   }
 
-  fn param_len(&self) -> usize {
-    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan + self.cfg.out_chan
-  }
-
   fn diff_param_sz(&self) -> usize {
     self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan + self.cfg.out_chan
   }
@@ -377,14 +373,13 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     self.out.clone()
   }
 
-  fn param_len(&self) -> usize {
+  fn diff_param_sz(&self) -> usize {
     self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan
         + 2 * self.cfg.out_chan
   }
 
-  fn diff_param_sz(&self) -> usize {
-    self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan
-        + 2 * self.cfg.out_chan
+  fn nondiff_param_sz(&self) -> usize {
+    2 * self.cfg.out_chan
   }
 
   fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {

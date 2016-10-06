@@ -171,14 +171,14 @@ impl DiffOperator<f32> for ResidualConv2dOperator {
     self.out.clone()
   }
 
-  fn param_len(&self) -> usize {
-    self.conv1.param_len()
-        + self.conv2.param_len()
-  }
-
   fn diff_param_sz(&self) -> usize {
     self.conv1.diff_param_sz()
         + self.conv2.diff_param_sz()
+  }
+
+  fn nondiff_param_sz(&self) -> usize {
+    self.conv1.nondiff_param_sz()
+        + self.conv2.nondiff_param_sz()
   }
 
   fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {
@@ -369,16 +369,16 @@ impl DiffOperator<f32> for ProjResidualConv2dOperator {
     self.out.clone()
   }
 
-  fn param_len(&self) -> usize {
-    self.conv1x1.param_len()
-        + self.conv1.param_len()
-        + self.conv2.param_len()
+  fn diff_param_sz(&self) -> usize {
+    self.conv1.diff_param_sz()
+        + self.conv2.diff_param_sz()
+        + self.conv1x1.diff_param_sz()
   }
 
-  fn diff_param_sz(&self) -> usize {
-    self.conv1x1.diff_param_sz()
-        + self.conv1.diff_param_sz()
-        + self.conv2.diff_param_sz()
+  fn nondiff_param_sz(&self) -> usize {
+    self.conv1.nondiff_param_sz()
+        + self.conv2.nondiff_param_sz()
+        + self.conv1x1.nondiff_param_sz()
   }
 
   fn init_param(&mut self, rng: &mut Xorshiftplus128Rng) {

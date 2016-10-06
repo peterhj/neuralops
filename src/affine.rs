@@ -69,10 +69,6 @@ impl DiffOperator<f32> for AffineOperator {
     self.out.clone()
   }
 
-  fn param_len(&self) -> usize {
-    self.cfg.in_dim * self.cfg.out_dim + self.cfg.out_dim
-  }
-
   fn diff_param_sz(&self) -> usize {
     self.cfg.in_dim * self.cfg.out_dim + self.cfg.out_dim
   }

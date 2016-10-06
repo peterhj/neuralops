@@ -114,14 +114,6 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
     self.loss_op._output(0)
   }
 
-  fn param_len(&self) -> usize {
-    let mut p = 0;
-    for op in self.inner_ops.iter() {
-      p += op.param_len();
-    }
-    p
-  }
-
   fn diff_param_sz(&self) -> usize {
     let mut p = 0;
     for op in self.inner_ops.iter() {
