@@ -80,6 +80,7 @@ pub struct CommonOperatorBwdOut<T> where T: Copy {
 pub enum ActivationKind {
   Identity,
   Rect,
+  LeakyRect(f32),
   Logistic,
   Tanh,
 }

@@ -21,8 +21,8 @@ fn main() {
 
   //let op_cfg = build_cifar10_simple_seq(batch_sz);
   let op_cfg = build_cifar10_simple2_seq(batch_sz);
-  //let op_cfg = build_cifar10_krizh_seq(batch_sz);
-  //let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
+  let op_cfg = build_cifar10_simple2b_seq(batch_sz);
+  let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let mut train_data =
@@ -42,7 +42,7 @@ fn main() {
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.001),
+    step_size:      StepSize::Constant(0.01),
     //step_size:      StepSize::Adaptive{init_step: 1.0, test_iters: 100, epoch_iters: 1600, sched: AdaptiveStepSizeSchedule::Pow10},
     //momentum:       None,
     momentum:       Some(0.9),
@@ -53,7 +53,7 @@ fn main() {
   let sgd_cfg = AdamConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.01),
+    step_size:      StepSize::Constant(0.001),
     gamma1:         0.1,
     gamma2:         0.05,
     epsilon:        1.0e-12,
@@ -70,6 +70,11 @@ fn main() {
     sgd.step(&mut train_data);
     if (iter_nr + 1) % 10 == 0 {
       println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
+      sgd.reset_opt_stats();
+    }
+    if (iter_nr + 1) % 100 == 0 {
+      sgd.eval(valid_data.len(), &mut valid_data);
+      println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }
   }

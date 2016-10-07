@@ -26,8 +26,10 @@ pub struct Conv2dOperator {
   cfg:      Conv2dOperatorConfig,
   in_:      CommonOperatorOutput<f32>,
   weights:  Array4d<f32>,
+  w_g_tmp:  Array4d<f32>,
   w_grad:   Array4d<f32>,
   bias:     Array1d<f32>,
+  b_g_tmp:  Array1d<f32>,
   b_grad:   Array1d<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
@@ -70,8 +72,10 @@ impl Conv2dOperator {
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
       weights:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
+      w_g_tmp:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       w_grad:   Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       bias:     Array1d::zeros(cfg.out_chan),
+      b_g_tmp:  Array1d::zeros(cfg.out_chan),
       b_grad:   Array1d::zeros(cfg.out_chan),
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
@@ -194,23 +198,6 @@ impl DiffOperator<f32> for Conv2dOperator {
     *self.out.batch_size.borrow_mut() = batch_size;
     assert!(batch_size <= self.cfg.batch_sz);
 
-    /*let status = unsafe { nnp_convolution_output(
-        nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-        batch_size,
-        self.cfg.in_dim.2,
-        self.cfg.out_chan,
-        nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
-        //nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
-        nnp_padding{left: self.cfg.pad_w, right: self.cfg.pad_w, bottom: self.cfg.pad_h, top: self.cfg.pad_h},
-        nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
-        self.in_.out_buf.borrow().as_ptr(),
-        self.weights.as_view().as_ptr(),
-        self.bias.as_view().as_ptr(),
-        self.tmp_buf.as_mut_ptr(),
-        //self.nnp_pool.as_raw(),
-        null_mut(),
-        null_mut(),
-    ) };*/
     let status = self.fwd.execute(
         self.in_.out_buf.borrow().as_ptr(),
         self.weights.as_view().as_ptr(),
@@ -246,65 +233,31 @@ impl DiffOperator<f32> for Conv2dOperator {
     //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
     self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
-    /*let out_dim = self.cfg.out_dim();
-    unsafe { neuralops_conv2d_bias_bwd(
-        batch_size,
-        out_dim.0,
-        out_dim.1,
-        out_dim.2,
-        self.tmp_grad.as_ptr(),
-        self.b_grad.as_view_mut().as_mut_ptr(),
-    ) };*/
-
-    /*let status = unsafe { nnp_convolution_kernel_gradient(
-        nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-        batch_size,
-        self.cfg.in_dim.2,
-        self.cfg.out_chan,
-        nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
-        //nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
-        nnp_padding{left: self.cfg.pad_w, right: self.cfg.pad_w, bottom: self.cfg.pad_h, top: self.cfg.pad_h},
-        nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
-        self.in_.out_buf.borrow().as_ptr(),
-        self.tmp_grad.as_ptr(),
-        self.w_grad.as_view_mut().as_mut_ptr(),
-        //self.nnp_pool.as_raw(),
-        null_mut(),
-        null_mut(),
-    ) };*/
+    let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
+    self.w_g_tmp.as_view_mut().reshape(w_dim).set_constant(0.0);
     let status = self.bwd_w.execute(
         self.in_.out_buf.borrow().as_ptr(),
         self.tmp_grad.as_ptr(),
-        self.w_grad.as_view_mut().as_mut_ptr(),
+        self.w_g_tmp.as_view_mut().as_mut_ptr(),
     );
     if status.is_err() {
       panic!("mkl convolution failed: {:?}", status);
     }
+    self.w_grad.as_view_mut().vector_add(1.0, self.w_g_tmp.as_view());
+
+    self.b_g_tmp.as_view_mut().reshape(self.cfg.out_chan).set_constant(0.0);
     let status = self.bwd_b.execute(
         self.tmp_grad.as_ptr(),
-        self.b_grad.as_view_mut().as_mut_ptr(),
+        self.b_g_tmp.as_view_mut().as_mut_ptr(),
     );
     if status.is_err() {
       panic!("mkl convolution failed: {:?}", status);
     }
+    self.b_grad.as_view_mut().vector_add(1.0, self.b_g_tmp.as_view());
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
-      /*let status = unsafe { nnp_convolution_input_gradient(
-          nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-          batch_size,
-          self.cfg.in_dim.2,
-          self.cfg.out_chan,
-          nnp_size{width: self.cfg.in_dim.0, height: self.cfg.in_dim.1},
-          //nnp_padding{left: self.cfg.pad_left, right: self.cfg.pad_right, bottom: self.cfg.pad_bot, top: self.cfg.pad_top},
-          nnp_padding{left: self.cfg.pad_w, right: self.cfg.pad_w, bottom: self.cfg.pad_h, top: self.cfg.pad_h},
-          nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
-          self.tmp_grad.as_ptr(),
-          self.weights.as_view().as_ptr(),
-          in_grad.borrow_mut().as_mut_ptr(),
-          //self.nnp_pool.as_raw(),
-          null_mut(),
-          null_mut(),
-      ) };*/
+      let in_len = batch_size * self.cfg.in_dim.flat_len();
+      in_grad.borrow_mut().reshape(in_len).set_constant(0.0);
       let status = self.bwd_in.execute(
           self.in_.out_buf.borrow().as_ptr(),
           self.weights.as_view().as_ptr(),

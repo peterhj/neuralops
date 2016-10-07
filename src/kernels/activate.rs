@@ -67,6 +67,9 @@ impl ActivateKernel {
             out_buf.as_mut_ptr(),
         ) };
       }
+      ActivationKind::LeakyRect(_) => {
+        unimplemented!();
+      }
       ActivationKind::Logistic => {
         unimplemented!();
       }
@@ -100,6 +103,9 @@ impl ActivateKernel {
             out_grad.as_ptr(),
             in_grad.as_mut_ptr(),
         ) };
+      }
+      ActivationKind::LeakyRect(_) => {
+        unimplemented!();
       }
       ActivationKind::Logistic => {
         unimplemented!();

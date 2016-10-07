@@ -81,8 +81,6 @@ impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtract
           for idx in 0 .. batch_size {
             let mut out = &mut (&mut *out_buf)[idx * self.cfg.stride .. (idx+1) * self.cfg.stride];
             // FIXME(20160927)
-            //let offset_x = width / 2;
-            //let offset_y = height / 2;
             let offset_x = self.rng.gen_range(0, width);
             let offset_y = self.rng.gen_range(0, height);
             for a in 0 .. chan {
@@ -92,15 +90,10 @@ impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtract
         }
       }
     }
-    /*if let Some(scale) = self.cfg.scale {
-      out_buf.reshape_mut(batch_size * self.cfg.stride)
-        .vector_scale(scale);
-    }*/
     *self.out.batch_size.borrow_mut() = batch_size;
   }
 }
 
-//impl ArmOutput for SimpleInputOperator {
 impl DiffOperator<f32> for SimpleInputOperator {
   type Output = CommonOperatorOutput<f32>;
   type Rng = Xorshiftplus128Rng;

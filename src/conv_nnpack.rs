@@ -28,8 +28,10 @@ pub struct Conv2dOperator {
   cfg:      Conv2dOperatorConfig,
   in_:      CommonOperatorOutput<f32>,
   weights:  Array4d<f32>,
+  w_g_tmp:  Array4d<f32>,
   w_grad:   Array4d<f32>,
   bias:     Array1d<f32>,
+  //b_g_tmp:  Array1d<f32>,
   b_grad:   Array1d<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
@@ -43,8 +45,6 @@ impl Conv2dOperator {
   pub fn new(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> Conv2dOperator {
     assert_eq!(1, cfg.stride_w);
     assert_eq!(1, cfg.stride_h);
-    let bias = Array1d::zeros(cfg.out_chan);
-    let b_grad = Array1d::zeros(cfg.out_chan);
     let out_len = cfg.batch_sz * cfg.out_dim().flat_len();
     let mut tmp_buf = Vec::with_capacity(out_len);
     for _ in 0 .. out_len {
@@ -58,9 +58,11 @@ impl Conv2dOperator {
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
       weights:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
+      w_g_tmp:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       w_grad:   Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
-      bias:     bias,
-      b_grad:   b_grad,
+      bias:     Array1d::zeros(cfg.out_chan),
+      //b_g_tmp:  Array1d::zeros(cfg.out_chan),
+      b_grad:   Array1d::zeros(cfg.out_chan),
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
@@ -236,6 +238,8 @@ impl DiffOperator<f32> for Conv2dOperator {
         self.b_grad.as_view_mut().as_mut_ptr(),
     ) };
 
+    let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
+    self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
         batch_size,
@@ -247,7 +251,7 @@ impl DiffOperator<f32> for Conv2dOperator {
         nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
         self.in_.out_buf.borrow().as_ptr(),
         self.tmp_grad.as_ptr(),
-        self.w_grad.as_view_mut().as_mut_ptr(),
+        self.w_g_tmp.as_view_mut().as_mut_ptr(),
         //self.nnp_pool.as_raw(),
         null_mut(),
         null_mut(),
@@ -255,8 +259,11 @@ impl DiffOperator<f32> for Conv2dOperator {
     if status.is_err() {
       panic!("nnpack convolution failed: {:?}", status);
     }
+    self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
+      let in_len = batch_size * self.cfg.in_dim.flat_len();
+      in_grad.borrow_mut().reshape_mut(in_len).set_constant(0.0);
       let status = unsafe { nnp_convolution_input_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           batch_size,
@@ -293,6 +300,7 @@ pub struct BatchNormConv2dOperator {
   cfg:      BatchNormConv2dOperatorConfig,
   in_:      CommonOperatorOutput<f32>,
   weights:  Array4d<f32>,
+  w_g_tmp:  Array4d<f32>,
   w_grad:   Array4d<f32>,
   bias:     Array1d<f32>,
   //b_grad:   Array1d<f32>,
@@ -345,6 +353,7 @@ impl BatchNormConv2dOperator {
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
       weights:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
+      w_g_tmp:  Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       w_grad:   Array4d::zeros((cfg.kernel_w, cfg.kernel_h, cfg.in_dim.2, cfg.out_chan)),
       bias:     bias,
       //b_grad:   b_grad,
@@ -523,8 +532,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     let out_len = batch_size * self.cfg.out_dim().flat_len();
     self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
     self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
-    activate_fwd(self.cfg.act_kind, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
-    //self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.out_buf.borrow_mut());
+    //activate_fwd(self.cfg.act_kind, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
+    self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
 
     let in_loss = *self.in_.out_loss.borrow();
     *self.out.out_loss.borrow_mut() = in_loss;
@@ -546,21 +555,13 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     let batch_size = *self.out.batch_size.borrow();
 
     let out_len = batch_size * self.cfg.out_dim().flat_len();
-    activate_bwd(self.cfg.act_kind, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    //self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    //activate_bwd(self.cfg.act_kind, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
     self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
     self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 
-    /*let out_dim = self.cfg.out_dim();
-    unsafe { neuralops_conv2d_bias_bwd(
-        batch_size,
-        out_dim.0,
-        out_dim.1,
-        out_dim.2,
-        self.tmp_grad.as_ptr(),
-        self.b_grad.as_view_mut().as_mut_ptr(),
-    ) };*/
-
+    let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
+    self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
     let status = unsafe { nnp_convolution_kernel_gradient(
         nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
         //nnp_convolution_algorithm::nnp_convolution_algorithm_implicit_gemm,
@@ -573,7 +574,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         nnp_size{width: self.cfg.kernel_w, height: self.cfg.kernel_h},
         self.in_.out_buf.borrow().as_ptr(),
         self.tmp_grad.as_ptr(),
-        self.w_grad.as_view_mut().as_mut_ptr(),
+        self.w_g_tmp.as_view_mut().as_mut_ptr(),
         //self.nnp_pool.as_raw(),
         null_mut(),
         null_mut(),
@@ -581,8 +582,11 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     if status.is_err() {
       panic!("nnpack convolution failed: {:?}", status);
     }
+    self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
+      let in_len = batch_size * self.cfg.in_dim.flat_len();
+      in_grad.borrow_mut().reshape_mut(in_len).set_constant(0.0);
       let status = unsafe { nnp_convolution_input_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           //nnp_convolution_algorithm::nnp_convolution_algorithm_implicit_gemm,

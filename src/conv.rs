@@ -237,14 +237,12 @@ impl DiffOperator<f32> for ResidualConv2dOperator {
   }
 
   fn forward(&mut self, phase: OpPhase) {
-    let split_out = self.split._output(0);
-    let batch_size = *split_out.batch_size.borrow();
-    *self.out.batch_size.borrow_mut() = batch_size;
     self.split.forward(phase);
     self.conv1.forward(phase);
     self.conv2.forward(phase);
     self.join.forward(phase);
     let join_out = self.join._output(0);
+    let batch_size = *join_out.batch_size.borrow();
     self.act_k.forward(batch_size, &*join_out.out_buf.borrow(), &mut *self.out.out_buf.borrow_mut());
     *self.out.batch_size.borrow_mut() = batch_size;
   }
@@ -446,15 +444,13 @@ impl DiffOperator<f32> for ProjResidualConv2dOperator {
   }
 
   fn forward(&mut self, phase: OpPhase) {
-    let split_out = self.split._output(0);
-    let batch_size = *split_out.batch_size.borrow();
-    *self.out.batch_size.borrow_mut() = batch_size;
     self.split.forward(phase);
     self.conv1.forward(phase);
     self.conv2.forward(phase);
     self.conv1x1.forward(phase);
     self.join.forward(phase);
     let join_out = self.join._output(0);
+    let batch_size = *join_out.batch_size.borrow();
     self.act_k.forward(batch_size, &*join_out.out_buf.borrow(), &mut *self.out.out_buf.borrow_mut());
     *self.out.batch_size.borrow_mut() = batch_size;
   }

@@ -20,6 +20,7 @@ pub fn activate_fwd(act_kind: ActivationKind, in_buf: &[f32], out_buf: &mut [f32
     ActivationKind::Tanh => {
       unimplemented!();
     }
+    _ => unimplemented!(),
   }
 }
 
@@ -37,6 +38,7 @@ pub fn activate_bwd(act_kind: ActivationKind, in_buf: &[f32], out_grad: &[f32], 
     ActivationKind::Tanh => {
       unimplemented!();
     }
+    _ => unimplemented!(),
   }
 }
 
