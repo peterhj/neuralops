@@ -232,5 +232,5 @@ impl<S> DiffOperatorOutput<f32, RwSlice<f32>> for SeqOperator<f32, S> {
   }
 }
 
-impl<S> DiffOperatorIo<f32, S, RwSlice<f32>> for SeqOperator<f32, S> {
-}
+/*impl<S> DiffOperatorIo<f32, S, RwSlice<f32>> for SeqOperator<f32, S> {
+}*/

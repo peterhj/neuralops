@@ -4,6 +4,7 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use sharedmem::{SharedSlice};
 
 use rand::{Rng, thread_rng};
+use std::cmp::{min};
 use std::collections::{HashSet};
 use std::marker::{PhantomData};
 
@@ -235,5 +236,39 @@ impl<S, Shard> Iterator for SubsampleDataIter<S, Shard> where Shard: IndexedData
       let sample = self.inner.get(idx);
       return Some(sample);
     }
+  }
+}
+
+pub struct PartitionDataShard<S, Shard> where Shard: IndexedDataShard<S> {
+  part_offset:  usize,
+  part_len:     usize,
+  inner:        Shard,
+  _marker:      PhantomData<S>,
+}
+
+impl<S, Shard> PartitionDataShard<S, Shard> where Shard: IndexedDataShard<S> {
+  pub fn new(part_idx: usize, num_parts: usize, inner: Shard) -> PartitionDataShard<S, Shard> {
+    let inner_len = inner.len();
+    let part_max_len = (inner_len + num_parts - 1) / num_parts;
+    let part_offset = part_idx * part_max_len;
+    let part_end = min((part_idx+1) * part_max_len, inner_len);
+    let part_len = part_end - part_offset;
+    PartitionDataShard{
+      part_offset:  part_offset,
+      part_len:     part_len,
+      inner:        inner,
+      _marker:      PhantomData,
+    }
+  }
+}
+
+impl<S, Shard> IndexedDataShard<S> for PartitionDataShard<S, Shard> where Shard: IndexedDataShard<S> {
+  fn len(&self) -> usize {
+    self.part_len
+  }
+
+  fn get(&mut self, idx: usize) -> S {
+    assert!(idx < self.part_len);
+    self.inner.get(self.part_offset + idx)
   }
 }

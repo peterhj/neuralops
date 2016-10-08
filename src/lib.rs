@@ -29,6 +29,7 @@ pub mod graph;
 pub mod input;
 pub mod join;
 pub mod kernels;
+//pub mod lazy;
 pub mod pool;
 pub mod prelude;
 pub mod regress_loss;

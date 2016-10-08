@@ -14,4 +14,5 @@ fn main() {
     .compile("libneuralops_extkernels.a");
 
   //println!("cargo:rustc-flags=-L /usr/local/cuda/lib64");
+  println!("cargo:rustc-link-search=native={}", "/opt/intel/mkl/lib/intel64");
 }

@@ -20,8 +20,8 @@ fn main() {
   let batch_sz = 128;
 
   //let op_cfg = build_cifar10_simple_seq(batch_sz);
-  let op_cfg = build_cifar10_simple2_seq(batch_sz);
-  let op_cfg = build_cifar10_simple2b_seq(batch_sz);
+  //let op_cfg = build_cifar10_simple2_seq(batch_sz);
+  //let op_cfg = build_cifar10_simple2b_seq(batch_sz);
   let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
@@ -49,8 +49,8 @@ fn main() {
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),
   };
-  //let mut sgd = SgdWorker::new(sgd_cfg, op);
-  let sgd_cfg = AdamConfig{
+  let mut sgd = SgdWorker::new(sgd_cfg, op);
+  /*let sgd_cfg = AdamConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
     step_size:      StepSize::Constant(0.001),
@@ -60,7 +60,7 @@ fn main() {
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),
   };
-  let mut sgd = AdamWorker::new(sgd_cfg, op);
+  let mut sgd = AdamWorker::new(sgd_cfg, op);*/
 
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
   println!("DEBUG: training...");
@@ -68,7 +68,7 @@ fn main() {
   sgd.init_param(&mut rng);
   for iter_nr in 0 .. 100000 {
     sgd.step(&mut train_data);
-    if (iter_nr + 1) % 10 == 0 {
+    if (iter_nr + 1) % 1 == 0 {
       println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }

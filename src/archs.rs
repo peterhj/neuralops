@@ -1,6 +1,8 @@
 use prelude::*;
 use input::{InputPreproc};
 
+const RESNET_AVG_RATE: f32 = 0.05;
+
 pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
   op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
@@ -308,7 +310,8 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     batch_sz:   batch_sz,
     stride:     32 * 32 * 3,
     preprocs:   vec![
-      // TODO(20161002): subtract the pixel mean (using `shift`).
+      // XXX: the pixel mean is:
+      // (1.25306915e2 1.2295039e2 1.1386535e2).
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
     ],
   }));
@@ -322,7 +325,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     pad_w:      1,
     pad_h:      1,
     out_chan:   16,
-    avg_rate:   0.05,
+    avg_rate:   RESNET_AVG_RATE,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -330,27 +333,18 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     op_cfg.push(SeqOperatorConfig::ResidualConv2d(ResidualConv2dOperatorConfig{
       batch_sz:   batch_sz,
       in_dim:     (32, 32, 16),
-      avg_rate:   0.05,
+      avg_rate:   RESNET_AVG_RATE,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
   }
-  op_cfg.push(SeqOperatorConfig::Pool2d(Pool2dOperatorConfig{
-    batch_sz:   batch_sz,
-    in_dim:     (32, 32, 16),
-    pool_w:     2,
-    pool_h:     2,
-    stride_w:   2,
-    stride_h:   2,
-    pad_w:      0,
-    pad_h:      0,
-    kind:       PoolKind::Average,
-  }));
   op_cfg.push(SeqOperatorConfig::ProjResidualConv2d(ProjResidualConv2dOperatorConfig{
     batch_sz:   batch_sz,
-    in_dim:     (16, 16, 16),
+    in_dim:     (32, 32, 16),
+    stride_w:   2,
+    stride_h:   2,
     out_chan:   32,
-    avg_rate:   0.05,
+    avg_rate:   RESNET_AVG_RATE,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -358,27 +352,18 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     op_cfg.push(SeqOperatorConfig::ResidualConv2d(ResidualConv2dOperatorConfig{
       batch_sz:   batch_sz,
       in_dim:     (16, 16, 32),
-      avg_rate:   0.05,
+      avg_rate:   RESNET_AVG_RATE,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
   }
-  op_cfg.push(SeqOperatorConfig::Pool2d(Pool2dOperatorConfig{
-    batch_sz:   batch_sz,
-    in_dim:     (16, 16, 32),
-    pool_w:     2,
-    pool_h:     2,
-    stride_w:   2,
-    stride_h:   2,
-    pad_w:      0,
-    pad_h:      0,
-    kind:       PoolKind::Average,
-  }));
   op_cfg.push(SeqOperatorConfig::ProjResidualConv2d(ProjResidualConv2dOperatorConfig{
     batch_sz:   batch_sz,
-    in_dim:     (8, 8, 32),
+    in_dim:     (16, 16, 32),
+    stride_w:   2,
+    stride_h:   2,
     out_chan:   64,
-    avg_rate:   0.05,
+    avg_rate:   RESNET_AVG_RATE,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -386,7 +371,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     op_cfg.push(SeqOperatorConfig::ResidualConv2d(ResidualConv2dOperatorConfig{
       batch_sz:   batch_sz,
       in_dim:     (8, 8, 64),
-      avg_rate:   0.05,
+      avg_rate:   RESNET_AVG_RATE,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -416,8 +401,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
   op_cfg
 }
 
-
-pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
+pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
   let num_res = (num_layers - 2) / 3;
   assert_eq!(0, (num_layers - 2) % 3);
   let mut op_cfg = vec![];
@@ -429,7 +413,6 @@ pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqO
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
     ],
   }));
-  // FIXME(20161005): replace residuals w/ usual convs.
   op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 3),
@@ -440,7 +423,7 @@ pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqO
     pad_w:      1,
     pad_h:      1,
     out_chan:   16,
-    avg_rate:   0.05,
+    avg_rate:   RESNET_AVG_RATE,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -448,7 +431,7 @@ pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqO
     op_cfg.push(SeqOperatorConfig::ResidualConv2d(ResidualConv2dOperatorConfig{
       batch_sz:   batch_sz,
       in_dim:     (32, 32, 16),
-      avg_rate:   0.05,
+      avg_rate:   RESNET_AVG_RATE,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -467,8 +450,10 @@ pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqO
   op_cfg.push(SeqOperatorConfig::ProjResidualConv2d(ProjResidualConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (16, 16, 16),
+    stride_w:   1,
+    stride_h:   1,
     out_chan:   32,
-    avg_rate:   0.05,
+    avg_rate:   RESNET_AVG_RATE,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -476,7 +461,7 @@ pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqO
     op_cfg.push(SeqOperatorConfig::ResidualConv2d(ResidualConv2dOperatorConfig{
       batch_sz:   batch_sz,
       in_dim:     (16, 16, 32),
-      avg_rate:   0.05,
+      avg_rate:   RESNET_AVG_RATE,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -495,8 +480,10 @@ pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqO
   op_cfg.push(SeqOperatorConfig::ProjResidualConv2d(ProjResidualConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (8, 8, 32),
+    stride_w:   1,
+    stride_h:   1,
     out_chan:   64,
-    avg_rate:   0.05,
+    avg_rate:   RESNET_AVG_RATE,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -504,7 +491,7 @@ pub fn build_cifar10_convnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqO
     op_cfg.push(SeqOperatorConfig::ResidualConv2d(ResidualConv2dOperatorConfig{
       batch_sz:   batch_sz,
       in_dim:     (8, 8, 64),
-      avg_rate:   0.05,
+      avg_rate:   RESNET_AVG_RATE,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));

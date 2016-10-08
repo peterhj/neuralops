@@ -1,5 +1,7 @@
 use densearray::{ArrayIndex, Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
 
+use libc::*;
+
 #[link(name = "neuralops_extkernels", kind = "static")]
 extern "C" {
   pub fn neuralops_conv2d_bias_fwd(
@@ -38,6 +40,22 @@ extern "C" {
       scale_grad: *mut f32,
       bias_grad: *mut f32,
       in_grad: *mut f32);
+  pub fn neuralops_caffe_im2col(
+      data_im: *const f32,
+      channels: c_int, height: c_int, width: c_int,
+      kernel_h: c_int, kernel_w: c_int,
+      pad_h: c_int, pad_w: c_int,
+      stride_h: c_int, stride_w: c_int,
+      dilation_h: c_int, dilation_w: c_int,
+      data_col: *mut f32);
+  pub fn neuralops_caffe_col2im(
+      data_col: *const f32,
+      channels: c_int, height: c_int, width: c_int,
+      kernel_h: c_int, kernel_w: c_int,
+      pad_h: c_int, pad_w: c_int,
+      stride_h: c_int, stride_w: c_int,
+      dilation_h: c_int, dilation_w: c_int,
+      data_im: *mut f32);
 }
 
 pub struct ConvScale2dKernel {

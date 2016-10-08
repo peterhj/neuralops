@@ -55,8 +55,10 @@ impl Conv2dOperatorConfig {
     let (in_w, in_h, in_chan) = self.in_dim;
     /*let out_w = (self.pad_left  + self.pad_right  + in_w - self.kernel_w + 1) / self.stride_w;
     let out_h = (self.pad_bot   + self.pad_top    + in_h - self.kernel_h + 1) / self.stride_h;*/
-    let out_w = (2 * self.pad_w + in_w - self.kernel_w + 1) / self.stride_w;
-    let out_h = (2 * self.pad_h + in_h - self.kernel_h + 1) / self.stride_h;
+    /*let out_w = (2 * self.pad_w + in_w - self.kernel_w + 1) / self.stride_w;
+    let out_h = (2 * self.pad_h + in_h - self.kernel_h + 1) / self.stride_h;*/
+    let out_w = max(0, (in_w + 2 * self.pad_w - self.kernel_w + self.stride_w) as isize) as usize / self.stride_w;
+    let out_h = max(0, (in_h + 2 * self.pad_h - self.kernel_h + self.stride_h) as isize) as usize / self.stride_h;
     (out_w, out_h, self.out_chan)
   }
 }
@@ -80,8 +82,10 @@ pub struct BatchNormConv2dOperatorConfig {
 impl BatchNormConv2dOperatorConfig {
   pub fn out_dim(&self) -> (usize, usize, usize) {
     let (in_w, in_h, in_chan) = self.in_dim;
-    let out_w = (2 * self.pad_w + in_w - self.kernel_w + 1) / self.stride_w;
-    let out_h = (2 * self.pad_h + in_h - self.kernel_h + 1) / self.stride_h;
+    /*let out_w = (2 * self.pad_w + in_w - self.kernel_w + 1) / self.stride_w;
+    let out_h = (2 * self.pad_h + in_h - self.kernel_h + 1) / self.stride_h;*/
+    let out_w = max(0, (in_w + 2 * self.pad_w - self.kernel_w + self.stride_w) as isize) as usize / self.stride_w;
+    let out_h = max(0, (in_h + 2 * self.pad_h - self.kernel_h + self.stride_h) as isize) as usize / self.stride_h;
     (out_w, out_h, self.out_chan)
   }
 }
@@ -262,6 +266,8 @@ impl DiffOperator<f32> for ResidualConv2dOperator {
 pub struct ProjResidualConv2dOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   (usize, usize, usize),
+  pub stride_w: usize,
+  pub stride_h: usize,
   pub out_chan: usize,
   pub avg_rate: f32,
   pub act_kind: ActivationKind,
@@ -270,7 +276,14 @@ pub struct ProjResidualConv2dOperatorConfig {
 
 impl ProjResidualConv2dOperatorConfig {
   pub fn out_dim(&self) -> (usize, usize, usize) {
-    (self.in_dim.0, self.in_dim.1, self.out_chan)
+    let (in_w, in_h, _) = self.in_dim;
+    let kernel_w = 3;
+    let kernel_h = 3;
+    let pad_w = 1;
+    let pad_h = 1;
+    let out_w = max(0, (in_w + 2 * pad_w - kernel_w + self.stride_w) as isize) as usize / self.stride_w;
+    let out_h = max(0, (in_h + 2 * pad_h - kernel_h + self.stride_h) as isize) as usize / self.stride_h;
+    (out_w, out_h, self.out_chan)
   }
 }
 
@@ -297,8 +310,8 @@ impl ProjResidualConv2dOperator {
       in_dim:   cfg.in_dim,
       kernel_w: 3,
       kernel_h: 3,
-      stride_w: 1,
-      stride_h: 1,
+      stride_w: cfg.stride_w,
+      stride_h: cfg.stride_h,
       pad_w:    1,
       pad_h:    1,
       out_chan: cfg.out_chan,
@@ -325,8 +338,8 @@ impl ProjResidualConv2dOperator {
       in_dim:   cfg.in_dim,
       kernel_w: 1,
       kernel_h: 1,
-      stride_w: 1,
-      stride_h: 1,
+      stride_w: cfg.stride_w,
+      stride_h: cfg.stride_h,
       pad_w:    0,
       pad_h:    0,
       out_chan: cfg.out_chan,
