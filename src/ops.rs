@@ -21,5 +21,8 @@ pub use input::{
 };
 pub use join::{AddJoinOperator};
 pub use pool::{Pool2dOperator};
-pub use regress_loss::{LeastSquaresRegressLossOperator};
+pub use regress_loss::{
+  LstSqRegressLossOperator,
+  NormLstSqRegressLossOperator,
+};
 pub use split::{CopySplitOperator};

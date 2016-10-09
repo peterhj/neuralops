@@ -15,6 +15,9 @@ pub use input::{
 };
 pub use join::{JoinOperatorConfig};
 pub use pool::{Pool2dOperatorConfig};
-pub use regress_loss::{RegressLossConfig};
+pub use regress_loss::{
+  RegressLossConfig,
+  NormLstSqRegressLossConfig,
+};
 pub use seq::{SeqOperator, SeqOperatorConfig};
 pub use split::{SplitOperatorConfig};
