@@ -3,6 +3,7 @@ use common::{ActivationKind};
 pub mod activate;
 pub mod batchnorm;
 pub mod conv;
+pub mod interpolate;
 pub mod pool;
 pub mod softmax;
 

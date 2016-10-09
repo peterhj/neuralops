@@ -120,39 +120,51 @@ pub enum VarInputPreproc {
   Scale{scale: f32},
   ChannelShift{shift: Vec<f32>},
   Crop2d{pad_w: usize, pad_h: usize, learning_only: bool},
-  Flip{learning_only: bool},
+  FlipX{learning_only: bool},
   Dummy,
+}
+
+impl VarInputPreproc {
+  pub fn out_dim(&self, in_dim: (usize, usize, usize)) -> (usize, usize, usize) {
+    match self {
+      &VarInputPreproc::Scale{..} => in_dim,
+      &VarInputPreproc::ChannelShift{..} => in_dim,
+      &VarInputPreproc::Crop2d{pad_w, pad_h, ..} => unimplemented!(),
+      &VarInputPreproc::FlipX{..} => unimplemented!(),
+      _ => unimplemented!(),
+    }
+  }
 }
 
 #[derive(Clone)]
 pub struct VarInputOperatorConfig {
   pub batch_sz:     usize,
-  pub stride:       usize,
-  //pub max_stride:   usize,
+  pub max_stride:   usize,
   pub out_dim:      (usize, usize, usize),
   pub preprocs:     Vec<VarInputPreproc>,
 }
 
 pub struct VarInputOperator {
-  cfg:  VarInputOperatorConfig,
-  out:  CommonOperatorOutput<f32>,
-  tmp:  Vec<f32>,
-  rng:  Xorshiftplus128Rng,
+  cfg:      VarInputOperatorConfig,
+  out:      CommonOperatorOutput<f32>,
+  in_dims:  Vec<(usize, usize, usize)>,
+  tmp:      Vec<f32>,
+  rng:      Xorshiftplus128Rng,
   rng_state:    Vec<u64>,
 }
 
 impl VarInputOperator {
-  pub fn new(cfg: VarInputOperatorConfig, _cap: OpCapability, _res: CommonResources) -> VarInputOperator {
-    let mut tmp_buf = Vec::with_capacity(cfg.batch_sz * cfg.stride);
-    for _ in 0 .. cfg.batch_sz * cfg.stride {
-      tmp_buf.push(0.0);
-    }
-    let out = CommonOperatorOutput::new(cfg.batch_sz, cfg.stride, OpCapability::Forward);
+  pub fn new(cfg: VarInputOperatorConfig, cap: OpCapability, _res: CommonResources) -> VarInputOperator {
+    let batch_sz = cfg.batch_sz;
+    let mut tmp_buf = Vec::with_capacity(batch_sz * cfg.max_stride);
+    tmp_buf.resize(batch_sz * cfg.max_stride, 0.0);
+    let out = CommonOperatorOutput::new(batch_sz, cfg.max_stride, cap);
     VarInputOperator{
-      cfg:  cfg,
-      out:  out,
-      tmp:  tmp_buf,
-      rng:  Xorshiftplus128Rng::new(&mut thread_rng()),
+      cfg:      cfg,
+      out:      out,
+      in_dims:  Vec::with_capacity(batch_sz),
+      tmp:      tmp_buf,
+      rng:      Xorshiftplus128Rng::new(&mut thread_rng()),
       rng_state:    vec![],
     }
   }
@@ -169,11 +181,17 @@ impl<S> DiffOperatorInput<f32, S> for VarInputOperator where S: SampleDatum<[f32
     *self.out.batch_size.borrow_mut() = batch_size;
 
     let mut out_buf = self.out.out_buf.borrow_mut();
+    self.in_dims.clear();
     for (idx, sample) in samples.iter().enumerate() {
       // FIXME(20160920): check input shape.
-      /*assert_eq!(self.cfg.stride, sample.input.dim().flat_len());
+      /*assert_eq!(self.cfg.max_stride, sample.input.dim().flat_len());
       assert_eq!(sample.input.stride(), sample.input.dim().least_stride());*/
-      sample.extract_input(&mut (&mut *out_buf)[idx * self.cfg.stride .. (idx+1) * self.cfg.stride]);
+      sample.extract_input(&mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride]);
+      if let Some(Shape3d(in_dim)) = sample.shape() {
+        self.in_dims.push(in_dim);
+      } else {
+        panic!();
+      }
     }
   }
 }
@@ -202,16 +220,14 @@ impl DiffOperator<f32> for VarInputOperator {
     for preproc in self.cfg.preprocs.iter() {
       match preproc {
         &VarInputPreproc::Scale{scale} => {
-          //let mut out_buf = self.out.out_buf.borrow_mut();
-          //let mut out = &mut (&mut *out_buf)[idx * self.cfg.stride .. (idx+1) * self.cfg.stride];
-          let mut out = &mut (&mut *out_buf)[ .. batch_size * self.cfg.stride];
-          out.reshape_mut(batch_size * self.cfg.stride).vector_scale(scale);
+          let mut out = &mut (&mut *out_buf)[ .. batch_size * self.cfg.max_stride];
+          out.reshape_mut(batch_size * self.cfg.max_stride).vector_scale(scale);
         }
         &VarInputPreproc::ChannelShift{ref shift} => {
           let space_len = self.cfg.out_dim.0 * self.cfg.out_dim.1;
           for idx in 0 .. batch_size {
             for a in 0 .. self.cfg.out_dim.2 {
-              let mut out = &mut (&mut *out_buf)[a * space_len + idx * self.cfg.stride .. a * space_len + (idx+1) * self.cfg.stride];
+              let mut out = &mut (&mut *out_buf)[a * space_len + idx * self.cfg.max_stride .. a * space_len + (idx+1) * self.cfg.max_stride];
               out.reshape_mut(space_len).vector_add_scalar(-shift[a]);
             }
           }
@@ -223,7 +239,7 @@ impl DiffOperator<f32> for VarInputOperator {
           }
           unimplemented!();
         }
-        &VarInputPreproc::Flip{learning_only} => {
+        &VarInputPreproc::FlipX{learning_only} => {
           if !learning_only || phase == OpPhase::Learning {
             for idx in 0 .. batch_size {
             }

@@ -25,14 +25,14 @@ fn main() {
   //let op_cfg = build_cifar10_simple_seq(batch_sz);
   //let op_cfg = build_cifar10_simple2_seq(batch_sz);
   //let op_cfg = build_cifar10_simple2b_seq(batch_sz);
-  let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
+  //let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
 
   //let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.05),
+    step_size:      StepSize::Constant(0.01),
     //step_size:      StepSize::Adaptive{init_step: 1.0, test_iters: 100, epoch_iters: 1600, sched: AdaptiveStepSizeSchedule::Pow10},
     //momentum:       None,
     momentum:       Some(0.9),
@@ -73,7 +73,9 @@ fn main() {
               CifarFlavor::Cifar10,
               PathBuf::from("datasets/cifar10/test.bin"),
           )));
-      let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
+      //let op_cfg = build_cifar10_simple2b_seq(batch_sz);
+      let op_cfg = build_cifar10_simple2res_seq(batch_sz);
+      //let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
       let operator = SeqOperator::new(op_cfg, OpCapability::Backward);
       let mut sgd = builder.into_worker(rank, operator);
       let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());

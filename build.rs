@@ -10,6 +10,7 @@ fn main() {
     .file("extkernels/activate.c")
     .file("extkernels/batchnorm.c")
     .file("extkernels/conv.c")
+    .file("extkernels/interpolate.c")
     .file("extkernels/pool.c")
     .compile("libneuralops_extkernels.a");
 
