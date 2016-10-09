@@ -307,7 +307,11 @@ impl DiffOperator<f32> for EntRegSoftmaxNLLClassLossOperator {
       } else {
         let p = out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize];
         let loss = -self.weights[idx] * p.ln();
-        let ent = -p * p.ln();
+        let mut ent = 0.0;
+        for k in 0 .. self.cfg.num_classes {
+          let p_k = out_buf[idx * self.cfg.num_classes + k];
+          ent -= p_k * p_k.ln();
+        }
         (loss, ent)
       };
       self.losses[idx] = loss;
