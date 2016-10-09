@@ -1,7 +1,6 @@
 use common::{CommonResources, CommonOperatorOutput};
 
 use operator::prelude::*;
-use operator::data::{SampleScalarTarget};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::f32::consts::{PI};
@@ -41,17 +40,19 @@ impl LeastSquaresRegressLossOperator {
   }
 }
 
-impl<S> DiffOperatorInput<f32, S> for LeastSquaresRegressLossOperator where S: SampleScalarTarget<f32> {
+impl<S> DiffOperatorInput<f32, S> for LeastSquaresRegressLossOperator where S: SampleLabel + SampleLossWeight<RegressLoss> {
   fn load_data(&mut self, samples: &[S]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
     for (idx, sample) in samples.iter().enumerate() {
-      if let Some(target) = sample.scalar_target() {
+      //if let Some(target) = sample.scalar_target() {
+      if let Some(target) = sample.target() {
         self.targets[idx] = target;
       } else {
         self.targets[idx] = 0.0;
       }
-      self.weights[idx] = sample.scalar_target_weight().unwrap_or(1.0);
+      //self.weights[idx] = sample.scalar_target_weight().unwrap_or(1.0);
+      self.weights[idx] = sample.weight().unwrap_or(1.0);
     }
     *self.out.batch_size.borrow_mut() = actual_batch_size;
   }
@@ -143,17 +144,17 @@ impl NormLstSqRegressLossOperator {
   }
 }
 
-impl<S> DiffOperatorInput<f32, S> for NormLstSqRegressLossOperator where S: SampleScalarTarget<f32> {
+impl<S> DiffOperatorInput<f32, S> for NormLstSqRegressLossOperator where S: SampleLabel + SampleLossWeight<RegressLoss> {
   fn load_data(&mut self, samples: &[S]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
     for (idx, sample) in samples.iter().enumerate() {
-      if let Some(target) = sample.scalar_target() {
+      if let Some(target) = sample.target() {
         self.targets[idx] = target;
       } else {
         self.targets[idx] = 0.0;
       }
-      self.weights[idx] = sample.scalar_target_weight().unwrap_or(1.0);
+      self.weights[idx] = sample.weight().unwrap_or(1.0);
     }
     *self.out.batch_size.borrow_mut() = actual_batch_size;
   }

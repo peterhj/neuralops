@@ -5,7 +5,7 @@ extern crate rng;
 
 use neuralops::prelude::*;
 use neuralops::archs::*;
-use neuralops::data::{CyclicDataIter, SubsampleDataIter, PartitionDataShard};
+use neuralops::data::{CyclicDataIter, RandomSampleDataIter, PartitionDataShard};
 use neuralops::data::cifar::{CifarFlavor, CifarDataShard};
 //use neuralops::input::{InputPreproc};
 use operator::prelude::*;
@@ -60,8 +60,7 @@ fn main() {
     let builder = builder.clone();
     let handle = spawn(move || {
       let mut train_data =
-          SubsampleDataIter::new(
-              batch_sz,
+          RandomSampleDataIter::new(
           CifarDataShard::new(
               CifarFlavor::Cifar10,
               PathBuf::from("datasets/cifar10/train.bin"),

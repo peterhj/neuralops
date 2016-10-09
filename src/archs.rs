@@ -1,5 +1,5 @@
 use prelude::*;
-use input::{InputPreproc};
+use input::{InputPreproc, VarInputPreproc};
 
 const RESNET_AVG_RATE: f32 = 0.05;
 
@@ -310,11 +310,20 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     batch_sz:   batch_sz,
     stride:     32 * 32 * 3,
     preprocs:   vec![
-      // XXX: the pixel mean is:
-      // (1.25306915e2 1.2295039e2 1.1386535e2).
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
     ],
   }));
+  /*op_cfg.push(SeqOperatorConfig::VarInput(VarInputOperatorConfig{
+    batch_sz:   batch_sz,
+    stride:     32 * 32 * 3,
+    out_dim:    (32, 32, 3),
+    preprocs:   vec![
+      // XXX: the pixel mean is:
+      // (1.25306915e2 1.2295039e2 1.1386535e2).
+      VarInputPreproc::ChannelShift{shift: vec![125.0, 123.0, 114.0]},
+      VarInputPreproc::Scale{scale: 1.0 / 256.0},
+    ],
+  }));*/
   op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 3),

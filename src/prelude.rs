@@ -9,7 +9,10 @@ pub use conv::{
   ProjResidualConv2dOperatorConfig,
 };
 pub use graph::{GraphOperator, GraphOperatorConfig};
-pub use input::{SimpleInputOperatorConfig};
+pub use input::{
+  SimpleInputOperatorConfig,
+  VarInputOperatorConfig,
+};
 pub use join::{JoinOperatorConfig};
 pub use pool::{Pool2dOperatorConfig};
 pub use regress_loss::{RegressLossConfig};

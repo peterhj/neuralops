@@ -4,7 +4,6 @@ use kernels::softmax::{SoftmaxKernel};
 use float::ord::{F32InfNan};
 use iter_utils::{argmax}; //, KahanSum};
 use operator::prelude::*;
-use operator::data::{SampleClass, SampleWeight};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::u32;
@@ -40,21 +39,13 @@ impl SoftmaxNLLClassLossOperator {
     let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
     unsafe { sum_fact.set_len(cfg.batch_sz) };*/
     let mut hats = Vec::with_capacity(cfg.batch_sz);
-    for _ in 0 .. cfg.batch_sz {
-      hats.push(0);
-    }
+    hats.resize(cfg.batch_sz, 0);
     let mut losses = Vec::with_capacity(cfg.batch_sz);
-    for _ in 0 .. cfg.batch_sz {
-      losses.push(0.0);
-    }
+    losses.resize(cfg.batch_sz, 0.0);
     let mut labels = Vec::with_capacity(cfg.batch_sz);
-    for _ in 0 .. cfg.batch_sz {
-      labels.push(0);
-    }
+    labels.resize(cfg.batch_sz, 0);
     let mut weights = Vec::with_capacity(cfg.batch_sz);
-    for _ in 0 .. cfg.batch_sz {
-      weights.push(0.0);
-    }
+    weights.resize(cfg.batch_sz, 0.0);
     SoftmaxNLLClassLossOperator{
       cfg:      cfg,
       in_:      prev_op._output(prev_arm),
@@ -73,7 +64,7 @@ impl SoftmaxNLLClassLossOperator {
   }
 }
 
-impl<S> DiffOperatorInput<f32, S> for SoftmaxNLLClassLossOperator where S: SampleClass + SampleWeight {
+impl<S> DiffOperatorInput<f32, S> for SoftmaxNLLClassLossOperator where S: SampleLabel + SampleLossWeight<ClassLoss> {
   fn load_data(&mut self, samples: &[S]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
@@ -150,7 +141,8 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
     //println!("DEBUG: softmax: accuracy: {}/{}", batch_accuracy, batch_size);
 
     let in_loss = *self.in_.out_loss.borrow();
-    self.loss1 += batch_loss + in_loss;
+    //self.loss1 += batch_loss + in_loss;
+    self.loss1 += batch_loss;
     self.accuracy += batch_accuracy;
     *self.out.out_loss.borrow_mut() = batch_loss + in_loss;
   }

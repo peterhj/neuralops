@@ -10,7 +10,6 @@ use neuralops::archs::*;
 use neuralops::data::{CyclicDataIter};
 use neuralops::data::cifar::{CifarFlavor, CifarDataShard};
 use operator::prelude::*;
-use operator::data::{SampleExtractInput};
 
 use rand::{thread_rng};
 use std::path::{PathBuf};
@@ -28,7 +27,7 @@ fn main() {
   buf.resize(32 * 32 * 3, 0.0_f32);
   let num_samples = train_data.len();
   for (idx, sample) in train_data.take(num_samples).enumerate() {
-    sample.extract_input(&mut buf);
+    sample.extract_input(&mut buf as &mut [_]);
     mean.reshape_mut(32 * 32 * 3).vector_add(1.0, buf.reshape(32 * 32 * 3));
     if (idx+1) % 100 == 0 {
       println!("DEBUG: processed {} samples", idx+1);

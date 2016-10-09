@@ -360,7 +360,7 @@ impl DiffOperator<f32> for Conv2dOperator {
         let in_len = self.cfg.in_dim.flat_len();
         let out_len = self.cfg.out_dim().flat_len();
         let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
-        self.col_grad.as_mut().unwrap().reshape_mut(batch_size * out_len).set_constant(0.0);
+        in_grad.borrow_mut().reshape_mut(batch_size * out_len).set_constant(0.0);
         for idx in 0 .. batch_size {
           self.col_grad.as_mut().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape_mut((out_space_len, w_in_len))
             .matrix_prod(
@@ -766,7 +766,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         let in_len = self.cfg.in_dim.flat_len();
         let out_len = self.cfg.out_dim().flat_len();
         let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
-        self.col_grad.as_mut().unwrap().reshape_mut(batch_size * out_len).set_constant(0.0);
+        in_grad.borrow_mut().reshape_mut(batch_size * out_len).set_constant(0.0);
         for idx in 0 .. batch_size {
           self.col_grad.as_mut().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape_mut((out_space_len, w_in_len))
             .matrix_prod(

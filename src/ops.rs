@@ -15,7 +15,10 @@ pub use conv_nnpack::{
   Conv2dOperator,
   BatchNormConv2dOperator,
 };
-pub use input::{SimpleInputOperator};
+pub use input::{
+  SimpleInputOperator,
+  VarInputOperator,
+};
 pub use join::{AddJoinOperator};
 pub use pool::{Pool2dOperator};
 pub use regress_loss::{LeastSquaresRegressLossOperator};

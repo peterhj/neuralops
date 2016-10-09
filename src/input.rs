@@ -2,7 +2,7 @@ use common::{CommonResources, CommonOperatorOutput};
 
 use densearray::{ReshapeMut, ArrayIndex};
 use operator::prelude::*;
-use operator::data::{SampleExtractInput};
+use rng::{RngState};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::{Rng, thread_rng};
@@ -46,7 +46,11 @@ impl SimpleInputOperator {
   }
 }
 
-impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleExtractInput<f32> {
+impl<S> DiffOperatorInput<f32, S> for SimpleInputOperator where S: SampleDatum<[f32]> {
+  fn as_op(&self) -> &DiffOperator<f32, Output=Self::Output, Rng=Self::Rng> {
+    self
+  }
+
   fn load_data(&mut self, samples: &[S]) {
     let batch_size = samples.len();
     assert!(batch_size <= self.cfg.batch_sz);
@@ -125,7 +129,6 @@ pub struct VarInputOperatorConfig {
   pub batch_sz:     usize,
   pub stride:       usize,
   //pub max_stride:   usize,
-  pub in_dim:       (usize, usize, usize),
   pub out_dim:      (usize, usize, usize),
   pub preprocs:     Vec<VarInputPreproc>,
 }
@@ -135,7 +138,7 @@ pub struct VarInputOperator {
   out:  CommonOperatorOutput<f32>,
   tmp:  Vec<f32>,
   rng:  Xorshiftplus128Rng,
-  //rng_state:    Vec<u8>,
+  rng_state:    Vec<u64>,
 }
 
 impl VarInputOperator {
@@ -150,12 +153,16 @@ impl VarInputOperator {
       out:  out,
       tmp:  tmp_buf,
       rng:  Xorshiftplus128Rng::new(&mut thread_rng()),
-      //rng_state:    vec![],
+      rng_state:    vec![],
     }
   }
 }
 
-impl<S> DiffOperatorInput<f32, S> for VarInputOperator where S: SampleExtractInput<f32> {
+impl<S> DiffOperatorInput<f32, S> for VarInputOperator where S: SampleDatum<[f32]> {
+  fn as_op(&self) -> &DiffOperator<f32, Output=Self::Output, Rng=Self::Rng> {
+    self
+  }
+
   fn load_data(&mut self, samples: &[S]) {
     let batch_size = samples.len();
     assert!(batch_size <= self.cfg.batch_sz);
@@ -180,7 +187,16 @@ impl DiffOperator<f32> for VarInputOperator {
     self.out.clone()
   }
 
-  fn forward(&mut self, _phase: OpPhase) {
+  fn save_rng_state(&mut self) {
+    self.rng_state.clear();
+    self.rng.extract_state(&mut self.rng_state);
+  }
+
+  fn restore_rng_state(&mut self) {
+    self.rng.set_state(&self.rng_state);
+  }
+
+  fn forward(&mut self, phase: OpPhase) {
     let batch_size = *self.out.batch_size.borrow();
     let mut out_buf = self.out.out_buf.borrow_mut();
     for preproc in self.cfg.preprocs.iter() {
@@ -189,24 +205,29 @@ impl DiffOperator<f32> for VarInputOperator {
           //let mut out_buf = self.out.out_buf.borrow_mut();
           //let mut out = &mut (&mut *out_buf)[idx * self.cfg.stride .. (idx+1) * self.cfg.stride];
           let mut out = &mut (&mut *out_buf)[ .. batch_size * self.cfg.stride];
-          /*if let Some(shift) = shift {
-            out.reshape_mut(batch_size * self.cfg.stride).vector_add_scalar(shift);
-          }*/
           out.reshape_mut(batch_size * self.cfg.stride).vector_scale(scale);
         }
         &VarInputPreproc::ChannelShift{ref shift} => {
-          let in_space_len = self.cfg.in_dim.0 * self.cfg.in_dim.1;
+          let space_len = self.cfg.out_dim.0 * self.cfg.out_dim.1;
           for idx in 0 .. batch_size {
-            for a in 0 .. self.cfg.in_dim.2 {
-              let mut out = &mut (&mut *out_buf)[a * in_space_len + idx * self.cfg.stride .. a * in_space_len + (idx+1) * self.cfg.stride];
-              out.reshape_mut(in_space_len).vector_add_scalar(shift[a]);
+            for a in 0 .. self.cfg.out_dim.2 {
+              let mut out = &mut (&mut *out_buf)[a * space_len + idx * self.cfg.stride .. a * space_len + (idx+1) * self.cfg.stride];
+              out.reshape_mut(space_len).vector_add_scalar(-shift[a]);
             }
           }
         }
         &VarInputPreproc::Crop2d{pad_w, pad_h, learning_only} => {
+          if !learning_only || phase == OpPhase::Learning {
+            for idx in 0 .. batch_size {
+            }
+          }
           unimplemented!();
         }
         &VarInputPreproc::Flip{learning_only} => {
+          if !learning_only || phase == OpPhase::Learning {
+            for idx in 0 .. batch_size {
+            }
+          }
           unimplemented!();
         }
         _ => unimplemented!(),
