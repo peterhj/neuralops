@@ -476,7 +476,7 @@ impl BatchNormConv2dOperator {
       tmp2_grad: tmp2_grad,
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
-      bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), 1.0e-4),
+      bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), cfg.epsilon),
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),

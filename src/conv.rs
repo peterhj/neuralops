@@ -75,6 +75,7 @@ pub struct BatchNormConv2dOperatorConfig {
   pub pad_h:    usize,
   pub out_chan: usize,
   pub avg_rate: f32,
+  pub epsilon:  f32,
   pub act_kind: ActivationKind,
   pub w_init:   ParamInitKind,
 }
@@ -100,6 +101,7 @@ pub struct ResidualConv2dOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   (usize, usize, usize),
   pub avg_rate: f32,
+  pub epsilon:  f32,
   pub act_kind: ActivationKind,
   pub w_init:   ParamInitKind,
 }
@@ -132,6 +134,7 @@ impl ResidualConv2dOperator {
       pad_h:    1,
       out_chan: cfg.in_dim.2,
       avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
       act_kind: ActivationKind::Rect,
       w_init:   cfg.w_init,
     };
@@ -146,6 +149,7 @@ impl ResidualConv2dOperator {
       pad_h:    1,
       out_chan: cfg.in_dim.2,
       avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
       act_kind: ActivationKind::Identity,
       w_init:   cfg.w_init,
     };
@@ -275,6 +279,7 @@ pub struct ProjResidualConv2dOperatorConfig {
   pub stride_h: usize,
   pub out_chan: usize,
   pub avg_rate: f32,
+  pub epsilon:  f32,
   pub act_kind: ActivationKind,
   pub w_init:   ParamInitKind,
 }
@@ -321,6 +326,7 @@ impl ProjResidualConv2dOperator {
       pad_h:    1,
       out_chan: cfg.out_chan,
       avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
       act_kind: ActivationKind::Rect,
       w_init:   cfg.w_init,
     };
@@ -335,6 +341,7 @@ impl ProjResidualConv2dOperator {
       pad_h:    1,
       out_chan: cfg.out_chan,
       avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
       act_kind: ActivationKind::Identity,
       w_init:   cfg.w_init,
     };
@@ -349,6 +356,7 @@ impl ProjResidualConv2dOperator {
       pad_h:    0,
       out_chan: cfg.out_chan,
       avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
       act_kind: ActivationKind::Identity,
       w_init:   cfg.w_init,
     };

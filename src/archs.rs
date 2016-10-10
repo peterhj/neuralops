@@ -3,7 +3,8 @@ use input::{InputPreproc, VarInputPreproc};
 
 use operator::prelude::*;
 
-const RESNET_AVG_RATE: f32 = 0.05;
+const RESNET_AVG_RATE:  f32 = 0.05;
+const RESNET_EPSILON:   f32 = 1.0e-6;
 
 pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
@@ -201,6 +202,7 @@ pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_h:      1,
     out_chan:   16,
     avg_rate:   0.05,
+    epsilon:    1.0e-6,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -227,6 +229,7 @@ pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_h:      1,
     out_chan:   32,
     avg_rate:   0.05,
+    epsilon:    1.0e-6,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -253,6 +256,7 @@ pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_h:      1,
     out_chan:   64,
     avg_rate:   0.05,
+    epsilon:    1.0e-6,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -318,6 +322,7 @@ pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_h:      1,
     out_chan:   16,
     avg_rate:   0.05,
+    epsilon:    1.0e-6,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -342,6 +347,7 @@ pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     stride_h:   2,
     out_chan:   32,
     avg_rate:   0.05,
+    epsilon:    1.0e-6,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -366,6 +372,7 @@ pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     stride_h:   2,
     out_chan:   64,
     avg_rate:   0.05,
+    epsilon:    1.0e-6,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -414,6 +421,7 @@ pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_h:      1,
     out_chan:   16,
     avg_rate:   0.05,
+    epsilon:    1.0e-6,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -470,6 +478,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     pad_h:      1,
     out_chan:   16,
     avg_rate:   RESNET_AVG_RATE,
+    epsilon:    RESNET_EPSILON,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -478,6 +487,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
       batch_sz:   batch_sz,
       in_dim:     (32, 32, 16),
       avg_rate:   RESNET_AVG_RATE,
+      epsilon:    RESNET_EPSILON,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -489,6 +499,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     stride_h:   2,
     out_chan:   32,
     avg_rate:   RESNET_AVG_RATE,
+    epsilon:    RESNET_EPSILON,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -497,6 +508,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
       batch_sz:   batch_sz,
       in_dim:     (16, 16, 32),
       avg_rate:   RESNET_AVG_RATE,
+      epsilon:    RESNET_EPSILON,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -508,6 +520,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     stride_h:   2,
     out_chan:   64,
     avg_rate:   RESNET_AVG_RATE,
+    epsilon:    RESNET_EPSILON,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -516,6 +529,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
       batch_sz:   batch_sz,
       in_dim:     (8, 8, 64),
       avg_rate:   RESNET_AVG_RATE,
+      epsilon:    RESNET_EPSILON,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -569,6 +583,7 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
     pad_h:      1,
     out_chan:   16,
     avg_rate:   RESNET_AVG_RATE,
+    epsilon:    RESNET_EPSILON,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -577,6 +592,7 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
       batch_sz:   batch_sz,
       in_dim:     (32, 32, 16),
       avg_rate:   RESNET_AVG_RATE,
+      epsilon:    RESNET_EPSILON,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -599,6 +615,7 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
     stride_h:   1,
     out_chan:   32,
     avg_rate:   RESNET_AVG_RATE,
+    epsilon:    RESNET_EPSILON,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -607,6 +624,7 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
       batch_sz:   batch_sz,
       in_dim:     (16, 16, 32),
       avg_rate:   RESNET_AVG_RATE,
+      epsilon:    RESNET_EPSILON,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
@@ -629,6 +647,7 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
     stride_h:   1,
     out_chan:   64,
     avg_rate:   RESNET_AVG_RATE,
+    epsilon:    RESNET_EPSILON,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -637,6 +656,7 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
       batch_sz:   batch_sz,
       in_dim:     (8, 8, 64),
       avg_rate:   RESNET_AVG_RATE,
+      epsilon:    RESNET_EPSILON,
       act_kind:   ActivationKind::Rect,
       w_init:     ParamInitKind::Kaiming,
     }));
