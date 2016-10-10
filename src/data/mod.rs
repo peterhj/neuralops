@@ -11,7 +11,7 @@ use std::marker::{PhantomData};
 pub mod cifar;
 pub mod mnist;
 
-#[derive(Clone, Copy)]
+/*#[derive(Clone, Copy)]
 pub enum Shape {
   Dim(usize, usize),
   Time(usize),
@@ -19,12 +19,12 @@ pub enum Shape {
   Width(usize),
   Height(usize),
   Depth(usize),
-}
+}*/
 
 #[derive(Clone)]
 pub struct ClassSample2d<T> where T: Copy {
   pub input:    Array3d<T>,
-  pub shape:    (Shape, Shape, Shape),
+  //pub shape:    (Shape, Shape, Shape),
   pub label:    Option<u32>,
   pub weight:   Option<f32>,
 }
@@ -87,7 +87,7 @@ impl<T> SampleWeight for SharedClassSample<T> where T: Copy {
 #[derive(Clone)]
 pub struct SharedClassSample2d<T> where T: Copy {
   pub input:    Array3d<T, SharedSlice<T>>,
-  pub shape:    (Shape, Shape, Shape),
+  pub shape:    Option<Shape>,
   pub label:    Option<u32>,
   pub weight:   Option<f32>,
 }
@@ -107,6 +107,10 @@ impl SampleDatum<[f32]> for SharedClassSample2d<u8> {
       output[i] = input[i] as f32;
     }
     Ok(())
+  }
+
+  fn shape(&self) -> Option<Shape> {
+    self.shape.clone()
   }
 }
 

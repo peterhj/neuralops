@@ -1,6 +1,7 @@
-use data::{IndexedDataShard, Shape, SharedClassSample2d};
+use data::{IndexedDataShard, SharedClassSample2d};
 
 use densearray::{ArrayIndex, Array3d};
+use operator::prelude::*;
 use sharedmem::{MemoryMap, SharedMem};
 
 use byteorder::{ReadBytesExt, BigEndian};
@@ -66,7 +67,8 @@ impl IndexedDataShard<SharedClassSample2d<u8>> for CifarDataShard {
     };
     SharedClassSample2d{
       input:    Array3d::from_storage(self.input_d, input_buf),
-      shape:    (Shape::Width(32), Shape::Height(32), Shape::Dim(0, 3)),
+      //shape:    (Shape::Width(32), Shape::Height(32), Shape::Dim(0, 3)),
+      shape:    Some(Shape3d((32, 32, 3))),
       label:    Some(label),
       weight:   None,
     }

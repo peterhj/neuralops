@@ -1,6 +1,7 @@
-use data::{IndexedDataShard, Shape, SharedClassSample2d};
+use data::{IndexedDataShard, SharedClassSample2d};
 
 use densearray::{ArrayIndex, Array3d};
+use operator::prelude::*;
 use sharedmem::{MemoryMap, SharedMem};
 
 use byteorder::{ReadBytesExt, BigEndian};
@@ -82,7 +83,8 @@ impl IndexedDataShard<SharedClassSample2d<u8>> for MnistDataShard {
     let label = self.labels_m.as_slice()[idx] as u32;
     SharedClassSample2d{
       input:    Array3d::from_storage(self.frame_d, input_buf),
-      shape:    (Shape::Width(28), Shape::Height(28), Shape::Dim(0, 1)),
+      //shape:    (Shape::Width(28), Shape::Height(28), Shape::Dim(0, 1)),
+      shape:    Some(Shape3d((28, 28, 1))),
       label:    Some(label),
       weight:   None,
     }

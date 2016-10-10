@@ -1,4 +1,6 @@
 use common::{CommonResources, CommonOperatorOutput};
+use kernels::image::*;
+use kernels::interpolate::*;
 
 use densearray::{ReshapeMut, ArrayIndex};
 use operator::prelude::*;
@@ -119,21 +121,11 @@ impl DiffOperator<f32> for SimpleInputOperator {
 pub enum VarInputPreproc {
   Scale{scale: f32},
   ChannelShift{shift: Vec<f32>},
-  Crop2d{pad_w: usize, pad_h: usize, learning_only: bool},
-  FlipX{learning_only: bool},
+  RandomResize2d{lo: usize, hi: usize, phases: Vec<OpPhase>},
+  RandomCrop2d{crop_w: usize, crop_h: usize, pad_w: usize, pad_h: usize, phases: Vec<OpPhase>},
+  CenterCrop2d{crop_w: usize, crop_h: usize, phases: Vec<OpPhase>},
+  RandomFlipX{phases: Vec<OpPhase>},
   Dummy,
-}
-
-impl VarInputPreproc {
-  pub fn out_dim(&self, in_dim: (usize, usize, usize)) -> (usize, usize, usize) {
-    match self {
-      &VarInputPreproc::Scale{..} => in_dim,
-      &VarInputPreproc::ChannelShift{..} => in_dim,
-      &VarInputPreproc::Crop2d{pad_w, pad_h, ..} => unimplemented!(),
-      &VarInputPreproc::FlipX{..} => unimplemented!(),
-      _ => unimplemented!(),
-    }
-  }
 }
 
 #[derive(Clone)]
@@ -146,11 +138,12 @@ pub struct VarInputOperatorConfig {
 
 pub struct VarInputOperator {
   cfg:      VarInputOperatorConfig,
-  out:      CommonOperatorOutput<f32>,
-  in_dims:  Vec<(usize, usize, usize)>,
-  tmp:      Vec<f32>,
   rng:      Xorshiftplus128Rng,
-  rng_state:    Vec<u64>,
+  r_state:  Vec<u64>,
+  in_dims:  Vec<(usize, usize, usize)>,
+  tmp_dims: Vec<(usize, usize, usize)>,
+  tmp_buf:  Vec<f32>,
+  out:      CommonOperatorOutput<f32>,
 }
 
 impl VarInputOperator {
@@ -161,11 +154,12 @@ impl VarInputOperator {
     let out = CommonOperatorOutput::new(batch_sz, cfg.max_stride, cap);
     VarInputOperator{
       cfg:      cfg,
-      out:      out,
-      in_dims:  Vec::with_capacity(batch_sz),
-      tmp:      tmp_buf,
       rng:      Xorshiftplus128Rng::new(&mut thread_rng()),
-      rng_state:    vec![],
+      r_state:  vec![],
+      in_dims:  Vec::with_capacity(batch_sz),
+      tmp_dims: Vec::with_capacity(batch_sz),
+      tmp_buf:  tmp_buf,
+      out:      out,
     }
   }
 }
@@ -206,50 +200,167 @@ impl DiffOperator<f32> for VarInputOperator {
   }
 
   fn save_rng_state(&mut self) {
-    self.rng_state.clear();
-    self.rng.extract_state(&mut self.rng_state);
+    self.r_state.clear();
+    self.r_state.resize(self.rng.state_size(), 0);
+    self.rng.extract_state(&mut self.r_state);
   }
 
   fn restore_rng_state(&mut self) {
-    self.rng.set_state(&self.rng_state);
+    self.rng.set_state(&self.r_state);
   }
 
   fn forward(&mut self, phase: OpPhase) {
     let batch_size = *self.out.batch_size.borrow();
+    self.tmp_dims.clear();
+    for idx in 0 .. batch_size {
+      self.tmp_dims.push(self.in_dims[idx]);
+    }
     let mut out_buf = self.out.out_buf.borrow_mut();
     for preproc in self.cfg.preprocs.iter() {
       match preproc {
         &VarInputPreproc::Scale{scale} => {
-          let mut out = &mut (&mut *out_buf)[ .. batch_size * self.cfg.max_stride];
-          out.reshape_mut(batch_size * self.cfg.max_stride).vector_scale(scale);
+          for idx in 0 .. batch_size {
+            let dim = self.tmp_dims[idx];
+            let mut out = &mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+            out.reshape_mut(dim.flat_len()).vector_scale(scale);
+          }
         }
         &VarInputPreproc::ChannelShift{ref shift} => {
-          let space_len = self.cfg.out_dim.0 * self.cfg.out_dim.1;
           for idx in 0 .. batch_size {
+            let dim = self.tmp_dims[idx];
+            let space_len = dim.0 * dim.1;
             for a in 0 .. self.cfg.out_dim.2 {
-              let mut out = &mut (&mut *out_buf)[a * space_len + idx * self.cfg.max_stride .. a * space_len + (idx+1) * self.cfg.max_stride];
+              let mut out = &mut (&mut *out_buf)[a * space_len + idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
               out.reshape_mut(space_len).vector_add_scalar(-shift[a]);
             }
           }
         }
-        &VarInputPreproc::Crop2d{pad_w, pad_h, learning_only} => {
-          if !learning_only || phase == OpPhase::Learning {
+        &VarInputPreproc::RandomResize2d{lo, hi, ref phases} => {
+          if phases.contains(&phase) {
             for idx in 0 .. batch_size {
+              let in_dim = self.tmp_dims[idx];
+              let resized_out_d = self.rng.gen_range(lo, hi+1);
+              let (out_w, out_h) = if in_dim.0 >= in_dim.1 {
+                let sy = resized_out_d as f64 / in_dim.1 as f64;
+                ((sy * in_dim.0 as f64).round() as usize, resized_out_d)
+              } else {
+                let sx = resized_out_d as f64 / in_dim.0 as f64;
+                (resized_out_d, (sx * in_dim.1 as f64).round() as usize)
+              };
+              let out_dim = (out_w, out_h, in_dim.2);
+              let out_len = out_dim.flat_len();
+              {
+                let out = &(&*out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+                let mut tmp = &mut self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+                unsafe { neuralops_interpolate2d_catmullrom(
+                    in_dim.0, in_dim.1, in_dim.2,
+                    out_dim.0, out_dim.1,
+                    out.as_ptr(),
+                    tmp.as_mut_ptr(),
+                ) };
+              }
+              let tmp = &self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+              let mut out = &mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+              out[ .. out_len].copy_from_slice(&tmp);
+              self.tmp_dims[idx] = out_dim;
             }
           }
-          unimplemented!();
         }
-        &VarInputPreproc::FlipX{learning_only} => {
-          if !learning_only || phase == OpPhase::Learning {
+        &VarInputPreproc::RandomCrop2d{crop_w, crop_h, pad_w, pad_h, ref phases} => {
+          if phases.contains(&phase) {
             for idx in 0 .. batch_size {
+              let in_dim = self.tmp_dims[idx];
+              assert!(crop_w <= in_dim.0 + 2 * pad_w);
+              assert!(crop_h <= in_dim.1 + 2 * pad_h);
+              let out_dim = (crop_w, crop_h, in_dim.2);
+              let out_len = out_dim.flat_len();
+              let offset_x = self.rng.gen_range(0, in_dim.0 + 2 * pad_w - crop_w + 1) as isize - pad_w as isize;
+              let offset_y = self.rng.gen_range(0, in_dim.1 + 2 * pad_h - crop_h + 1) as isize - pad_h as isize;
+              {
+                let out = &(&*out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+                let mut tmp = &mut self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+                unsafe { neuralops_image_crop(
+                    in_dim.0, in_dim.1, in_dim.2,
+                    out_dim.0, out_dim.1,
+                    offset_x, offset_y,
+                    out.as_ptr(),
+                    tmp.as_mut_ptr(),
+                ) };
+              }
+              let tmp = &self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+              let mut out = &mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+              out[ .. out_len].copy_from_slice(&tmp);
+              self.tmp_dims[idx] = out_dim;
             }
           }
-          unimplemented!();
+        }
+        &VarInputPreproc::CenterCrop2d{crop_w, crop_h, ref phases} => {
+          if phases.contains(&phase) {
+            for idx in 0 .. batch_size {
+              let in_dim = self.tmp_dims[idx];
+              assert!(crop_w <= in_dim.0);
+              assert!(crop_h <= in_dim.1);
+              let out_dim = (crop_w, crop_h, in_dim.2);
+              let out_len = out_dim.flat_len();
+              let offset_x = ((in_dim.0 - crop_w) / 2) as isize;
+              let offset_y = ((in_dim.1 - crop_h) / 2) as isize;
+              {
+                let out = &(&*out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+                let mut tmp = &mut self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+                unsafe { neuralops_image_crop(
+                    in_dim.0, in_dim.1, in_dim.2,
+                    out_dim.0, out_dim.1,
+                    offset_x, offset_y,
+                    out.as_ptr(),
+                    tmp.as_mut_ptr(),
+                ) };
+              }
+              let tmp = &self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+              let mut out = &mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+              out[ .. out_len].copy_from_slice(&tmp);
+              self.tmp_dims[idx] = out_dim;
+            }
+          }
+        }
+        &VarInputPreproc::RandomFlipX{ref phases} => {
+          if phases.contains(&phase) {
+            for idx in 0 .. batch_size {
+              let out_dim = self.tmp_dims[idx];
+              let out_len = out_dim.flat_len();
+              let bernoulli = self.rng.gen_range(0, 2);
+              match bernoulli {
+                0 => {}
+                1 => {
+                  {
+                    let out = &(&*out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+                    let mut tmp = &mut self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+                    unsafe { neuralops_image_flip(
+                        out_dim.0, out_dim.1, out_dim.2,
+                        out.as_ptr(),
+                        tmp.as_mut_ptr(),
+                    ) };
+                  }
+                  let tmp = &self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+                  let mut out = &mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+                  out[ .. out_len].copy_from_slice(&tmp);
+                }
+                _ => unreachable!(),
+              }
+            }
+          }
         }
         _ => unimplemented!(),
       }
     }
-    *self.out.out_loss.borrow_mut() = 0.0;
+    let out_len = self.cfg.out_dim.flat_len();
+    for idx in 0 .. batch_size {
+      assert_eq!(self.cfg.out_dim, self.tmp_dims[idx]);
+      let out = &(&*out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+      let mut tmp = &mut self.tmp_buf[idx * out_len .. (idx+1) * out_len];
+      tmp.copy_from_slice(&out[ .. out_len]);
+    }
+    out_buf[ .. batch_size * out_len].copy_from_slice(&self.tmp_buf[ .. batch_size * out_len]);
+    //*self.out.out_loss.borrow_mut() = 0.0;
   }
 
   fn backward(&mut self) {
