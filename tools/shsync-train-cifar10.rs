@@ -22,22 +22,12 @@ fn main() {
   let batch_sz = 32;
   let num_workers = 4;
 
-  //let op_cfg = build_cifar10_simple_seq(batch_sz);
-  //let op_cfg = build_cifar10_simple2_seq(batch_sz);
-  //let op_cfg = build_cifar10_simple2b_seq(batch_sz);
-  //let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
-
-  //let op = SeqOperator::new(op_cfg, OpCapability::Backward);
-
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.01),
-    //step_size:      StepSize::Adaptive{init_step: 1.0, test_iters: 100, epoch_iters: 1600, sched: AdaptiveStepSizeSchedule::Pow10},
-    //momentum:       None,
+    step_size:      StepSize::Constant(0.1),
     momentum:       Some(0.9),
-    l2_reg:         None,
-    //l2_reg:         Some(1.0e-4),
+    l2_reg:         Some(1.0e-4),
   };
   //let mut sgd = SgdWorker::new(sgd_cfg, op);
   /*let sgd_cfg = AdamConfig{
@@ -73,18 +63,20 @@ fn main() {
               CifarFlavor::Cifar10,
               PathBuf::from("datasets/cifar10/test.bin"),
           )));
+
       //let op_cfg = build_cifar10_simple2b_seq(batch_sz);
-      let op_cfg = build_cifar10_simple2res_seq(batch_sz);
-      //let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
+      //let op_cfg = build_cifar10_simple2res_seq(batch_sz);
+      let op_cfg = build_cifar10_resnet_seq(batch_sz, 20);
       let operator = SeqOperator::new(op_cfg, OpCapability::Backward);
       let mut sgd = builder.into_worker(rank, operator);
       let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
+
       sgd.init_param(&mut rng);
-      println!("DEBUG: validating...");
+      /*println!("DEBUG: validating...");
       sgd.reset_opt_stats();
       sgd.eval(valid_data.len(), &mut valid_data);
       println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
-      sgd.reset_opt_stats();
+      sgd.reset_opt_stats();*/
       for iter_nr in 0 .. 100000 {
         sgd.step(&mut train_data);
         if (iter_nr + 1) % 5 == 0 && rank == 0 {

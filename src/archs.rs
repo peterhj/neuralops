@@ -1,6 +1,8 @@
 use prelude::*;
 use input::{InputPreproc, VarInputPreproc};
 
+use operator::prelude::*;
+
 const RESNET_AVG_RATE: f32 = 0.05;
 
 pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
@@ -165,11 +167,26 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
 
 pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
-  op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+  /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     stride:     32 * 32 * 3,
     preprocs:   vec![
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
+    ],
+  }));*/
+  op_cfg.push(SeqOperatorConfig::VarInput(VarInputOperatorConfig{
+    batch_sz:   batch_sz,
+    //stride:     32 * 32 * 3,
+    max_stride: 32 * 32 * 3,
+    out_dim:    (32, 32, 3),
+    preprocs:   vec![
+      // XXX: the pixel mean is:
+      // (1.25306915e2 1.2295039e2 1.1386535e2).
+      VarInputPreproc::ChannelShift{shift: vec![125.0, 123.0, 114.0]},
+      VarInputPreproc::Scale{scale: 1.0 / 256.0},
+      //VarInputPreproc::RandomResize2d{lo: 256, hi: 480, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::RandomCrop2d{crop_w: 32, crop_h: 32, pad_w: 4, pad_h: 4, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::RandomFlipX{phases: vec![OpPhase::Learning]},
     ],
   }));
   //op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
@@ -266,11 +283,26 @@ pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
 
 pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
-  op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+  /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     stride:     32 * 32 * 3,
     preprocs:   vec![
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
+    ],
+  }));*/
+  op_cfg.push(SeqOperatorConfig::VarInput(VarInputOperatorConfig{
+    batch_sz:   batch_sz,
+    //stride:     32 * 32 * 3,
+    max_stride: 32 * 32 * 3,
+    out_dim:    (32, 32, 3),
+    preprocs:   vec![
+      // XXX: the pixel mean is:
+      // (1.25306915e2 1.2295039e2 1.1386535e2).
+      VarInputPreproc::ChannelShift{shift: vec![125.0, 123.0, 114.0]},
+      VarInputPreproc::Scale{scale: 1.0 / 256.0},
+      //VarInputPreproc::RandomResize2d{lo: 256, hi: 480, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::RandomCrop2d{crop_w: 32, crop_h: 32, pad_w: 4, pad_h: 4, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::RandomFlipX{phases: vec![OpPhase::Learning]},
     ],
   }));
   //op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
@@ -401,27 +433,31 @@ pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
 }
 
 pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
-  let num_res = (num_layers - 2) / 3;
+  let num_res = (num_layers - 2) / 3 / 2;
   assert_eq!(0, (num_layers - 2) % 3);
   let mut op_cfg = vec![];
-  op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
+  /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
     stride:     32 * 32 * 3,
     preprocs:   vec![
       InputPreproc::ShiftScale{shift: None, scale: Some(1.0 / 255.0)},
     ],
-  }));
-  /*op_cfg.push(SeqOperatorConfig::VarInput(VarInputOperatorConfig{
+  }));*/
+  op_cfg.push(SeqOperatorConfig::VarInput(VarInputOperatorConfig{
     batch_sz:   batch_sz,
-    stride:     32 * 32 * 3,
+    //stride:     32 * 32 * 3,
+    max_stride: 32 * 32 * 3,
     out_dim:    (32, 32, 3),
     preprocs:   vec![
       // XXX: the pixel mean is:
       // (1.25306915e2 1.2295039e2 1.1386535e2).
       VarInputPreproc::ChannelShift{shift: vec![125.0, 123.0, 114.0]},
       VarInputPreproc::Scale{scale: 1.0 / 256.0},
+      //VarInputPreproc::RandomResize2d{lo: 256, hi: 480, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::RandomCrop2d{crop_w: 32, crop_h: 32, pad_w: 4, pad_h: 4, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::RandomFlipX{phases: vec![OpPhase::Learning]},
     ],
-  }));*/
+  }));
   op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 3),
