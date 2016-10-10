@@ -175,6 +175,7 @@ impl<S> DiffOperatorInput<f32, S> for VarInputOperator where S: SampleDatum<[f32
     *self.out.batch_size.borrow_mut() = batch_size;
 
     let mut out_buf = self.out.out_buf.borrow_mut();
+    out_buf.reshape_mut(self.cfg.batch_sz * self.cfg.max_stride).set_constant(0.0);
     self.in_dims.clear();
     for (idx, sample) in samples.iter().enumerate() {
       // FIXME(20160920): check input shape.

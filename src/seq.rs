@@ -205,6 +205,10 @@ impl<T, S> DiffOperator<T> for SeqOperator<T, S> {
     self.loss_op.store_loss()
   }
 
+  fn _store_accuracy(&mut self) -> usize {
+    self.loss_op._store_accuracy()
+  }
+
   fn apply_grad_reg(&mut self, reg: Regularization) {
     // FIXME(20160921): regularization contributes extra loss from each of the
     // sub-operators; add those to the designated loss operator.

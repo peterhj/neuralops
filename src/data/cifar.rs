@@ -67,8 +67,7 @@ impl IndexedDataShard<SharedClassSample2d<u8>> for CifarDataShard {
     };
     SharedClassSample2d{
       input:    Array3d::from_storage(self.input_d, input_buf),
-      //shape:    (Shape::Width(32), Shape::Height(32), Shape::Dim(0, 3)),
-      shape:    Some(Shape3d((32, 32, 3))),
+      shape:    Some(Shape3d(self.input_d)),
       label:    Some(label),
       weight:   None,
     }

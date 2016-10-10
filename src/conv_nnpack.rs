@@ -419,7 +419,8 @@ impl BatchNormConv2dOperator {
   pub fn new(cfg: BatchNormConv2dOperatorConfig, cap: OpCapability, prev_op: &DiffOperator<f32, Output=CommonOperatorOutput<f32>, Rng=Xorshiftplus128Rng>, prev_arm: usize, res: CommonResources) -> BatchNormConv2dOperator {
     let bias = Array1d::zeros(cfg.out_chan);
     let (col_buf, col_grad) =
-        if cfg.stride_w != 1 || cfg.stride_h != 1 {
+        //if cfg.stride_w != 1 || cfg.stride_h != 1 {
+        if cfg.prefer_gemm_conv() {
           let w_in_len = cfg.kernel_w * cfg.kernel_h * cfg.in_dim.2;
           let out_len = cfg.out_dim().flat_len();
           let col_len = w_in_len * out_len * cfg.batch_sz;
@@ -475,7 +476,7 @@ impl BatchNormConv2dOperator {
       tmp2_grad: tmp2_grad,
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
-      bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), 1.0e-6),
+      bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), 1.0e-4),
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
@@ -618,7 +619,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     *self.out.batch_size.borrow_mut() = batch_size;
     assert!(batch_size <= self.cfg.batch_sz);
 
-    if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    if !self.cfg.prefer_gemm_conv() {
       let status = unsafe { nnp_convolution_output(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           //nnp_convolution_algorithm::nnp_convolution_algorithm_implicit_gemm,
@@ -669,7 +671,6 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     let out_len = batch_size * self.cfg.out_dim().flat_len();
     self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
     self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
-    //activate_fwd(self.cfg.act_kind, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
     self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.out_buf.borrow_mut());
 
     let in_loss = *self.in_.out_loss.borrow();
@@ -692,12 +693,12 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     let batch_size = *self.out.batch_size.borrow();
 
     let out_len = batch_size * self.cfg.out_dim().flat_len();
-    //activate_bwd(self.cfg.act_kind, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
     self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
     self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 
-    if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    if !self.cfg.prefer_gemm_conv() {
       let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
       self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
       let status = unsafe { nnp_convolution_kernel_gradient(
@@ -738,7 +739,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     }
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
-      if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+      if !self.cfg.prefer_gemm_conv() {
+      //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
         let in_len = batch_size * self.cfg.in_dim.flat_len();
         in_grad.borrow_mut().reshape_mut(in_len).set_constant(0.0);
         let status = unsafe { nnp_convolution_input_gradient(
@@ -766,7 +768,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         let in_len = self.cfg.in_dim.flat_len();
         let out_len = self.cfg.out_dim().flat_len();
         let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
-        in_grad.borrow_mut().reshape_mut(batch_size * out_len).set_constant(0.0);
+        in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
         for idx in 0 .. batch_size {
           self.col_grad.as_mut().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape_mut((out_space_len, w_in_len))
             .matrix_prod(

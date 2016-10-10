@@ -88,6 +88,11 @@ impl BatchNormConv2dOperatorConfig {
     let out_h = max(0, (in_h + 2 * self.pad_h - self.kernel_h + self.stride_h) as isize) as usize / self.stride_h;
     (out_w, out_h, self.out_chan)
   }
+
+  pub fn prefer_gemm_conv(&self) -> bool {
+    //self.cfg.stride_w != 1 || self.cfg.stride_h != 1
+    true
+  }
 }
 
 #[derive(Clone, Copy, Debug)]

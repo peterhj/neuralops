@@ -66,7 +66,7 @@ fn main() {
     minibatch_sz:   batch_sz,
     //step_size:      StepSize::Constant(0.1),
     step_size:      StepSize::Adaptive{init_step: 1.0, test_iters: 20, epoch_iters: 2000, sched: AdaptiveStepSizeSchedule::Pow10},
-    momentum:       Some(0.9),
+    momentum:       Some(GradientMomentum::Nesterov(0.9)),
     l2_reg:         None,
     //l2_reg:         Some(1.0e-4),
   };

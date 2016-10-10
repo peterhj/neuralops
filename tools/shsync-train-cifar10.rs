@@ -19,14 +19,17 @@ use std::path::{PathBuf};
 use std::thread::{spawn};
 
 fn main() {
-  let batch_sz = 32;
+  let batch_sz = 8;
+  let minibatch_sz = 32;
   let num_workers = 4;
 
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
-    minibatch_sz:   batch_sz,
+    minibatch_sz:   minibatch_sz,
+    //step_size:      StepSize::Constant(0.001),
     step_size:      StepSize::Constant(0.1),
-    momentum:       Some(0.9),
+    //momentum:       Some(GradientMomentum::HeavyBall(0.9)),
+    momentum:       Some(GradientMomentum::Nesterov(0.9)),
     l2_reg:         Some(1.0e-4),
   };
   //let mut sgd = SgdWorker::new(sgd_cfg, op);
@@ -80,14 +83,14 @@ fn main() {
       for iter_nr in 0 .. 100000 {
         sgd.step(&mut train_data);
         if (iter_nr + 1) % 5 == 0 && rank == 0 {
-          println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
+          println!("DEBUG: iter: {} accuracy: {:.3} stats: {:?}", iter_nr + 1, sgd.get_opt_stats().accuracy(), sgd.get_opt_stats());
           sgd.reset_opt_stats();
         }
         if (iter_nr + 1) % 100 == 0 {
           println!("DEBUG: validating...");
           sgd.reset_opt_stats();
           sgd.eval(valid_data.len(), &mut valid_data);
-          println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
+          println!("DEBUG: valid: accuracy: {:.3} stats: {:?}", sgd.get_opt_stats().accuracy(), sgd.get_opt_stats());
           sgd.reset_opt_stats();
         }
       }

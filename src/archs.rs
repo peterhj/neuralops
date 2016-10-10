@@ -433,8 +433,8 @@ pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
 }
 
 pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
-  let num_res = (num_layers - 2) / 3 / 2;
-  assert_eq!(0, (num_layers - 2) % 3);
+  let num_res = (num_layers - 2) / 6;
+  assert_eq!(0, (num_layers - 2) % 6);
   let mut op_cfg = vec![];
   /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
@@ -458,6 +458,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
       VarInputPreproc::RandomFlipX{phases: vec![OpPhase::Learning]},
     ],
   }));
+  //op_cfg.push(SeqOperatorConfig::Conv2d(Conv2dOperatorConfig{
   op_cfg.push(SeqOperatorConfig::BatchNormConv2d(BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 3),
@@ -532,10 +533,11 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
   }));
   op_cfg.push(SeqOperatorConfig::Affine(AffineOperatorConfig{
     batch_sz:   batch_sz,
+    //in_dim:     8 * 8 * 64,
     in_dim:     64,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
-    w_init:     ParamInitKind::Xavier,
+    w_init:     ParamInitKind::Kaiming,
   }));
   op_cfg.push(SeqOperatorConfig::SoftmaxNLLClassLoss(ClassLossConfig{
     batch_sz:       batch_sz,
