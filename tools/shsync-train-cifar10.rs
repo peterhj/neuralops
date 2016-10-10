@@ -19,7 +19,7 @@ use std::path::{PathBuf};
 use std::thread::{spawn};
 
 fn main() {
-  let batch_sz = 8;
+  let batch_sz = 32;
   let minibatch_sz = 32;
   let num_workers = 4;
 

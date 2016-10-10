@@ -48,18 +48,15 @@ impl Conv2dOperator {
     assert_eq!(1, cfg.stride_h);*/
     let out_len = cfg.batch_sz * cfg.out_dim().flat_len();
     let (col_buf, col_grad) =
-        if cfg.stride_w != 1 || cfg.stride_h != 1 {
+        //if cfg.stride_w != 1 || cfg.stride_h != 1 {
+        if cfg.prefer_gemm_conv() {
           let w_in_len = cfg.kernel_w * cfg.kernel_h * cfg.in_dim.2;
           let out_len = cfg.out_dim().flat_len();
-          let col_len = w_in_len * out_len * cfg.batch_sz;
+          let col_len = w_in_len * out_len;
           let mut col_buf = Vec::with_capacity(col_len);
-          for _ in 0 .. col_len {
-            col_buf.push(0.0);
-          }
+          col_buf.resize(col_len, 0.0);
           let mut col_grad = Vec::with_capacity(col_len);
-          for _ in 0 .. col_len {
-            col_grad.push(0.0);
-          }
+          col_grad.resize(col_len, 0.0);
           (Some(col_buf), Some(col_grad))
         } else {
           (None, None)
@@ -202,7 +199,8 @@ impl DiffOperator<f32> for Conv2dOperator {
     *self.out.batch_size.borrow_mut() = batch_size;
     assert!(batch_size <= self.cfg.batch_sz);
 
-    if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    if !self.cfg.prefer_gemm_conv() {
       let status = unsafe { nnp_convolution_output(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           batch_size,
@@ -236,13 +234,13 @@ impl DiffOperator<f32> for Conv2dOperator {
             self.cfg.pad_h as _, self.cfg.pad_w as _,
             self.cfg.stride_h as _, self.cfg.stride_w as _,
             1, 1,
-            self.col_buf.as_mut().unwrap()[idx * w_in_len * out_space_len .. (idx+1) * w_in_len * out_space_len].as_mut_ptr(),
+            self.col_buf.as_mut().unwrap().as_mut_ptr(),
         ) };
         self.tmp_buf[idx * out_len .. (idx+1) * out_len]
           .reshape_mut((out_space_len, self.cfg.out_chan))
           .matrix_prod(
               1.0,
-              self.col_buf.as_ref().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape((out_space_len, w_in_len)), Transpose::N,
+              self.col_buf.as_ref().unwrap().reshape((out_space_len, w_in_len)), Transpose::N,
               self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::N,
               0.0);
       }
@@ -293,7 +291,8 @@ impl DiffOperator<f32> for Conv2dOperator {
         self.b_grad.as_view_mut().as_mut_ptr(),
     ) };
 
-    if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+    if !self.cfg.prefer_gemm_conv() {
       let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
       self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
       let status = unsafe { nnp_convolution_kernel_gradient(
@@ -322,20 +321,30 @@ impl DiffOperator<f32> for Conv2dOperator {
       let out_len = self.cfg.out_dim().flat_len();
       let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
       for idx in 0 .. batch_size {
+        unsafe { neuralops_caffe_im2col(
+            self.in_.out_buf.borrow()[idx * in_len .. (idx+1) * in_len].as_ptr(),
+            self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
+            self.cfg.kernel_h as _, self.cfg.kernel_w as _,
+            self.cfg.pad_h as _, self.cfg.pad_w as _,
+            self.cfg.stride_h as _, self.cfg.stride_w as _,
+            1, 1,
+            self.col_buf.as_mut().unwrap().as_mut_ptr(),
+        ) };
         self.w_grad.as_view_mut().reshape_mut((w_in_len, self.cfg.out_chan))
           .matrix_prod(
               1.0,
-              self.col_buf.as_ref().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape((out_space_len, w_in_len)), Transpose::T,
+              self.col_buf.as_ref().unwrap().reshape((out_space_len, w_in_len)), Transpose::T,
               self.tmp_grad[idx * out_len .. (idx+1) * out_len].reshape((out_space_len, self.cfg.out_chan)), Transpose::N,
               1.0,
-              );
+          );
       }
     }
 
     if let Some(in_grad) = self.in_.out_grad.as_ref() {
       let in_len = batch_size * self.cfg.in_dim.flat_len();
       in_grad.borrow_mut().reshape_mut(in_len).set_constant(0.0);
-      if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+      //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
+      if !self.cfg.prefer_gemm_conv() {
         let status = unsafe { nnp_convolution_input_gradient(
             nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
             batch_size,
@@ -360,16 +369,16 @@ impl DiffOperator<f32> for Conv2dOperator {
         let in_len = self.cfg.in_dim.flat_len();
         let out_len = self.cfg.out_dim().flat_len();
         let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
-        in_grad.borrow_mut().reshape_mut(batch_size * out_len).set_constant(0.0);
+        in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
         for idx in 0 .. batch_size {
-          self.col_grad.as_mut().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape_mut((out_space_len, w_in_len))
+          self.col_grad.as_mut().unwrap().reshape_mut((out_space_len, w_in_len))
             .matrix_prod(
                 1.0,
                 self.tmp_grad[idx * out_len .. (idx+1) * out_len].reshape((out_space_len, self.cfg.out_chan)), Transpose::N,
                 self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::T,
                 0.0);
           unsafe { neuralops_caffe_col2im(
-              self.col_grad.as_ref().unwrap()[idx * w_in_len * out_space_len .. (idx+1) * w_in_len * out_space_len].as_ptr(),
+              self.col_grad.as_ref().unwrap().as_ptr(),
               self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
               self.cfg.kernel_h as _, self.cfg.kernel_w as _,
               self.cfg.pad_h as _, self.cfg.pad_w as _,
@@ -423,15 +432,11 @@ impl BatchNormConv2dOperator {
         if cfg.prefer_gemm_conv() {
           let w_in_len = cfg.kernel_w * cfg.kernel_h * cfg.in_dim.2;
           let out_len = cfg.out_dim().flat_len();
-          let col_len = w_in_len * out_len * cfg.batch_sz;
+          let col_len = w_in_len * out_len;
           let mut col_buf = Vec::with_capacity(col_len);
-          for _ in 0 .. col_len {
-            col_buf.push(0.0);
-          }
+          col_buf.resize(col_len, 0.0);
           let mut col_grad = Vec::with_capacity(col_len);
-          for _ in 0 .. col_len {
-            col_grad.push(0.0);
-          }
+          col_grad.resize(col_len, 0.0);
           (Some(col_buf), Some(col_grad))
         } else {
           (None, None)
@@ -656,13 +661,13 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
             self.cfg.pad_h as _, self.cfg.pad_w as _,
             self.cfg.stride_h as _, self.cfg.stride_w as _,
             1, 1,
-            self.col_buf.as_mut().unwrap()[idx * w_in_len * out_space_len .. (idx+1) * w_in_len * out_space_len].as_mut_ptr(),
+            self.col_buf.as_mut().unwrap().as_mut_ptr(),
         ) };
         self.tmp_buf[idx * out_len .. (idx+1) * out_len]
           .reshape_mut((out_space_len, self.cfg.out_chan))
           .matrix_prod(
               1.0,
-              self.col_buf.as_ref().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape((out_space_len, w_in_len)), Transpose::N,
+              self.col_buf.as_ref().unwrap().reshape((out_space_len, w_in_len)), Transpose::N,
               self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::N,
               0.0);
       }
@@ -728,13 +733,22 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       let out_len = self.cfg.out_dim().flat_len();
       let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
       for idx in 0 .. batch_size {
+        unsafe { neuralops_caffe_im2col(
+            self.in_.out_buf.borrow()[idx * in_len .. (idx+1) * in_len].as_ptr(),
+            self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
+            self.cfg.kernel_h as _, self.cfg.kernel_w as _,
+            self.cfg.pad_h as _, self.cfg.pad_w as _,
+            self.cfg.stride_h as _, self.cfg.stride_w as _,
+            1, 1,
+            self.col_buf.as_mut().unwrap().as_mut_ptr(),
+        ) };
         self.w_grad.as_view_mut().reshape_mut((w_in_len, self.cfg.out_chan))
           .matrix_prod(
               1.0,
-              self.col_buf.as_ref().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape((out_space_len, w_in_len)), Transpose::T,
+              self.col_buf.as_ref().unwrap().reshape((out_space_len, w_in_len)), Transpose::T,
               self.tmp_grad[idx * out_len .. (idx+1) * out_len].reshape((out_space_len, self.cfg.out_chan)), Transpose::N,
               1.0,
-              );
+          );
       }
     }
 
@@ -745,7 +759,6 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         in_grad.borrow_mut().reshape_mut(in_len).set_constant(0.0);
         let status = unsafe { nnp_convolution_input_gradient(
             nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
-            //nnp_convolution_algorithm::nnp_convolution_algorithm_implicit_gemm,
             batch_size,
             self.cfg.in_dim.2,
             self.cfg.out_chan,
@@ -770,14 +783,14 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
         in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
         for idx in 0 .. batch_size {
-          self.col_grad.as_mut().unwrap()[idx * out_space_len * w_in_len .. (idx+1) * out_space_len * w_in_len].reshape_mut((out_space_len, w_in_len))
+          self.col_grad.as_mut().unwrap().reshape_mut((out_space_len, w_in_len))
             .matrix_prod(
                 1.0,
                 self.tmp_grad[idx * out_len .. (idx+1) * out_len].reshape((out_space_len, self.cfg.out_chan)), Transpose::N,
                 self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::T,
                 0.0);
           unsafe { neuralops_caffe_col2im(
-              self.col_grad.as_ref().unwrap()[idx * w_in_len * out_space_len .. (idx+1) * w_in_len * out_space_len].as_ptr(),
+              self.col_grad.as_ref().unwrap().as_ptr(),
               self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
               self.cfg.kernel_h as _, self.cfg.kernel_w as _,
               self.cfg.pad_h as _, self.cfg.pad_w as _,
