@@ -26,13 +26,22 @@ fn main() {
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   minibatch_sz,
-    //step_size:      StepSize::Constant(0.001),
     step_size:      StepSize::Constant(0.1),
-    //momentum:       Some(GradientMomentum::HeavyBall(0.9)),
-    momentum:       Some(GradientMomentum::Nesterov(0.9)),
+    momentum:       None,
+    //momentum:       Some(GradientMomentum::Nesterov(0.9)),
     l2_reg:         Some(1.0e-4),
   };
-  //let mut sgd = SgdWorker::new(sgd_cfg, op);
+  let builder = SharedSyncSgdBuilder::new(sgd_cfg, num_workers);
+
+  /*let sgd_cfg = AsgdConfig{
+    batch_sz:       batch_sz,
+    minibatch_sz:   minibatch_sz,
+    step_size:      StepSize::Constant(0.1),
+    beta:           0.9,
+    l2_reg:         Some(1.0e-4),
+  };
+  //let builder = SharedSyncAsgdBuilder::new(sgd_cfg, num_workers);*/
+
   /*let sgd_cfg = AdamConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
@@ -44,8 +53,6 @@ fn main() {
     //l2_reg:         Some(1.0e-4),
   };
   let mut sgd = AdamWorker::new(sgd_cfg, op);*/
-
-  let builder = SharedSyncSgdBuilder::new(sgd_cfg, num_workers);
 
   println!("DEBUG: training...");
   let mut handles = vec![];

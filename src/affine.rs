@@ -54,7 +54,7 @@ impl AffineOperator {
       b_grad:   Array1d::zeros(cfg.out_dim),
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
-      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim, cfg.act_kind, res.nnp_pool),
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim, cfg.act_kind, res),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim, cap),
     }
   }

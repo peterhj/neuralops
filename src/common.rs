@@ -1,4 +1,4 @@
-use nnpack::{NnpackPthreadPool};
+//use nnpack::{NnpackPthreadPool};
 use operator::{OpCapability};
 use sharedmem::{RwMem};
 
@@ -13,13 +13,13 @@ use std::rc::{Rc};
 
 #[derive(Clone)]
 pub struct CommonResources {
-  pub nnp_pool: Rc<NnpackPthreadPool>,
+  //pub nnp_pool: Rc<NnpackPthreadPool>,
 }
 
 impl CommonResources {
   pub fn new() -> CommonResources {
     CommonResources{
-      nnp_pool: Rc::new(NnpackPthreadPool::new(1)),
+      //nnp_pool: Rc::new(NnpackPthreadPool::new(1)),
     }
   }
 }

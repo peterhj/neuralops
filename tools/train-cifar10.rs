@@ -5,7 +5,7 @@ extern crate rng;
 
 use neuralops::prelude::*;
 use neuralops::archs::*;
-use neuralops::data::{CyclicDataIter, SubsampleDataIter};
+use neuralops::data::{CyclicDataIter, RandomSampleDataIter};
 use neuralops::data::cifar::{CifarFlavor, CifarDataShard};
 //use neuralops::input::{InputPreproc};
 use operator::prelude::*;
@@ -26,8 +26,9 @@ fn main() {
   let op = SeqOperator::new(op_cfg, OpCapability::Backward);
 
   let mut train_data =
-      SubsampleDataIter::new(
-      batch_sz,
+      /*SubsampleDataIter::new(
+          batch_sz,*/
+      RandomSampleDataIter::new(
       CifarDataShard::new(
           CifarFlavor::Cifar10,
           PathBuf::from("datasets/cifar10/train.bin"),
@@ -42,12 +43,12 @@ fn main() {
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.01),
+    step_size:      StepSize::Constant(0.1),
     //step_size:      StepSize::Adaptive{init_step: 1.0, test_iters: 100, epoch_iters: 1600, sched: AdaptiveStepSizeSchedule::Pow10},
     //momentum:       None,
     momentum:       Some(GradientMomentum::Nesterov(0.9)),
-    l2_reg:         None,
-    //l2_reg:         Some(1.0e-4),
+    //l2_reg:         None,
+    l2_reg:         Some(1.0e-4),
   };
   let mut sgd = SgdWorker::new(sgd_cfg, op);
   /*let sgd_cfg = AdamConfig{
@@ -68,13 +69,14 @@ fn main() {
   sgd.init_param(&mut rng);
   for iter_nr in 0 .. 100000 {
     sgd.step(&mut train_data);
-    if (iter_nr + 1) % 1 == 0 {
-      println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
+    if (iter_nr + 1) % 5 == 0 {
+      println!("DEBUG: iter: {} acc: {:.3} stats: {:?}", iter_nr + 1, sgd.get_opt_stats().accuracy(), sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }
     if (iter_nr + 1) % 100 == 0 {
       sgd.eval(valid_data.len(), &mut valid_data);
-      println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
+      //println!("DEBUG: valid stats: {:?}", sgd.get_opt_stats());
+      println!("DEBUG: valid: acc: {:.3} stats: {:?}", sgd.get_opt_stats().accuracy(), sgd.get_opt_stats());
       sgd.reset_opt_stats();
     }
   }

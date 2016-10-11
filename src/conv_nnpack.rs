@@ -11,8 +11,8 @@ use ops::*;
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
 use densearray::linalg::{Transpose};
-use nnpack::{NnpackHandle, NnpackPthreadPool};
-use nnpack::ffi::*;
+/*use nnpack::{NnpackHandle, NnpackPthreadPool};
+use nnpack::ffi::*;*/
 use operator::prelude::*;
 use operator::rw::{ReadBuffer, ReadAccumulateBuffer, WriteBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
@@ -38,8 +38,8 @@ pub struct Conv2dOperator {
   tmp_grad: Vec<f32>,
   act_kern: ActivateKernel,
   out:      CommonOperatorOutput<f32>,
-  _nnp_h:   NnpackHandle,
-  nnp_pool: Rc<NnpackPthreadPool>,
+  //_nnp_h:   NnpackHandle,
+  //nnp_pool: Rc<NnpackPthreadPool>,
 }
 
 impl Conv2dOperator {
@@ -82,10 +82,10 @@ impl Conv2dOperator {
       col_grad: col_grad,
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
-      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
-      _nnp_h:   NnpackHandle::new(),
-      nnp_pool: res.nnp_pool,
+      //_nnp_h:   NnpackHandle::new(),
+      //nnp_pool: res.nnp_pool,
     }
   }
 }
@@ -201,7 +201,8 @@ impl DiffOperator<f32> for Conv2dOperator {
 
     //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
     if !self.cfg.prefer_gemm_conv() {
-      let status = unsafe { nnp_convolution_output(
+      unimplemented!();
+      /*let status = unsafe { nnp_convolution_output(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           batch_size,
           self.cfg.in_dim.2,
@@ -220,7 +221,7 @@ impl DiffOperator<f32> for Conv2dOperator {
       ) };
       if status.is_err() {
         panic!("nnpack convolution failed: {:?}", status);
-      }
+      }*/
     } else {
       let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
       let in_len = self.cfg.in_dim.flat_len();
@@ -295,7 +296,8 @@ impl DiffOperator<f32> for Conv2dOperator {
     if !self.cfg.prefer_gemm_conv() {
       let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
       self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
-      let status = unsafe { nnp_convolution_kernel_gradient(
+      unimplemented!();
+      /*let status = unsafe { nnp_convolution_kernel_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           batch_size,
           self.cfg.in_dim.2,
@@ -313,7 +315,7 @@ impl DiffOperator<f32> for Conv2dOperator {
       ) };
       if status.is_err() {
         panic!("nnpack convolution failed: {:?}", status);
-      }
+      }*/
       self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));
     } else {
       let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
@@ -345,7 +347,8 @@ impl DiffOperator<f32> for Conv2dOperator {
       in_grad.borrow_mut().reshape_mut(in_len).set_constant(0.0);
       //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
       if !self.cfg.prefer_gemm_conv() {
-        let status = unsafe { nnp_convolution_input_gradient(
+        unimplemented!();
+        /*let status = unsafe { nnp_convolution_input_gradient(
             nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
             batch_size,
             self.cfg.in_dim.2,
@@ -363,7 +366,7 @@ impl DiffOperator<f32> for Conv2dOperator {
         ) };
         if status.is_err() {
           panic!("nnpack convolution failed: {:?}", status);
-        }
+        }*/
       } else {
         let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
         let in_len = self.cfg.in_dim.flat_len();
@@ -420,7 +423,7 @@ pub struct BatchNormConv2dOperator {
   scale_k:  ConvScale2dKernel,
   act_kern: ActivateKernel,
   out:      CommonOperatorOutput<f32>,
-  _nnp_h:   NnpackHandle,
+  //_nnp_h:   NnpackHandle,
   //nnp_pool: Rc<NnpackPthreadPool>,
 }
 
@@ -483,9 +486,9 @@ impl BatchNormConv2dOperator {
       tmp_grad: tmp_grad,
       bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), cfg.epsilon),
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
-      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.nnp_pool.clone()),
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.clone()),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
-      _nnp_h:   NnpackHandle::new(),
+      //_nnp_h:   NnpackHandle::new(),
       //nnp_pool: res.nnp_pool,
     }
   }
@@ -626,7 +629,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
 
     //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
     if !self.cfg.prefer_gemm_conv() {
-      let status = unsafe { nnp_convolution_output(
+      unimplemented!();
+      /*let status = unsafe { nnp_convolution_output(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           //nnp_convolution_algorithm::nnp_convolution_algorithm_implicit_gemm,
           batch_size,
@@ -647,7 +651,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       ) };
       if status.is_err() {
         panic!("nnpack convolution failed: {:?}", status);
-      }
+      }*/
     } else {
       let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
       let in_len = self.cfg.in_dim.flat_len();
@@ -706,7 +710,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     if !self.cfg.prefer_gemm_conv() {
       let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
       self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
-      let status = unsafe { nnp_convolution_kernel_gradient(
+      unimplemented!();
+      /*let status = unsafe { nnp_convolution_kernel_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           //nnp_convolution_algorithm::nnp_convolution_algorithm_implicit_gemm,
           batch_size,
@@ -725,7 +730,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       ) };
       if status.is_err() {
         panic!("nnpack convolution failed: {:?}", status);
-      }
+      }*/
       self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));
     } else {
       let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
@@ -757,7 +762,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       //if self.cfg.stride_w == 1 && self.cfg.stride_h == 1 {
         let in_len = batch_size * self.cfg.in_dim.flat_len();
         in_grad.borrow_mut().reshape_mut(in_len).set_constant(0.0);
-        let status = unsafe { nnp_convolution_input_gradient(
+        unimplemented!();
+        /*let status = unsafe { nnp_convolution_input_gradient(
             nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
             batch_size,
             self.cfg.in_dim.2,
@@ -775,7 +781,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         ) };
         if status.is_err() {
           panic!("nnpack convolution failed: {:?}", status);
-        }
+        }*/
       } else {
         let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
         let in_len = self.cfg.in_dim.flat_len();

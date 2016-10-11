@@ -5,7 +5,7 @@ fn main() {
     .compiler("gcc-4.9")
     .opt_level(3)
     .pic(true)
-    .flag("-march=native")
+    //.flag("-march=native")
     .flag("--std=gnu99")
     .file("extkernels/activate.c")
     .file("extkernels/batchnorm.c")
