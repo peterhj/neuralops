@@ -31,39 +31,12 @@ fn main() {
           PathBuf::from("datasets/cifar10/test.bin"),
       ));
 
-  /*let input = NewVarInputOperator::new(VarInputOperatorConfig{
-    batch_sz:   batch_sz,
-    max_stride: 784,
-    out_dim:    (28, 28, 1),
-    preprocs:   vec![
-      VarInputPreproc::Scale{scale: 1.0 / 255.0},
-    ],
-  }, OpCapability::Backward);
-  let affine1 = NewAffineOperator::new(AffineOperatorConfig{
-    batch_sz:   batch_sz,
-    in_dim:     784,
-    out_dim:    50,
-    act_kind:   ActivationKind::Rect,
-    w_init:     ParamInitKind::Kaiming,
-  }, OpCapability::Backward, input, 0);
-  let affine2 = NewAffineOperator::new(AffineOperatorConfig{
-    batch_sz:   batch_sz,
-    in_dim:     50,
-    out_dim:    10,
-    act_kind:   ActivationKind::Identity,
-    w_init:     ParamInitKind::Kaiming,
-  }, OpCapability::Backward, affine1, 0);
-  let loss = SoftmaxNLLClassLoss::new(ClassLossConfig{
-    batch_sz:       batch_sz,
-    num_classes:    10,
-  }, OpCapability::Backward, affine2, 0);*/
-  //let loss = build_cifar10_resnet_loss(batch_sz, 20);
   let loss = build_cifar10_resnet20_loss(batch_sz);
 
   let sgd_cfg = SgdConfig{
     batch_sz:       batch_sz,
     minibatch_sz:   batch_sz,
-    step_size:      StepSize::Constant(0.001),
+    step_size:      StepSize::Constant(0.1),
     momentum:       Some(GradientMomentum::Nesterov(0.9)),
   };
   let mut sgd = SgdWorker::new(sgd_cfg, loss);

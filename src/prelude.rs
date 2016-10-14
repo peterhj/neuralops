@@ -35,7 +35,10 @@ pub use join::{
   JoinOperatorConfig,
   NewAddJoinOperator,
 };
-pub use pool::{Pool2dOperatorConfig};
+pub use pool::{
+  Pool2dOperatorConfig,
+  NewPool2dOperator,
+};
 pub use regress_loss::{
   RegressLossConfig,
   NormLstSqRegressLossConfig,

@@ -531,7 +531,7 @@ pub fn build_cifar10_resnet20_loss<S>(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLC
   };
   let affine_cfg = AffineOperatorConfig{
     batch_sz:   batch_sz,
-    in_dim:     64 * 64,
+    in_dim:     64,
     out_dim:    10,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
@@ -551,8 +551,8 @@ pub fn build_cifar10_resnet20_loss<S>(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLC
   let res3_1 = NewProjResidualConv2dOperator::new(proj_res3_cfg, OpCapability::Backward, res2_3, 0);
   let res3_2 = NewResidualConv2dOperator::new(res3_cfg, OpCapability::Backward, res3_1, 0);
   let res3_3 = NewResidualConv2dOperator::new(res3_cfg, OpCapability::Backward, res3_2, 0);
-  //let pool = ...;
-  let affine = NewAffineOperator::new(affine_cfg, OpCapability::Backward, res3_3 /*pool*/, 0);
+  let pool = NewPool2dOperator::new(pool_cfg, OpCapability::Backward, res3_3, 0);
+  let affine = NewAffineOperator::new(affine_cfg, OpCapability::Backward, pool, 0);
   let loss = SoftmaxNLLClassLoss::new(loss_cfg, OpCapability::Backward, affine, 0);
   loss
 }
