@@ -27,8 +27,8 @@ fn main() {
     batch_sz:       batch_sz,
     minibatch_sz:   minibatch_sz,
     step_size:      StepSize::Constant(0.1),
-    momentum:       None,
-    //momentum:       Some(GradientMomentum::Nesterov(0.9)),
+    //momentum:       None,
+    momentum:       Some(GradientMomentum::Nesterov(0.9)),
     l2_reg:         Some(1.0e-4),
   };
   let builder = SharedSyncSgdBuilder::new(sgd_cfg, num_workers);

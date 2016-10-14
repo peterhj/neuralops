@@ -82,7 +82,7 @@ impl Conv2dOperator {
       col_grad: col_grad,
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
-      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.clone()),
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
       //_nnp_h:   NnpackHandle::new(),
       //nnp_pool: res.nnp_pool,
@@ -264,7 +264,7 @@ impl DiffOperator<f32> for Conv2dOperator {
     *self.out.out_loss.borrow_mut() = in_loss;
   }
 
-  fn fwd_reg(&mut self, reg: Regularization) {
+  /*fn fwd_reg(&mut self, reg: Regularization) {
     match reg {
       Regularization::L2(lambda) => {
         // FIXME(20161002): regularize the bias too?
@@ -272,7 +272,7 @@ impl DiffOperator<f32> for Conv2dOperator {
         *self.out.out_loss.borrow_mut() = 0.5 * lambda * w_norm * w_norm;
       }
     }
-  }
+  }*/
 
   fn backward(&mut self) {
     //assert!(self.in_.batch_size <= self.cfg.batch_sz);
@@ -394,14 +394,14 @@ impl DiffOperator<f32> for Conv2dOperator {
     }
   }
 
-  fn bwd_reg(&mut self, reg: Regularization) {
+  /*fn bwd_reg(&mut self, reg: Regularization) {
     match reg {
       Regularization::L2(lambda) => {
         // FIXME(20161002)
         unimplemented!();
       }
     }
-  }
+  }*/
 }
 
 pub struct BatchNormConv2dOperator {
@@ -486,7 +486,7 @@ impl BatchNormConv2dOperator {
       tmp_grad: tmp_grad,
       bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), cfg.epsilon),
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
-      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.clone()),
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
       out:      CommonOperatorOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
       //_nnp_h:   NnpackHandle::new(),
       //nnp_pool: res.nnp_pool,
@@ -686,7 +686,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     *self.out.out_loss.borrow_mut() = in_loss;
   }
 
-  fn fwd_reg(&mut self, reg: Regularization) {
+  /*fn fwd_reg(&mut self, reg: Regularization) {
     match reg {
       Regularization::L2(lambda) => {
         // FIXME(20161002): regularize the bias too?
@@ -694,7 +694,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         *self.out.out_loss.borrow_mut() = 0.5 * lambda * w_norm * w_norm;
       }
     }
-  }
+  }*/
 
   fn backward(&mut self) {
     //assert!(self.in_.batch_size <= self.cfg.batch_sz);
@@ -809,12 +809,12 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     }
   }
 
-  fn bwd_reg(&mut self, reg: Regularization) {
+  /*fn bwd_reg(&mut self, reg: Regularization) {
     match reg {
       Regularization::L2(lambda) => {
         // FIXME(20161002)
         unimplemented!();
       }
     }
-  }
+  }*/
 }

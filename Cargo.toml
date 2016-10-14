@@ -17,6 +17,10 @@ name = "train-mnist"
 path = "tools/train-mnist.rs"
 
 [[bin]]
+name = "train-mnist-new"
+path = "tools/train-mnist-new.rs"
+
+[[bin]]
 name = "calc-mean-cifar10"
 path = "tools/calc-mean-cifar10.rs"
 

@@ -167,7 +167,7 @@ impl ResidualConv2dOperator {
     let conv1 = BatchNormConv2dOperator::new(conv1_cfg, cap, &split, 0, res.clone());
     let conv2 = BatchNormConv2dOperator::new(conv2_cfg, cap, &conv1, 0, res.clone());
     let join = AddJoinOperator::new(join_cfg, cap, &[(&split, 1), (&conv2, 0)], res.clone());
-    let act_k = ActivateKernel::new(cfg.batch_sz, cfg.in_dim.flat_len(), cfg.act_kind, res.clone());
+    let act_k = ActivateKernel::new(cfg.batch_sz, cfg.in_dim.flat_len(), cfg.act_kind);
     ResidualConv2dOperator{
       cfg:      cfg,
       split:    split,
@@ -375,7 +375,7 @@ impl ProjResidualConv2dOperator {
     let conv2 = BatchNormConv2dOperator::new(conv2_cfg, cap, &conv1, 0, res.clone());
     let conv1x1 = BatchNormConv2dOperator::new(conv1x1_cfg, cap, &split, 1, res.clone());
     let join = AddJoinOperator::new(join_cfg, cap, &[(&conv2, 0), (&conv1x1, 0)], res.clone());
-    let act_k = ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind, res.clone());
+    let act_k = ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind);
     ProjResidualConv2dOperator{
       cfg:      cfg,
       split:    split,

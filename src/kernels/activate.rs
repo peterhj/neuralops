@@ -33,7 +33,7 @@ pub struct ActivateKernel {
 }
 
 impl ActivateKernel {
-  pub fn new(batch_sz: usize, dim: usize, act_kind: ActivationKind, _res: CommonResources /*nnp_pool: Rc<NnpackPthreadPool>*/) -> ActivateKernel {
+  pub fn new(batch_sz: usize, dim: usize, act_kind: ActivationKind, /*_res: CommonResources*/ /*nnp_pool: Rc<NnpackPthreadPool>*/) -> ActivateKernel {
     ActivateKernel{
       batch_sz: batch_sz,
       dim:      dim,

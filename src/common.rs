@@ -2,7 +2,7 @@
 use operator::{OpCapability};
 use sharedmem::{RwMem};
 
-use std::cell::{RefCell};
+use std::cell::{Cell, RefCell};
 use std::rc::{Rc};
 
 /*pub trait ArmOutput {
@@ -20,6 +20,38 @@ impl CommonResources {
   pub fn new() -> CommonResources {
     CommonResources{
       //nnp_pool: Rc::new(NnpackPthreadPool::new(1)),
+    }
+  }
+}
+
+pub trait CommonOperator {
+  fn _output(&self, arm: usize) -> CommonOutput;
+}
+
+#[derive(Clone)]
+pub struct CommonOutput {
+  pub batch_sz: Rc<Cell<usize>>,
+  pub buf:      RwMem<f32>,
+  pub grad:     Option<RwMem<f32>>,
+}
+
+impl CommonOutput {
+  pub fn new(batch_size: usize, frame_size: usize, cap: OpCapability) -> Self {
+    let out_len = batch_size * frame_size;
+    let mut out_buf = Vec::with_capacity(out_len);
+    out_buf.resize(out_len, 0.0);
+    let out_buf = RwMem::new(out_buf);
+    let out_grad = if cap.enable_backward() {
+      let mut out_grad = Vec::with_capacity(out_len);
+      out_grad.resize(out_len, 0.0);
+      Some(RwMem::new(out_grad))
+    } else {
+      None
+    };
+    CommonOutput{
+      batch_sz: Rc::new(Cell::new(batch_size)),
+      buf:      out_buf,
+      grad:     out_grad,
     }
   }
 }
