@@ -271,7 +271,7 @@ pub struct NewAffineOperator<S> {
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   act_kern: ActivateKernel,
-  _marker:  PhantomData<S>,
+  //_marker:  PhantomData<S>,
 }
 
 impl<S> NewAffineOperator<S> {
@@ -295,7 +295,7 @@ impl<S> NewAffineOperator<S> {
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim, cfg.act_kind),
-      _marker:  PhantomData,
+      //_marker:  PhantomData,
     }))
   }
 }
@@ -378,22 +378,22 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
 
   fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_reader.read(offset, self.weights.as_mut_slice());
-    offset += param_reader.read(offset, self.bias.as_mut_slice());
+    offset += param_reader.read_buf(offset, self.weights.as_mut_slice());
+    offset += param_reader.read_buf(offset, self.bias.as_mut_slice());
     offset - init_offset
   }
 
   fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_writer.write(offset, self.weights.as_slice());
-    offset += param_writer.write(offset, self.bias.as_slice());
+    offset += param_writer.write_buf(offset, self.weights.as_slice());
+    offset += param_writer.write_buf(offset, self.bias.as_slice());
     offset - init_offset
   }
 
   fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += grad_writer.write(offset, self.w_grad.as_slice());
-    offset += grad_writer.write(offset, self.b_grad.as_slice());
+    offset += grad_writer.write_buf(offset, self.w_grad.as_slice());
+    offset += grad_writer.write_buf(offset, self.b_grad.as_slice());
     offset - init_offset
   }
 

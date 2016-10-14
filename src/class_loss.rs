@@ -433,19 +433,6 @@ impl<S> SoftmaxNLLClassLoss<S> where S: SampleLabel {
   }
 }
 
-pub fn test_diff_loss<S>(loss1: Rc<RefCell<SoftmaxNLLClassLoss<S>>>) -> Rc<RefCell<SoftmaxNLLClassLoss<S>>> where S: 'static + SampleLabel {
-  let cfg = loss1.borrow().cfg.clone();
-  let loss2 = SoftmaxNLLClassLoss::new(cfg, OpCapability::Backward, loss1, 0);
-  loss2
-}
-
-impl<S> CommonOperator for SoftmaxNLLClassLoss<S> where S: SampleLabel {
-  fn _output(&self, arm: usize) -> CommonOutput {
-    assert_eq!(0, arm);
-    self.out.clone()
-  }
-}
-
 impl<S> Operator for SoftmaxNLLClassLoss<S> where S: SampleLabel {
   fn _next(&self) -> u64 {
     self.node._next()
@@ -453,6 +440,13 @@ impl<S> Operator for SoftmaxNLLClassLoss<S> where S: SampleLabel {
 
   fn _epoch(&self) -> u64 {
     self.node._epoch()
+  }
+}
+
+impl<S> CommonOperator for SoftmaxNLLClassLoss<S> where S: SampleLabel {
+  fn _output(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
+    self.out.clone()
   }
 }
 

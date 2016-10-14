@@ -29,6 +29,10 @@ name = "train-cifar10"
 path = "tools/train-cifar10.rs"
 
 [[bin]]
+name = "train-cifar10-new"
+path = "tools/train-cifar10-new.rs"
+
+[[bin]]
 name = "shsync-train-cifar10"
 path = "tools/shsync-train-cifar10.rs"
 

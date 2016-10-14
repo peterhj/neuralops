@@ -1,4 +1,5 @@
 //#![feature(iter_arith_traits)]
+#![feature(conservative_impl_trait)]
 #![feature(specialization)]
 
 extern crate densearray;
@@ -32,6 +33,7 @@ pub mod join;
 pub mod kernels;
 //pub mod lazy;
 //pub mod lazy_v3;
+pub mod loss;
 pub mod pool;
 pub mod prelude;
 pub mod regress_loss;
