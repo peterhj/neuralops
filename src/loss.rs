@@ -1,4 +1,4 @@
-use common::*;
+use prelude::*;
 //use kernels::softmax::{SoftmaxKernel};
 
 use densearray::{AsView, AsViewMut, Array1d, Array2d, Array4d};

@@ -1,5 +1,6 @@
-//use common::{CommonResources, CommonOperatorOutput, ActivationKind, ParamInitKind};
-use common::*;
+use prelude::*;
+//use common::*;
+use common::{CommonResources, CommonOperatorOutput};
 use kernels::activate::{ActivateKernel};
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array2d};

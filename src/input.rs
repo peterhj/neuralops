@@ -1,4 +1,5 @@
-use common::*;
+use prelude::*;
+use common::{CommonOperatorOutput, CommonResources};
 use kernels::image::*;
 use kernels::interpolate::*;
 
