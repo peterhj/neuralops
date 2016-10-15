@@ -7,7 +7,7 @@ use operator::prelude::*;
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::u32;
-use std::cell::{RefCell};
+use std::cell::{RefCell, Ref};
 use std::iter::{Sum};
 use std::rc::{Rc};
 
@@ -127,7 +127,11 @@ impl DiffOperator<f32> for SoftmaxNLLClassLossOperator {
       for k in 0 .. self.cfg.num_classes {
         out_buf[idx * self.cfg.num_classes + k] = self.facts[idx * self.cfg.num_classes + k] / sum_fact;
       }
-      self.losses[idx] = -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
+      if self.labels[idx] == u32::MAX {
+        self.losses[idx] = 0.0;
+      } else {
+        self.losses[idx] = -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
+      }
     }
 
     /*let in_buf = self.in_.out_buf.borrow();
@@ -430,6 +434,10 @@ impl<S> SoftmaxNLLClassLoss<S> where S: SampleLabel {
       labels:   labels,
       weights:  weights,
     }))
+  }
+
+  pub fn batch_probs(&self) -> Ref<[f32]> {
+    self.out.buf.borrow()
   }
 }
 

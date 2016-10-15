@@ -1,5 +1,6 @@
 //use nnpack::{NnpackPthreadPool};
-use operator::{OpCapability};
+use operator::prelude::*;
+//use operator::{OpCapability};
 use sharedmem::{RwMem};
 
 use std::cell::{Cell, RefCell};
@@ -25,6 +26,7 @@ impl CommonResources {
 }
 
 pub trait CommonOperator {
+  //fn op<S>(&mut self) -> &mut NewDiffOperator<S, IoBuf=[f32], Op=Rc<RefCell<CommonOperator>>> { unimplemented!(); }
   fn _output(&self, arm: usize) -> CommonOutput;
 }
 

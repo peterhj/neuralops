@@ -262,6 +262,7 @@ impl DiffOperator<f32> for AffineOperator {
 pub struct NewAffineOperator<S> {
   cfg:      AffineOperatorConfig,
   node:     OperatorNode,
+  //in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32], Op=Rc<RefCell<CommonOperator>>>>>,
   in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
@@ -299,6 +300,10 @@ impl<S> NewAffineOperator<S> {
       //_marker:  PhantomData,
     }))
   }
+
+  pub fn diff_op(&mut self) -> &mut NewDiffOperator<S, IoBuf=[f32]> {
+    self
+  }
 }
 
 impl<S> Operator for NewAffineOperator<S> {
@@ -320,7 +325,9 @@ impl<S> CommonOperator for NewAffineOperator<S> {
 
 impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
   type IoBuf = [f32];
+  //type Op = Rc<RefCell<CommonOperator>>;
 
+  //fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf, Op=CommonOperator>)) {
   fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
     self.node.step(epoch);
     assert!(self.node.limit(1));
@@ -328,6 +335,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     apply(self);
   }
 
+  //fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf, Op=CommonOperator>)) {
   fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
     self.node.step(epoch);
     assert!(self.node.limit(1));
