@@ -29,30 +29,42 @@ pub fn partition_range(upper_bound: usize, parts: usize) -> Vec<(usize, usize)> 
   ranges
 }
 
-pub struct SampleInputKey<U> {
+pub struct SampleSharedSliceDataKey<T> where T: 'static + Copy + Reflect {
+  _marker:  PhantomData<T>,
+}
+
+impl<T> Key for SampleSharedSliceDataKey<T> where T: 'static + Copy + Reflect {
+  type Value = SharedSlice<T>;
+}
+
+pub trait ExtractInput<U> {
+  fn extract_input(&self, output: &mut U) -> Result<(), ()>;
+}
+
+pub struct SampleExtractInputKey<U> where U: 'static + Reflect {
   _marker:  PhantomData<U>,
 }
 
-impl<U> Key for SampleInputKey<U> where U: 'static + Reflect {
-  type Value = ();
+impl<U> Key for SampleExtractInputKey<U> where U: 'static + Reflect {
+  type Value = Box<ExtractInput<U>>;
 }
 
 pub struct SampleClassLabelKey {}
 
 impl Key for SampleClassLabelKey {
-  type Value = Option<u32>;
+  type Value = u32;
 }
 
 pub struct SampleRegressTargetKey {}
 
 impl Key for SampleRegressTargetKey {
-  type Value = Option<f32>;
+  type Value = f32;
 }
 
 pub struct SampleWeightKey {}
 
 impl Key for SampleWeightKey {
-  type Value = Option<f32>;
+  type Value = f32;
 }
 
 pub struct SampleItem {
@@ -490,17 +502,21 @@ impl<Iter> Iterator for EasyLabelCodec<Iter> where Iter: Iterator<Item=SampleIte
   type Item = SampleItem;
 
   fn next(&mut self) -> Option<SampleItem> {
-    unimplemented!();
-    /*let value = match self.inner.next() {
+    let mut item = match self.inner.next() {
       None => return None,
       Some(x) => x,
     };
-    assert!(value.input.len() >= 4);
-    let label = Cursor::new(&value.input).read_u32::<LittleEndian>().unwrap();
-    //unimplemented!();
-    Some(OwnedClassSample{
-      input:    value.input[4 ..].to_owned(),
-      label:    Some(label),
-    })*/
+    let data = if let Some(data_val) = item.kvs.get::<SampleSharedSliceDataKey<u8>>() {
+      data_val.clone()
+    } else {
+      panic!();
+    };
+    let len = data.len();
+    assert!(len >= 4);
+    let label = Cursor::new(&*data as &[u8]).read_u32::<LittleEndian>().unwrap();
+    let new_data = data.slice(4, len);
+    item.kvs.insert::<SampleSharedSliceDataKey<u8>>(new_data);
+    item.kvs.insert::<SampleClassLabelKey>(label);
+    Some(item)
   }
 }
