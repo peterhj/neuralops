@@ -1,5 +1,6 @@
 //#![feature(iter_arith_traits)]
-#![feature(conservative_impl_trait)]
+//#![feature(conservative_impl_trait)]
+#![feature(reflect_marker)]
 #![feature(specialization)]
 
 extern crate densearray;
@@ -11,6 +12,8 @@ extern crate mkl_dnn;
 extern crate operator;
 extern crate rng;
 extern crate sharedmem;
+extern crate typemap;
+extern crate varraydb;
 
 extern crate byteorder;
 extern crate libc;

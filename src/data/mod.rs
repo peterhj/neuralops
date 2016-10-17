@@ -1,88 +1,212 @@
-use densearray::{Array3d};
+use densearray::prelude::*;
 use operator::prelude::*;
 use rng::xorshift::{Xorshiftplus128Rng};
 use sharedmem::{SharedSlice};
 
+use byteorder::{ReadBytesExt, LittleEndian};
+use typemap::{TypeMap, Key};
+
 use rand::{Rng, thread_rng};
 use std::cmp::{min};
 use std::collections::{HashSet};
-use std::marker::{PhantomData};
+use std::io::{Read, Cursor};
+use std::marker::{PhantomData, Reflect};
 
 pub mod cifar;
 pub mod mnist;
+pub mod varraydb;
 
-/*#[derive(Clone, Copy)]
-pub enum Shape {
-  Dim(usize, usize),
-  Time(usize),
-  Frequency(usize),
-  Width(usize),
-  Height(usize),
-  Depth(usize),
-}*/
-
-#[derive(Clone)]
-pub struct ClassSample2d<T> where T: Copy {
-  pub input:    Array3d<T>,
-  //pub shape:    (Shape, Shape, Shape),
-  pub label:    Option<u32>,
-  pub weight:   Option<f32>,
+pub fn partition_range(upper_bound: usize, parts: usize) -> Vec<(usize, usize)> {
+  let mut ranges = Vec::with_capacity(parts);
+  let mut offset = 0;
+  for p in 0 .. parts {
+    let rem_parts = parts - p;
+    let span = (upper_bound - offset + rem_parts - 1) / rem_parts;
+    ranges.push((offset, offset + span));
+    offset += span;
+  }
+  assert_eq!(offset, upper_bound);
+  ranges
 }
 
-/*impl<T> SampleClass for ClassSample2d<T> where T: Copy {
+pub struct SampleInputKey<U> {
+  _marker:  PhantomData<U>,
+}
+
+impl<U> Key for SampleInputKey<U> where U: 'static + Reflect {
+  type Value = ();
+}
+
+pub struct SampleClassLabelKey {}
+
+impl Key for SampleClassLabelKey {
+  type Value = Option<u32>;
+}
+
+pub struct SampleRegressTargetKey {}
+
+impl Key for SampleRegressTargetKey {
+  type Value = Option<f32>;
+}
+
+pub struct SampleWeightKey {}
+
+impl Key for SampleWeightKey {
+  type Value = Option<f32>;
+}
+
+pub struct SampleItem {
+  pub kvs:  TypeMap,
+}
+
+#[derive(Clone)]
+pub struct OwnedSample<T> where T: Copy {
+  pub input:    Vec<T>,
+}
+
+impl SampleDatum<[u8]> for OwnedSample<u8> {
+  fn extract_input(&self, output: &mut [u8]) -> Result<(), ()> {
+    output.copy_from_slice(&self.input);
+    Ok(())
+  }
+}
+
+impl SampleDatum<[f32]> for OwnedSample<u8> {
+  fn extract_input(&self, output: &mut [f32]) -> Result<(), ()> {
+    for (&x, y) in self.input.iter().zip(output.iter_mut()) {
+      *y = x as f32;
+    }
+    Ok(())
+  }
+
+  fn len(&self) -> Option<usize> {
+    Some(self.input.len())
+  }
+
+  fn shape(&self) -> Option<Shape> {
+    None
+  }
+}
+
+#[derive(Clone)]
+pub struct OwnedClassSample<T> where T: Copy {
+  pub input:    Vec<T>,
+  pub label:    Option<u32>,
+}
+
+impl SampleDatum<[u8]> for OwnedClassSample<u8> {
+  fn extract_input(&self, output: &mut [u8]) -> Result<(), ()> {
+    output.copy_from_slice(&self.input);
+    Ok(())
+  }
+}
+
+impl SampleDatum<[f32]> for OwnedClassSample<u8> {
+  fn extract_input(&self, output: &mut [f32]) -> Result<(), ()> {
+    for (&x, y) in self.input.iter().zip(output.iter_mut()) {
+      *y = x as f32;
+    }
+    Ok(())
+  }
+
+  fn len(&self) -> Option<usize> {
+    Some(self.input.len())
+  }
+
+  fn shape(&self) -> Option<Shape> {
+    None
+  }
+}
+
+impl SampleLabel for OwnedClassSample<u8> {
   fn class(&self) -> Option<u32> {
     self.label
   }
 }
 
-impl<T> SampleWeight for ClassSample2d<T> where T: Copy {
-  fn weight(&self) -> Option<f32> {
-    self.weight
-  }
-
-  fn mix_weight(&mut self, w: f32) {
-    self.weight = Some(self.weight.map_or(w, |w0| w0 * w));
-  }
-}*/
-
 #[derive(Clone)]
-pub struct SharedClassSample<T> where T: Copy {
+pub struct SharedSample<T> where T: Copy {
   pub input:    SharedSlice<T>,
-  pub label:    Option<u32>,
-  pub weight:   Option<f32>,
 }
 
-/*impl SampleExtractInput<u8> for SharedClassSample<u8> {
-  fn extract_input(&self, output: &mut [u8]) {
-    let input: &[u8] = &*self.input;
-    output.copy_from_slice(input);
+impl SampleDatum<[u8]> for SharedSample<u8> {
+  fn extract_input(&self, output: &mut [u8]) -> Result<(), ()> {
+    //let input: &[u8] = self.input.as_slice();
+    output.copy_from_slice(&*self.input);
+    Ok(())
   }
 }
 
-impl SampleExtractInput<f32> for SharedClassSample<u8> {
-  fn extract_input(&self, output: &mut [f32]) {
+impl SampleDatum<[f32]> for SharedSample<u8> {
+  fn extract_input(&self, output: &mut [f32]) -> Result<(), ()> {
+    //let input: &[u8] = self.input.as_slice();
     let input: &[u8] = &*self.input;
     for i in 0 .. input.len() {
       output[i] = input[i] as f32;
     }
+    Ok(())
+  }
+
+  fn len(&self) -> Option<usize> {
+    Some(self.input.len())
+  }
+
+  fn shape(&self) -> Option<Shape> {
+    None
   }
 }
 
-impl<T> SampleClass for SharedClassSample<T> where T: Copy {
+#[derive(Clone)]
+pub struct SharedClassSample<T> where T: Copy {
+  pub input:    SharedSlice<T>,
+  pub shape:    Option<Shape>,
+  pub label:    Option<u32>,
+  pub weight:   Option<f32>,
+}
+
+impl SampleDatum<[u8]> for SharedClassSample<u8> {
+  fn extract_input(&self, output: &mut [u8]) -> Result<(), ()> {
+    //let input: &[u8] = self.input.as_slice();
+    output.copy_from_slice(&*self.input);
+    Ok(())
+  }
+}
+
+impl SampleDatum<[f32]> for SharedClassSample<u8> {
+  fn extract_input(&self, output: &mut [f32]) -> Result<(), ()> {
+    //let input: &[u8] = self.input.as_slice();
+    let input: &[u8] = &*self.input;
+    for i in 0 .. input.len() {
+      output[i] = input[i] as f32;
+    }
+    Ok(())
+  }
+
+  fn len(&self) -> Option<usize> {
+    Some(self.input.len())
+  }
+
+  fn shape(&self) -> Option<Shape> {
+    self.shape.clone()
+  }
+}
+
+impl SampleLabel for SharedClassSample<u8> {
   fn class(&self) -> Option<u32> {
     self.label
   }
 }
 
-impl<T> SampleWeight for SharedClassSample<T> where T: Copy {
+impl SampleLossWeight<ClassLoss> for SharedClassSample<u8> {
   fn weight(&self) -> Option<f32> {
     self.weight
   }
 
-  fn mix_weight(&mut self, w: f32) {
+  fn mix_weight(&mut self, w: f32) -> Result<(), ()> {
     self.weight = Some(self.weight.map_or(w, |w0| w0 * w));
+    Ok(())
   }
-}*/
+}
 
 #[derive(Clone)]
 pub struct SharedClassSample2d<T> where T: Copy {
@@ -107,6 +231,10 @@ impl SampleDatum<[f32]> for SharedClassSample2d<u8> {
       output[i] = input[i] as f32;
     }
     Ok(())
+  }
+
+  fn len(&self) -> Option<usize> {
+    Some(self.input.dim().flat_len())
   }
 
   fn shape(&self) -> Option<Shape> {
@@ -309,5 +437,70 @@ impl<S, Shard> IndexedDataShard<S> for PartitionDataShard<S, Shard> where Shard:
   fn get(&mut self, idx: usize) -> S {
     assert!(idx < self.part_len);
     self.inner.get(self.part_offset + idx)
+  }
+}
+
+pub struct SimpleLabelCodec<S, Iter> /*where Iter: Iterator<Item=OwnedSample<u8>>*/ {
+  inner:    Iter,
+  _marker:  PhantomData<S>,
+}
+
+impl<S, Iter> SimpleLabelCodec<S, Iter> /*where Iter: Iterator<Item=OwnedSample<u8>>*/ {
+  pub fn new(inner: Iter) -> SimpleLabelCodec<S, Iter> {
+    SimpleLabelCodec{
+      inner:    inner,
+      _marker:  PhantomData,
+    }
+  }
+}
+
+impl<Iter> Iterator for SimpleLabelCodec<OwnedClassSample<u8>, Iter> where Iter: Iterator<Item=OwnedSample<u8>> {
+  type Item = OwnedClassSample<u8>;
+
+  fn next(&mut self) -> Option<OwnedClassSample<u8>> {
+    let value = match self.inner.next() {
+      None => return None,
+      Some(x) => x,
+    };
+    assert!(value.input.len() >= 4);
+    let label = Cursor::new(&value.input).read_u32::<LittleEndian>().unwrap();
+    //unimplemented!();
+    Some(OwnedClassSample{
+      input:    value.input[4 ..].to_owned(),
+      label:    Some(label),
+    })
+  }
+}
+
+pub struct EasyLabelCodec<Iter> /*where Iter: Iterator<Item=OwnedSample<u8>>*/ {
+  inner:    Iter,
+  //_marker:  PhantomData<S>,
+}
+
+impl<Iter> EasyLabelCodec<Iter> /*where Iter: Iterator<Item=OwnedSample<u8>>*/ {
+  pub fn new(inner: Iter) -> EasyLabelCodec<Iter> {
+    EasyLabelCodec{
+      inner:    inner,
+      //_marker:  PhantomData,
+    }
+  }
+}
+
+impl<Iter> Iterator for EasyLabelCodec<Iter> where Iter: Iterator<Item=SampleItem> {
+  type Item = SampleItem;
+
+  fn next(&mut self) -> Option<SampleItem> {
+    unimplemented!();
+    /*let value = match self.inner.next() {
+      None => return None,
+      Some(x) => x,
+    };
+    assert!(value.input.len() >= 4);
+    let label = Cursor::new(&value.input).read_u32::<LittleEndian>().unwrap();
+    //unimplemented!();
+    Some(OwnedClassSample{
+      input:    value.input[4 ..].to_owned(),
+      label:    Some(label),
+    })*/
   }
 }

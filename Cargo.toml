@@ -12,9 +12,9 @@ mkl = ["mkl_dnn", "nnpack"]
 name = "neuralops"
 path = "src/lib.rs"
 
-[[bin]]
-name = "train-mnist"
-path = "tools/train-mnist.rs"
+#[[bin]]
+#name = "train-mnist"
+#path = "tools/train-mnist.rs"
 
 [[bin]]
 name = "train-mnist-new"
@@ -24,17 +24,17 @@ path = "tools/train-mnist-new.rs"
 name = "calc-mean-cifar10"
 path = "tools/calc-mean-cifar10.rs"
 
-[[bin]]
-name = "train-cifar10"
-path = "tools/train-cifar10.rs"
+#[[bin]]
+#name = "train-cifar10"
+#path = "tools/train-cifar10.rs"
 
 [[bin]]
 name = "train-cifar10-new"
 path = "tools/train-cifar10-new.rs"
 
-[[bin]]
-name = "shsync-train-cifar10"
-path = "tools/shsync-train-cifar10.rs"
+#[[bin]]
+#name = "shsync-train-cifar10"
+#path = "tools/shsync-train-cifar10.rs"
 
 [build-dependencies]
 gcc = "*"
@@ -51,3 +51,5 @@ nnpack = { path = "../libnnpack", optional = true }
 operator = { path = "../liboperator" }
 rng = { path = "../librng" }
 sharedmem = { path = "../libsharedmem" }
+typemap = { path = "../rust-typemap" }
+varraydb = { path = "../varraydb" }
