@@ -2,31 +2,33 @@ use data::{IndexedDataShard, OwnedSample};
 
 use varraydb::{VarrayDb};
 
-use std::path::{Path};
+use std::path::{Path, PathBuf};
 
 pub struct VarrayDbShard {
+  prefix:       PathBuf,
   db:           VarrayDb,
   start_idx:    usize,
   end_idx:      usize,
 }
 
 impl VarrayDbShard {
-  pub fn open(prefix: &Path) -> VarrayDbShard {
-    let db = VarrayDb::open(prefix).unwrap();
+  pub fn open(prefix: PathBuf) -> VarrayDbShard {
+    let db = VarrayDb::open(&prefix).unwrap();
     let len = db.len();
     VarrayDbShard{
+      prefix:       prefix,
       db:           db,
       start_idx:    0,
       end_idx:      len,
     }
   }
 
-  pub fn open_partition(prefix: &Path, part: usize, num_parts: usize) -> VarrayDbShard {
+  pub fn open_partition(prefix: PathBuf, part: usize, num_parts: usize) -> VarrayDbShard {
     let mut shard = Self::open(prefix);
     unimplemented!();
   }
 
-  pub fn open_range(prefix: &Path, start_idx: usize, end_idx: usize) -> VarrayDbShard {
+  pub fn open_range(prefix: PathBuf, start_idx: usize, end_idx: usize) -> VarrayDbShard {
     let mut shard = Self::open(prefix);
     shard.start_idx = start_idx;
     shard.end_idx = end_idx;
