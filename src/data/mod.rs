@@ -509,8 +509,8 @@ impl<Iter> Iterator for EasyClassLabel<Iter> where Iter: Iterator<Item=SampleIte
     };
     let len = data.len();
     assert!(len >= 4);
-    let label = Cursor::new(&*data as &[u8]).read_u32::<LittleEndian>().unwrap();
-    let new_data = data.slice(4, len);
+    let label = Cursor::new(&(*data)[len-4 .. ]).read_u32::<LittleEndian>().unwrap();
+    let new_data = data.slice(0, len-4);
     item.kvs.insert::<SampleSharedSliceDataKey<u8>>(new_data);
     item.kvs.insert::<SampleClassLabelKey>(label);
     Some(item)
