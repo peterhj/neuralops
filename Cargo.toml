@@ -55,5 +55,7 @@ nnpack = { path = "../libnnpack", optional = true }
 operator = { path = "../liboperator" }
 rng = { path = "../librng" }
 sharedmem = { path = "../libsharedmem" }
+stb_image = { path = "../rust-stb-image" }
+turbojpeg = { path = "../libturbojpeg" }
 typemap = { path = "../rust-typemap" }
 varraydb = { path = "../varraydb" }

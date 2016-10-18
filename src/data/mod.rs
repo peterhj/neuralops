@@ -4,18 +4,20 @@ use rng::xorshift::{Xorshiftplus128Rng};
 use sharedmem::{SharedSlice};
 
 use byteorder::{ReadBytesExt, LittleEndian};
-use typemap::{TypeMap, Key};
+//use typemap::{TypeMap, Key};
 
 use rand::{Rng, thread_rng};
 use std::cell::{RefCell};
 use std::cmp::{min};
 use std::collections::{HashSet};
 use std::io::{Read, Cursor};
-use std::marker::{PhantomData, Reflect};
+//use std::marker::{PhantomData, Reflect};
+use std::marker::{PhantomData};
 use std::rc::{Rc};
 use std::sync::{Arc};
 
 pub mod cifar;
+pub mod jpeg;
 pub mod mnist;
 pub mod varraydb;
 
@@ -30,90 +32,6 @@ pub fn partition_range(upper_bound: usize, parts: usize) -> Vec<(usize, usize)> 
   }
   assert_eq!(offset, upper_bound);
   ranges
-}
-
-pub trait SampleExtractInput<U: ?Sized> {
-  fn extract_input(&self, output: &mut U) -> Result<usize, ()>;
-}
-
-impl SampleExtractInput<[f32]> for SharedSlice<u8> {
-  fn extract_input(&self, output: &mut [f32]) -> Result<usize, ()> {
-    let len = self.len();
-    assert!(len <= output.len());
-    for (x, y) in (*self).iter().zip(output[ .. len].iter_mut()) {
-      *y = *x as f32;
-    }
-    Ok(len)
-  }
-}
-
-impl SampleExtractInput<[f32]> for SharedSlice<f32> {
-  fn extract_input(&self, output: &mut [f32]) -> Result<usize, ()> {
-    let len = self.len();
-    assert!(len <= output.len());
-    output[ .. len].copy_from_slice(&*self);
-    Ok(len)
-  }
-}
-
-pub struct SampleItem {
-  pub kvs:  TypeMap,
-}
-
-impl SampleItem {
-  pub fn new() -> SampleItem {
-    SampleItem{
-      kvs:  TypeMap::new(),
-    }
-  }
-}
-
-pub struct SampleSharedSliceDataKey<T> where T: 'static + Copy + Reflect {
-  _marker:  PhantomData<T>,
-}
-
-impl<T> Key for SampleSharedSliceDataKey<T> where T: 'static + Copy + Reflect {
-  type Value = SharedSlice<T>;
-}
-
-pub struct SampleExtractInputKey<U: ?Sized> where U: 'static + Reflect {
-  _marker:  PhantomData<U>,
-}
-
-impl<U: ?Sized> Key for SampleExtractInputKey<U> where U: 'static + Reflect {
-  type Value = Rc<SampleExtractInput<U>>;
-}
-
-pub struct SampleSharedExtractInputKey<U: ?Sized> where U: 'static + Reflect {
-  _marker:  PhantomData<U>,
-}
-
-impl<U: ?Sized> Key for SampleSharedExtractInputKey<U> where U: 'static + Reflect {
-  type Value = Arc<SampleExtractInput<U>>;
-}
-
-pub struct SampleInputShape3dKey {}
-
-impl Key for SampleInputShape3dKey {
-  type Value = (usize, usize, usize);
-}
-
-pub struct SampleClassLabelKey {}
-
-impl Key for SampleClassLabelKey {
-  type Value = u32;
-}
-
-pub struct SampleRegressTargetKey {}
-
-impl Key for SampleRegressTargetKey {
-  type Value = f32;
-}
-
-pub struct SampleWeightKey {}
-
-impl Key for SampleWeightKey {
-  type Value = f32;
 }
 
 #[derive(Clone)]
@@ -596,37 +514,5 @@ impl<Iter> Iterator for EasyClassLabel<Iter> where Iter: Iterator<Item=SampleIte
     item.kvs.insert::<SampleSharedSliceDataKey<u8>>(new_data);
     item.kvs.insert::<SampleClassLabelKey>(label);
     Some(item)
-  }
-}
-
-pub struct DecodeJpeg<Iter> {
-  inner:    Iter,
-}
-
-impl<Iter> DecodeJpeg<Iter> {
-  pub fn new(inner: Iter) -> DecodeJpeg<Iter> {
-    DecodeJpeg{
-      inner:    inner,
-    }
-  }
-}
-
-impl<Iter> Iterator for DecodeJpeg<Iter> where Iter: Iterator<Item=SampleItem> {
-  type Item = SampleItem;
-
-  fn next(&mut self) -> Option<SampleItem> {
-    let mut item = match self.inner.next() {
-      None => return None,
-      Some(x) => x,
-    };
-    let data = if let Some(data_val) = item.kvs.get::<SampleSharedSliceDataKey<u8>>() {
-      data_val.clone()
-    } else {
-      panic!();
-    };
-    // FIXME
-    let dim: (usize, usize, usize) = (0, 0, 0);
-    item.kvs.insert::<SampleInputShape3dKey>(dim);
-    unimplemented!();
   }
 }
