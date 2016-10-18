@@ -36,6 +36,10 @@ path = "tools/train-cifar10-new.rs"
 #name = "shsync-train-cifar10"
 #path = "tools/shsync-train-cifar10.rs"
 
+#[[bin]]
+#name = "bench-typemap"
+#path = "tools/bench-typemap.rs"
+
 [build-dependencies]
 gcc = "*"
 

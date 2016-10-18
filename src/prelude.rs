@@ -24,6 +24,17 @@ pub use conv_nnpack::{
   NewConv2dOperator,
   NewBatchNormConv2dOperator,
 };
+pub use data::{
+  SampleExtractInput,
+  SampleItem,
+  //SampleSharedSliceKey,
+  SampleExtractInputKey,
+  SampleSharedExtractInputKey,
+  SampleInputShape3dKey,
+  SampleClassLabelKey,
+  SampleRegressTargetKey,
+  SampleWeightKey,
+};
 pub use graph::{GraphOperator, GraphOperatorConfig};
 pub use input::{
   SimpleInputOperatorConfig,
