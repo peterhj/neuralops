@@ -459,23 +459,7 @@ impl<S> CommonOperator for SoftmaxNLLClassLoss<S> /*where S: SampleLabel*/ {
   }
 }
 
-impl<S> DiffLoss<S> for SoftmaxNLLClassLoss<S> where S: SampleLabel {
-  fn reset_loss(&mut self) {
-    self.acc_loss = 0.0;
-    self.reg_loss = 0.0;
-    self.accuracy = 0;
-  }
-
-  fn store_loss(&mut self) -> f32 {
-    self.acc_loss + self.reg_loss
-  }
-
-  fn _store_accuracy(&mut self) -> usize {
-    self.accuracy
-  }
-}
-
-impl DiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
+/*impl<S> DiffLoss<S> for SoftmaxNLLClassLoss<S> where S: SampleLabel {
   fn reset_loss(&mut self) {
     self.acc_loss = 0.0;
     self.reg_loss = 0.0;
@@ -611,6 +595,22 @@ impl<S> NewDiffOperator<S> for SoftmaxNLLClassLoss<S> where S: SampleLabel {
         }
       }
     }
+  }
+}*/
+
+impl DiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
+  fn reset_loss(&mut self) {
+    self.acc_loss = 0.0;
+    self.reg_loss = 0.0;
+    self.accuracy = 0;
+  }
+
+  fn store_loss(&mut self) -> f32 {
+    self.acc_loss + self.reg_loss
+  }
+
+  fn _store_accuracy(&mut self) -> usize {
+    self.accuracy
   }
 }
 

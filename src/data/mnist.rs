@@ -1,3 +1,4 @@
+use prelude::*;
 use data::{IndexedDataShard, SharedClassSample2d};
 
 use densearray::{ArrayIndex, Array3d};
@@ -8,6 +9,7 @@ use byteorder::{ReadBytesExt, BigEndian};
 
 use std::fs::{File};
 use std::path::{PathBuf};
+use std::sync::{Arc};
 
 fn mmap_idx_file(mut file: File) -> (usize, Option<(usize, usize, usize)>, MemoryMap<u8>) {
   let magic: u32 = file.read_u32::<BigEndian>().unwrap();
@@ -67,7 +69,7 @@ impl MnistDataShard {
   }
 }
 
-impl IndexedDataShard<SharedClassSample2d<u8>> for MnistDataShard {
+/*impl IndexedDataShard<SharedClassSample2d<u8>> for MnistDataShard {
   fn len(&self) -> usize {
     self.len
   }
@@ -88,5 +90,24 @@ impl IndexedDataShard<SharedClassSample2d<u8>> for MnistDataShard {
       label:    Some(label),
       weight:   None,
     }
+  }
+}*/
+
+impl IndexedDataShard<SampleItem> for MnistDataShard {
+  fn len(&self) -> usize {
+    self.len
+  }
+
+  fn get(&mut self, idx: usize) -> SampleItem {
+    assert_eq!(784, self.frame_sz);
+    assert_eq!((28, 28, 1), self.frame_d);
+    assert!(idx < self.len);
+    let input_buf = self.frames_m.slice(idx * self.frame_sz, (idx+1) * self.frame_sz);
+    let label = self.labels_m.as_slice()[idx] as u32;
+    let mut item = SampleItem::new();
+    item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(input_buf));
+    item.kvs.insert::<SampleInputShape3dKey>(self.frame_d);
+    item.kvs.insert::<SampleClassLabelKey>(label);
+    item
   }
 }

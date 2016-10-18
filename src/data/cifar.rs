@@ -1,3 +1,4 @@
+use prelude::*;
 use data::{IndexedDataShard, SharedClassSample2d};
 
 use densearray::{ArrayIndex, Array3d};
@@ -8,6 +9,7 @@ use byteorder::{ReadBytesExt, BigEndian};
 
 use std::fs::{File};
 use std::path::{PathBuf};
+use std::sync::{Arc};
 
 #[derive(Clone, Copy, Debug)]
 pub enum CifarFlavor {
@@ -48,7 +50,7 @@ impl CifarDataShard {
   }
 }
 
-impl IndexedDataShard<SharedClassSample2d<u8>> for CifarDataShard {
+/*impl IndexedDataShard<SharedClassSample2d<u8>> for CifarDataShard {
   fn len(&self) -> usize {
     self.len
   }
@@ -71,5 +73,30 @@ impl IndexedDataShard<SharedClassSample2d<u8>> for CifarDataShard {
       label:    Some(label),
       weight:   None,
     }
+  }
+}*/
+
+impl IndexedDataShard<SampleItem> for CifarDataShard {
+  fn len(&self) -> usize {
+    self.len
+  }
+
+  fn get(&mut self, idx: usize) -> SampleItem {
+    assert!(idx < self.len);
+    let (input_buf, label) = match self.flavor {
+      CifarFlavor::Cifar10 => {
+        ( self.data_m.slice(idx * self.frame_sz + 1, (idx+1) * self.frame_sz),
+          self.data_m.as_slice()[idx * self.frame_sz] as u32)
+      }
+      CifarFlavor::Cifar100 => {
+        ( self.data_m.slice(idx * self.frame_sz + 2, (idx+1) * self.frame_sz),
+          self.data_m.as_slice()[idx * self.frame_sz + 1] as u32)
+      }
+    };
+    let mut item = SampleItem::new();
+    item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(input_buf));
+    item.kvs.insert::<SampleInputShape3dKey>((32, 32, 3));
+    item.kvs.insert::<SampleClassLabelKey>(label);
+    item
   }
 }

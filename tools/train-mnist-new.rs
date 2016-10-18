@@ -4,7 +4,7 @@ extern crate rand;
 extern crate rng;
 
 use neuralops::prelude::*;
-use neuralops::data::{CyclicDataIter, SubsampleDataIter};
+use neuralops::data::{CyclicDataIter, RandomSampleDataIter, SubsampleDataIter};
 use neuralops::data::mnist::{MnistDataShard};
 //use neuralops::affine::{NewAffineOperator};
 //use neuralops::input::{VarInputPreproc, NewVarInputOperator};
@@ -20,8 +20,9 @@ fn main() {
   let batch_sz = 32;
 
   let mut train_data =
-      SubsampleDataIter::new(
-      batch_sz,
+      /*SubsampleDataIter::new(
+          batch_sz,*/
+      RandomSampleDataIter::new(
       MnistDataShard::new(
           PathBuf::from("datasets/mnist/train-images-idx3-ubyte"),
           PathBuf::from("datasets/mnist/train-labels-idx1-ubyte"),

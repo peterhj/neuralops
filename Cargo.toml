@@ -20,9 +20,9 @@ path = "src/lib.rs"
 name = "train-mnist-new"
 path = "tools/train-mnist-new.rs"
 
-[[bin]]
-name = "calc-mean-cifar10"
-path = "tools/calc-mean-cifar10.rs"
+#[[bin]]
+#name = "calc-mean-cifar10"
+#path = "tools/calc-mean-cifar10.rs"
 
 #[[bin]]
 #name = "train-cifar10"

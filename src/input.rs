@@ -423,7 +423,7 @@ impl<S> CommonOperator for NewVarInputOperator<S> /*where S: SampleDatum<[f32]>*
   }
 }
 
-impl<S> NewDiffOperator<S> for NewVarInputOperator<S> where S: SampleDatum<[f32]> {
+/*impl<S> NewDiffOperator<S> for NewVarInputOperator<S> where S: SampleDatum<[f32]> {
   type IoBuf = [f32];
 
   fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
@@ -624,7 +624,7 @@ impl<S> NewDiffOperator<S> for NewVarInputOperator<S> where S: SampleDatum<[f32]
 
   fn _backward(&mut self) {
   }
-}
+}*/
 
 impl NewDiffOperator<SampleItem> for NewVarInputOperator<SampleItem> {
   type IoBuf = [f32];

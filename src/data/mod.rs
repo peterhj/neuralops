@@ -60,6 +60,14 @@ pub struct SampleItem {
   pub kvs:  TypeMap,
 }
 
+impl SampleItem {
+  pub fn new() -> SampleItem {
+    SampleItem{
+      kvs:  TypeMap::new(),
+    }
+  }
+}
+
 pub struct SampleSharedSliceDataKey<T> where T: 'static + Copy + Reflect {
   _marker:  PhantomData<T>,
 }
