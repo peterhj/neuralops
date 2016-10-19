@@ -42,6 +42,8 @@ pub use pool::{
 pub use regress_loss::{
   RegressLossConfig,
   NormLstSqRegressLossConfig,
+  LstSqRegressLoss,
+  NormLstSqRegressLoss,
 };
 pub use seq::{SeqOperator, SeqOperatorConfig};
 pub use split::{
