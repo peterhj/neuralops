@@ -416,11 +416,13 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     self.out.batch_sz.set(batch_size);
     assert!(batch_size <= self.cfg.batch_sz);
 
+    let in_buf = self.in_.buf.borrow();
+    //println!("DEBUG: affine: input: {:?}", &in_buf[ .. self.cfg.in_dim]);
     self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
       .matrix_prod(
           1.0,
           self.weights.as_view(), Transpose::T,
-          self.in_.buf.borrow().reshape((self.cfg.in_dim, batch_size)), Transpose::N,
+          in_buf.reshape((self.cfg.in_dim, batch_size)), Transpose::N,
           0.0,
       );
     for j in 0 .. batch_size {
@@ -432,7 +434,9 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
         );
     }
 
-    self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.buf.borrow_mut());
+    let mut out_buf = self.out.buf.borrow_mut();
+    self.act_kern.forward(batch_size, &self.tmp_buf, &mut *out_buf);
+    //println!("DEBUG: affine: output: {:?}", &out_buf[ .. self.cfg.out_dim]);
   }
 
   fn _backward(&mut self) {

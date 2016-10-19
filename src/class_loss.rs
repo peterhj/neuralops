@@ -612,6 +612,10 @@ impl DiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
   fn _store_accuracy(&mut self) -> usize {
     self.accuracy
   }
+
+  fn _get_pred(&mut self) -> &[f32] {
+    &self.facts
+  }
 }
 
 impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
@@ -656,11 +660,13 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
         assert!(cat < self.cfg.num_classes as u32);
         assert!(cat != u32::MAX);
         self.labels[idx] = cat;
+        //println!("DEBUG: load_batch: got label:  {:?}", cat);
       } else {
         self.labels[idx] = u32::MAX;
       }
       if sample.kvs.contains::<SampleWeightKey>() {
         let weight = *sample.kvs.get::<SampleWeightKey>().unwrap();
+        //println!("DEBUG: load_batch: got weight: {:?}", weight);
         self.weights[idx] = weight;
       } else {
         self.weights[idx] = 1.0;
@@ -686,6 +692,7 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
 
     let in_buf = self.in_.buf.borrow();
     let mut out_buf = self.out.buf.borrow_mut();
+    //println!("DEBUG: softmax: input: {:?}", &in_buf[ .. self.cfg.num_classes]);
     for idx in 0 .. batch_size {
       let range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(in_buf[range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
@@ -697,9 +704,15 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
       }
       let sum_fact: f32 = Sum::sum(self.facts[range].iter().map(|&x| x));
       for k in 0 .. self.cfg.num_classes {
-        out_buf[idx * self.cfg.num_classes + k] = self.facts[idx * self.cfg.num_classes + k] / sum_fact;
+        //out_buf[idx * self.cfg.num_classes + k] = self.facts[idx * self.cfg.num_classes + k] / sum_fact;
+        self.facts[idx * self.cfg.num_classes + k] /= sum_fact;
       }
-      self.losses[idx] = -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
+      /*//self.losses[idx] = -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
+      if self.labels[idx] != u32::MAX {
+        self.losses[idx] = -self.weights[idx] * self.facts[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
+      } else {
+        self.losses[idx] = 0.0;
+      }*/
     }
 
     let mut batch_loss = 0.0;
@@ -714,7 +727,7 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
       let loss = if self.labels[idx] == u32::MAX {
         0.0
       } else {
-        -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln()
+        -self.weights[idx] * self.facts[idx * self.cfg.num_classes + self.labels[idx] as usize].ln()
       };
       self.losses[idx] = loss;
       batch_loss += loss;
@@ -731,19 +744,22 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
       }*/
       self.reg_loss = reg_loss;
     }
+
+    // FIXME(20161018): what to put in the output buffer? one or all losses?
   }
 
   fn _backward(&mut self) {
     let batch_size = self.out.batch_sz.get();
     if let Some(ref mut in_grad) = self.in_.grad.as_mut() {
-      let out_buf = self.out.buf.borrow();
+      //let out_buf = self.out.buf.borrow();
       let mut in_grad = in_grad.borrow_mut();
       let mut p = 0;
       for idx in 0 .. batch_size {
         for k in 0 .. self.cfg.num_classes {
           in_grad[p] =
               self.weights[idx] *
-              (out_buf[p] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
+              //(out_buf[p] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
+              (self.facts[p] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
           p += 1;
         }
       }

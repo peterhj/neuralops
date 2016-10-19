@@ -835,6 +835,7 @@ impl NewDiffOperator<SampleItem> for NewVarInputOperator<SampleItem> {
       tmp.copy_from_slice(&out[ .. out_len]);
     }
     out_buf[ .. batch_size * out_len].copy_from_slice(&self.tmp_buf[ .. batch_size * out_len]);
+    //println!("DEBUG: varinput: output: {:?}", &out_buf[ .. out_len]);
   }
 
   fn _backward(&mut self) {
