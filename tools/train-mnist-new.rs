@@ -66,16 +66,27 @@ fn main() {
     minibatch_sz:   batch_sz,
     step_size:      StepSize::Constant(0.1),
     momentum:       Some(GradientMomentum::Nesterov(0.9)),
-    checkpoint:     None,
+    //checkpoint:     None,
   };
   let mut sgd = SgdWorker::new(sgd_cfg, loss);
+
+  let mut checkpoint = CheckpointState::new(CheckpointConfig{
+    prefix: PathBuf::from("logs/mnist_sgd_test"),
+    trace:  true,
+  });
+  let mut stats = ClassLossStats::default();
 
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
   println!("DEBUG: training...");
   sgd.reset_opt_stats();
   sgd.init_param(&mut rng);
   for iter_nr in 0 .. 1000 {
+    checkpoint.start_timing();
     sgd.step(&mut train_data);
+    checkpoint.stop_timing();
+    sgd.update_stats(&mut stats);
+    checkpoint.append_class_stats_train(&stats);
+    stats.reset();
     if (iter_nr + 1) % 20 == 0 {
       println!("DEBUG: iter: {} stats: {:?}", iter_nr + 1, sgd.get_opt_stats());
       sgd.reset_opt_stats();
