@@ -22,6 +22,19 @@ extern "C" {
       out_grad: *const f32,
       in_grad: *mut f32,
   );
+  pub fn neuralops_logistic_fwd(
+      batch_sz: size_t,
+      dim: size_t,
+      in_buf: *const f32,
+      out_buf: *mut f32,
+  );
+  pub fn neuralops_logistic_bwd(
+      batch_sz: size_t,
+      dim: size_t,
+      in_buf: *const f32,
+      out_grad: *const f32,
+      in_grad: *mut f32,
+  );
 }
 
 pub struct ActivateKernel {
@@ -71,7 +84,12 @@ impl ActivateKernel {
         unimplemented!();
       }
       ActivationKind::Logistic => {
-        unimplemented!();
+        unsafe { neuralops_logistic_fwd(
+            batch_sz,
+            self.dim,
+            in_buf.as_ptr(),
+            out_buf.as_mut_ptr(),
+        ) };
       }
       ActivationKind::Tanh => {
         unimplemented!();
@@ -108,7 +126,13 @@ impl ActivateKernel {
         unimplemented!();
       }
       ActivationKind::Logistic => {
-        unimplemented!();
+        unsafe { neuralops_logistic_bwd(
+            batch_sz,
+            self.dim,
+            in_buf.as_ptr(),
+            out_grad.as_ptr(),
+            in_grad.as_mut_ptr(),
+        ) };
       }
       ActivationKind::Tanh => {
         unimplemented!();
