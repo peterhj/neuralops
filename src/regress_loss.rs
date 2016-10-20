@@ -244,6 +244,7 @@ pub struct LstSqRegressLoss<S> {
   reg_loss: f32,
   targets:  Vec<f32>,
   weights:  Vec<f32>,
+  preds:    Vec<f32>,
 }
 
 impl<S> LstSqRegressLoss<S> {
@@ -254,6 +255,8 @@ impl<S> LstSqRegressLoss<S> {
     targets.resize(cfg.batch_sz, 0.0);
     let mut weights = Vec::with_capacity(cfg.batch_sz);
     weights.resize(cfg.batch_sz, 1.0);
+    let mut preds = Vec::with_capacity(cfg.batch_sz);
+    preds.resize(cfg.batch_sz, 0.0);
     let in_ = prev_op.borrow()._output(prev_arm);
     Rc::new(RefCell::new(LstSqRegressLoss{
       cfg:      cfg,
@@ -267,6 +270,7 @@ impl<S> LstSqRegressLoss<S> {
       reg_loss: 0.0,
       targets:  targets,
       weights:  weights,
+      preds:    preds,
     }))
   }
 
@@ -300,6 +304,10 @@ impl DiffLoss<SampleItem> for LstSqRegressLoss<SampleItem> {
 
   fn store_loss(&mut self) -> f32 {
     self.acc_loss + self.reg_loss
+  }
+
+  fn _get_pred(&mut self) -> &[f32] {
+    &self.preds
   }
 
   /*fn _extract_pred(&mut self, output: &mut [f32]) {
@@ -367,6 +375,7 @@ impl NewDiffOperator<SampleItem> for LstSqRegressLoss<SampleItem> {
     assert_eq!(batch_size, self.out.batch_sz.get());
 
     let in_buf = self.in_.buf.borrow();
+    self.preds[ .. batch_size].copy_from_slice(&in_buf[ .. batch_size]);
     let mut batch_loss = 0.0;
     for idx in 0 .. batch_size {
       let dx = in_buf[idx] - self.targets[idx];
@@ -413,9 +422,11 @@ pub struct NormLstSqRegressLoss<S> {
   reg_loss: f32,
   targets:  Vec<f32>,
   weights:  Vec<f32>,
+  preds:    Vec<f32>,
   nsamples: usize,
   var:      f32,
   run_var:  f32,
+  run_norm: f32,
 }
 
 impl<S> NormLstSqRegressLoss<S> {
@@ -426,6 +437,8 @@ impl<S> NormLstSqRegressLoss<S> {
     targets.resize(cfg.batch_sz, 0.0);
     let mut weights = Vec::with_capacity(cfg.batch_sz);
     weights.resize(cfg.batch_sz, 1.0);
+    let mut preds = Vec::with_capacity(cfg.batch_sz);
+    preds.resize(cfg.batch_sz, 0.0);
     let in_ = prev_op.borrow()._output(prev_arm);
     Rc::new(RefCell::new(NormLstSqRegressLoss{
       cfg:      cfg,
@@ -439,9 +452,11 @@ impl<S> NormLstSqRegressLoss<S> {
       reg_loss: 0.0,
       targets:  targets,
       weights:  weights,
+      preds:    preds,
       nsamples: 0,
       var:      0.0,
-      run_var:  cfg.init_var,
+      run_var:  0.0, //cfg.init_var,
+      run_norm: 0.0,
     }))
   }
 
@@ -475,6 +490,10 @@ impl DiffLoss<SampleItem> for NormLstSqRegressLoss<SampleItem> {
 
   fn store_loss(&mut self) -> f32 {
     self.acc_loss + self.reg_loss
+  }
+
+  fn _get_pred(&mut self) -> &[f32] {
+    &self.preds
   }
 
   /*fn _extract_pred(&mut self, output: &mut [f32]) {
@@ -538,11 +557,13 @@ impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
   }
 
   fn _update_nondiff_param(&mut self, iter: usize) {
-    if iter == 0 {
+    /*if iter == 0 {
       self.run_var = self.var / self.nsamples as f32;
     } else {
       self.run_var = self.run_var + self.cfg.avg_rate * (self.var - self.run_var / self.nsamples as f32);
-    }
+    }*/
+    self.run_var = self.run_var + self.cfg.avg_rate * (self.var - self.run_var / self.nsamples as f32);
+    self.run_norm = 1.0 / (1.0 - (1.0 - self.cfg.avg_rate).powi((iter + 1) as i32));
     self.nsamples = 0;
     self.var = 0.0;
   }
@@ -551,8 +572,9 @@ impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
     let batch_size = self.in_.batch_sz.get();
     assert_eq!(batch_size, self.out.batch_sz.get());
 
-    let lambda = 1.0 / (self.run_var + self.cfg.epsilon * self.cfg.epsilon);
+    let lambda = 1.0 / (self.run_norm * self.run_var + self.cfg.epsilon * self.cfg.epsilon);
     let in_buf = self.in_.buf.borrow();
+    self.preds[ .. batch_size].copy_from_slice(&in_buf[ .. batch_size]);
     let mut batch_loss = 0.0;
     for idx in 0 .. batch_size {
       let dx = in_buf[idx] - self.targets[idx];
@@ -583,7 +605,7 @@ impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
     if let Some(ref mut in_grad) = self.in_.grad.as_mut() {
       let in_buf = self.in_.buf.borrow();
       let mut in_grad = in_grad.borrow_mut();
-      let lambda = 1.0 / (self.run_var + self.cfg.epsilon * self.cfg.epsilon);
+      let lambda = 1.0 / (self.run_norm * self.run_var + self.cfg.epsilon * self.cfg.epsilon);
       for idx in 0 .. batch_size {
         in_grad[idx] = lambda * self.weights[idx] * (in_buf[idx] - self.targets[idx]);
       }
