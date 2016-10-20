@@ -1,83 +1,8 @@
+use kernels::ffi::*;
+
 use densearray::{ArrayIndex, Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
 
 use libc::{size_t};
-
-#[link(name = "neuralops_extkernels", kind = "static")]
-extern "C" {
-  pub fn neuralops_batchnorm2d_fwd_mean(
-      batch_sz: size_t,
-      width: size_t,
-      height: size_t,
-      chan: size_t,
-      in_buf: *const f32,
-      mean: *mut f32);
-  pub fn neuralops_batchnorm2d_fwd_var(
-      batch_sz: size_t,
-      width: size_t,
-      height: size_t,
-      chan: size_t,
-      in_buf: *const f32,
-      mean: *const f32,
-      var: *mut f32);
-  pub fn neuralops_batchnorm2d_fwd_output(
-      batch_sz: size_t,
-      width: size_t,
-      height: size_t,
-      chan: size_t,
-      in_buf: *const f32,
-      mean: *const f32,
-      //run_mean: *const f32,
-      var: *const f32,
-      //run_var: *const f32,
-      out_buf: *mut f32,
-      //gamma: f32,
-      epsilon: f32);
-  pub fn neuralops_batchnorm2d_bwd_var(
-      batch_sz: size_t,
-      width: size_t,
-      height: size_t,
-      chan: size_t,
-      in_buf: *const f32,
-      mean: *const f32,
-      //run_mean: *const f32,
-      var: *const f32,
-      //run_var: *const f32,
-      out_grad: *const f32,
-      var_grad: *mut f32,
-      //gamma: f32,
-      epsilon: f32);
-  pub fn neuralops_batchnorm2d_bwd_mean(
-      batch_sz: size_t,
-      width: size_t,
-      height: size_t,
-      chan: size_t,
-      in_buf: *const f32,
-      mean: *const f32,
-      //run_mean: *const f32,
-      var: *const f32,
-      //run_var: *const f32,
-      var_grad: *const f32,
-      out_grad: *const f32,
-      mean_grad: *mut f32,
-      //gamma: f32,
-      epsilon: f32);
-  pub fn neuralops_batchnorm2d_bwd_input(
-      batch_sz: size_t,
-      width: size_t,
-      height: size_t,
-      chan: size_t,
-      in_buf: *const f32,
-      mean: *const f32,
-      //run_mean: *const f32,
-      mean_grad: *const f32,
-      var: *const f32,
-      //run_var: *const f32,
-      var_grad: *const f32,
-      out_grad: *const f32,
-      in_grad: *mut f32,
-      //gamma: f32,
-      epsilon: f32);
-}
 
 pub struct BatchMean2dKernel {
   pub batch_sz: usize,

@@ -6,6 +6,7 @@ use kernels::*;
 use kernels::activate::{ActivateKernel};
 use kernels::batchnorm::{BatchNorm2dKernel};
 use kernels::conv::*;
+use kernels::ffi::*;
 //use ops::*;
 //use split::{CopySplitOperator};
 

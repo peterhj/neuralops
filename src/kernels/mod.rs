@@ -3,10 +3,11 @@ use common::{ActivationKind};
 pub mod activate;
 pub mod batchnorm;
 pub mod conv;
-pub mod image;
-pub mod interpolate;
-pub mod pool;
-pub mod softmax;
+pub mod ffi;
+//pub mod image;
+//pub mod interpolate;
+//pub mod pool;
+//pub mod softmax;
 
 pub fn activate_fwd(act_kind: ActivationKind, in_buf: &[f32], out_buf: &mut [f32]) {
   match act_kind {

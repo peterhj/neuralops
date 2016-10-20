@@ -1,6 +1,6 @@
 use prelude::*;
 use common::{CommonResources, CommonOperatorOutput};
-use kernels::softmax::{SoftmaxKernel};
+//use kernels::softmax::{SoftmaxKernel};
 
 use float::ord::{F32InfNan};
 use iter_utils::{argmax}; //, KahanSum};

@@ -1,6 +1,6 @@
 use prelude::*;
 use common::{CommonResources, CommonOperatorOutput};
-use kernels::pool::*;
+use kernels::ffi::*;
 
 use densearray::{ArrayIndex};
 //use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};

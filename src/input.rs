@@ -1,7 +1,6 @@
 use prelude::*;
 use common::{CommonOperatorOutput, CommonResources};
-use kernels::image::*;
-use kernels::interpolate::*;
+use kernels::ffi::*;
 
 use densearray::{ReshapeMut, ArrayIndex};
 use operator::prelude::*;

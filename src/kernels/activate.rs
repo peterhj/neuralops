@@ -1,4 +1,5 @@
 use common::{CommonResources, ActivationKind};
+use kernels::ffi::*;
 
 /*use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;*/
@@ -6,36 +7,6 @@ use nnpack::ffi::*;*/
 use libc::{size_t};
 use std::ptr::{null_mut};
 use std::rc::{Rc};
-
-#[link(name = "neuralops_extkernels", kind = "static")]
-extern "C" {
-  pub fn neuralops_rect_fwd(
-      batch_sz: size_t,
-      dim: size_t,
-      in_buf: *const f32,
-      out_buf: *mut f32,
-  );
-  pub fn neuralops_rect_bwd(
-      batch_sz: size_t,
-      dim: size_t,
-      in_buf: *const f32,
-      out_grad: *const f32,
-      in_grad: *mut f32,
-  );
-  pub fn neuralops_logistic_fwd(
-      batch_sz: size_t,
-      dim: size_t,
-      in_buf: *const f32,
-      out_buf: *mut f32,
-  );
-  pub fn neuralops_logistic_bwd(
-      batch_sz: size_t,
-      dim: size_t,
-      in_buf: *const f32,
-      out_grad: *const f32,
-      in_grad: *mut f32,
-  );
-}
 
 pub struct ActivateKernel {
   batch_sz: usize,

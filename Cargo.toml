@@ -2,7 +2,7 @@
 name = "neuralops"
 version = "0.1.0"
 authors = ["Peter Jin <peterhaijin@gmail.com>"]
-build = "build.rs"
+#build = "build.rs"
 
 [features]
 default = ["nnpack"]
@@ -40,10 +40,8 @@ path = "tools/train-cifar10-new.rs"
 #name = "bench-typemap"
 #path = "tools/bench-typemap.rs"
 
-[build-dependencies]
-gcc = "*"
-
 [dependencies]
+neuralops_kernels = { path = "kernels" }
 byteorder = "*"
 float = "*"
 libc = "*"
