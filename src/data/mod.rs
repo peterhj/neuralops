@@ -19,6 +19,7 @@ use std::sync::{Arc};
 pub mod cifar;
 pub mod jpeg;
 pub mod mnist;
+pub mod ndarray;
 pub mod varraydb;
 
 pub fn partition_range(upper_bound: usize, parts: usize) -> Vec<(usize, usize)> {
