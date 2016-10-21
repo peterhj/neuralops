@@ -4,9 +4,9 @@ version = "0.1.0"
 authors = ["Peter Jin <peterhaijin@gmail.com>"]
 #build = "build.rs"
 
-[features]
-default = ["nnpack"]
-mkl = ["mkl_dnn", "nnpack"]
+#[features]
+#default = ["nnpack"]
+#mkl = ["mkl_dnn", "nnpack"]
 
 [lib]
 name = "neuralops"
@@ -48,8 +48,8 @@ libc = "*"
 rand = "*"
 densearray = { path = "../libdensearray" }
 iter_utils = { path = "../libiter_utils" }
-mkl_dnn = { path = "../libmkl_dnn", optional = true }
-nnpack = { path = "../libnnpack", optional = true }
+#mkl_dnn = { path = "../libmkl_dnn", optional = true }
+#nnpack = { path = "../libnnpack", optional = true }
 operator = { path = "../liboperator" }
 rng = { path = "../librng" }
 sharedmem = { path = "../libsharedmem" }
