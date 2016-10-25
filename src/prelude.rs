@@ -1,11 +1,14 @@
 //pub use super::{OperatorConfig};
 pub use affine::{
   AffineOperatorConfig,
+  BatchNormAffineOperatorConfig,
   NewAffineOperator,
 };
 pub use class_loss::{
   ClassLossConfig,
   SoftmaxNLLClassLoss,
+  EntRegSoftmaxNLLClassLossConfig,
+  EntRegSoftmaxNLLClassLoss,
 };
 pub use common::{
   ActivationKind, ParamInitKind, PoolKind,
@@ -23,6 +26,10 @@ pub use conv::{
 pub use conv_nnpack::{
   NewConv2dOperator,
   NewBatchNormConv2dOperator,
+};
+pub use deconv::{
+  ConvTranspose2dOperatorConfig,
+  BatchNormConvTranspose2dOperatorConfig,
 };
 pub use graph::{GraphOperator, GraphOperatorConfig};
 pub use input::{

@@ -471,3 +471,15 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     }
   }
 }
+
+#[derive(Clone, Copy)]
+pub struct BatchNormAffineOperatorConfig {
+  pub batch_sz: usize,
+  pub in_dim:   usize,
+  pub out_dim:  usize,
+  pub avg_rate: f32,
+  pub epsilon:  f32,
+  pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
+}
+

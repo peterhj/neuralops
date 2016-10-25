@@ -461,12 +461,9 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
   let conv1_cfg = BatchNormConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 3),
-    kernel_w:   3,
-    kernel_h:   3,
-    stride_w:   1,
-    stride_h:   1,
-    pad_w:      1,
-    pad_h:      1,
+    kernel_w:   3,  kernel_h:   3,
+    stride_w:   1,  stride_h:   1,
+    pad_w:      1,  pad_h:      1,
     out_chan:   16,
     avg_rate:   RESNET_AVG_RATE,
     epsilon:    RESNET_EPSILON,
@@ -484,8 +481,7 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
   let proj_res2_cfg = ProjResidualConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (32, 32, 16),
-    stride_w:   2,
-    stride_h:   2,
+    stride_w:   2,  stride_h:   2,
     out_chan:   32,
     avg_rate:   RESNET_AVG_RATE,
     epsilon:    RESNET_EPSILON,
@@ -503,8 +499,7 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
   let proj_res3_cfg = ProjResidualConv2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (16, 16, 32),
-    stride_w:   2,
-    stride_h:   2,
+    stride_w:   2,  stride_h:   2,
     out_chan:   64,
     avg_rate:   RESNET_AVG_RATE,
     epsilon:    RESNET_EPSILON,
@@ -522,12 +517,9 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
   let pool_cfg = Pool2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (8, 8, 64),
-    pool_w:     8,
-    pool_h:     8,
-    stride_w:   8,
-    stride_h:   8,
-    pad_w:      0,
-    pad_h:      0,
+    pool_w:     8,  pool_h:     8,
+    stride_w:   8,  stride_h:   8,
+    pad_w:      0,  pad_h:      0,
     kind:       PoolKind::Average,
   };
   let affine_cfg = AffineOperatorConfig{

@@ -33,6 +33,7 @@ pub mod conv_mkl;
 #[cfg(not(feature = "mkl"))]
 pub mod conv_nnpack;
 pub mod data;
+pub mod deconv;
 pub mod graph;
 pub mod input;
 pub mod join;
