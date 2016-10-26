@@ -51,6 +51,7 @@ pub use regress_loss::{
   NormLstSqRegressLossConfig,
   LstSqRegressLoss,
   NormLstSqRegressLoss,
+  IndLstSqRegressLoss,
 };
 pub use seq::{SeqOperator, SeqOperatorConfig};
 pub use split::{
