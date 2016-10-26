@@ -51,6 +51,7 @@ pub use regress_loss::{
   NormLstSqRegressLossConfig,
   LstSqRegressLoss,
   NormLstSqRegressLoss,
+  IndLstSqRegressLossConfig,
   IndLstSqRegressLoss,
 };
 pub use seq::{SeqOperator, SeqOperatorConfig};

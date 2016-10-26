@@ -616,6 +616,13 @@ impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
   }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct IndLstSqRegressLossConfig {
+  pub batch_sz: usize,
+  pub index_sz: usize,
+  pub max_diff: Option<f32>,
+}
+
 pub struct IndLstSqRegressLoss<S> {
   cfg:      ClassLossConfig,
   node:     OperatorNode,
@@ -772,15 +779,16 @@ impl NewDiffOperator<SampleItem> for IndLstSqRegressLoss<SampleItem> {
     self.preds[ .. batch_size * self.cfg.num_classes].copy_from_slice(&in_buf[ .. batch_size * self.cfg.num_classes]);
     let mut batch_loss = 0.0;
     for idx in 0 .. batch_size {
-      let label_k = if self.labels[idx] != u32::MAX {
-        self.labels[idx] as usize
+      let loss = if self.labels[idx] != u32::MAX {
+        let label_k = self.labels[idx] as usize;
+        assert!(label_k < self.cfg.num_classes);
+        let x = in_buf[idx * self.cfg.num_classes + label_k];
+        let dx = x - self.targets[idx];
+        let loss = 0.5 * self.weights[idx] * dx * dx;
+        loss
       } else {
-        argmax(in_buf[idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes].iter().map(|&v| F32InfNan(v))).unwrap()
+        0.0
       };
-      assert!(label_k < self.cfg.num_classes);
-      let x = in_buf[idx * self.cfg.num_classes + label_k];
-      let dx = x - self.targets[idx];
-      let loss = 0.5 * self.weights[idx] * dx * dx;
       self.losses[idx] = loss;
       batch_loss += loss;
     }

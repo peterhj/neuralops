@@ -6,6 +6,7 @@ use densearray::{ReshapeMut, ArrayIndex};
 use operator::prelude::*;
 use rng::{RngState};
 use rng::xorshift::{Xorshiftplus128Rng};
+use sharedmem::{RwSlice};
 
 use rand::{Rng, thread_rng};
 use std::cell::{RefCell};
@@ -401,6 +402,10 @@ impl<S> NewVarInputOperator<S> {
       tmp_buf:  tmp_buf,
       _marker:  PhantomData,
     }))
+  }
+
+  pub fn _output(&self) -> RwSlice<f32> {
+    self.out.buf.as_slice()
   }
 }
 
