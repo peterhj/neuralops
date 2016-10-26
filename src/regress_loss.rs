@@ -808,7 +808,7 @@ impl NewDiffOperator<SampleItem> for IndLstSqRegressLoss<SampleItem> {
         let label_k = if self.labels[idx] != u32::MAX {
           self.labels[idx] as usize
         } else {
-          argmax(in_buf[idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes].iter().map(|&v| F32InfNan(v))).unwrap()
+          unreachable!();
         };
         assert!(label_k < self.cfg.num_classes);
         let x = in_buf[idx * self.cfg.num_classes + label_k];
