@@ -32,6 +32,7 @@ pub struct Conv2dOperatorConfig {
   pub pad_w:    usize,
   pub pad_h:    usize,
   pub out_chan: usize,
+  pub bias:     bool,
   pub act_kind: ActivationKind,
   pub w_init:   ParamInitKind,
 }

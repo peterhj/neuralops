@@ -12,7 +12,7 @@ use operator::prelude::*;
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::cell::{RefCell};
-//use std::cmp::{max, min};
+use std::cmp::{max};
 //use std::ptr::{null_mut};
 use std::rc::{Rc};
 
@@ -37,9 +37,10 @@ pub struct Pool2dOperatorConfig {
 
 impl Pool2dOperatorConfig {
   pub fn out_dim(&self) -> (usize, usize, usize) {
-    // FIXME(20161002)
-    //unimplemented!();
-    (self.in_dim.0 / self.stride_w, self.in_dim.1 / self.stride_h, self.in_dim.2)
+    let (in_w, in_h, in_chan) = self.in_dim;
+    let out_w = max(0, (in_w + 2 * self.pad_w - self.pool_w + self.stride_w) as isize) as usize / self.stride_w;
+    let out_h = max(0, (in_h + 2 * self.pad_h - self.pool_h + self.stride_h) as isize) as usize / self.stride_h;
+    (out_w, out_h, self.in_dim.2)
   }
 }
 

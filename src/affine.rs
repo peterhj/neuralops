@@ -23,6 +23,7 @@ pub struct AffineOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   usize,
   pub out_dim:  usize,
+  pub bias:     bool,
   pub act_kind: ActivationKind,
   pub w_init:   ParamInitKind,
 }

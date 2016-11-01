@@ -29,6 +29,7 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   16,
+    bias:       true,
     //avg_rate:   0.01,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
@@ -43,6 +44,7 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   4,
+    bias:       true,
     //avg_rate:   0.05,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
@@ -51,6 +53,7 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     batch_sz:   batch_sz,
     in_dim:     4096,
     out_dim:    64,
+    bias:       true,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -58,6 +61,7 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     batch_sz:   batch_sz,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -88,6 +92,7 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   16,
+    bias:       true,
     //avg_rate:   0.05,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
@@ -114,6 +119,7 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   32,
+    bias:       true,
     //avg_rate:   0.05,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
@@ -140,6 +146,7 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     pad_w:      1,
     pad_h:      1,
     out_chan:   64,
+    bias:       true,
     //avg_rate:   0.05,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
@@ -159,6 +166,7 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     batch_sz:   batch_sz,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -278,6 +286,7 @@ pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     batch_sz:   batch_sz,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -394,6 +403,7 @@ pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     batch_sz:   batch_sz,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -432,6 +442,7 @@ pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     batch_sz:   batch_sz,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Xavier,
   }));
@@ -526,6 +537,7 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
     batch_sz:   batch_sz,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
   };
@@ -653,6 +665,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     //in_dim:     8 * 8 * 64,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Kaiming,
   }));
@@ -779,6 +792,7 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
     batch_sz:   batch_sz,
     in_dim:     64,
     out_dim:    10,
+    bias:       true,
     act_kind:   ActivationKind::Identity,
     w_init:     ParamInitKind::Xavier,
   }));

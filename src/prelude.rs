@@ -48,8 +48,9 @@ pub use pool::{
 };
 pub use regress_loss::{
   RegressLossConfig,
-  NormLstSqRegressLossConfig,
+  LstSqRegressLossConfig,
   LstSqRegressLoss,
+  NormLstSqRegressLossConfig,
   NormLstSqRegressLoss,
   IndLstSqRegressLossConfig,
   IndLstSqRegressLoss,

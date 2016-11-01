@@ -124,7 +124,8 @@ impl DiffOperator<f32> for Conv2dOperator {
         }
       }
       ParamInitKind::Xavier => {
-        let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        //let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        let half_range = (3.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Range::new(-half_range, half_range);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
@@ -132,7 +133,8 @@ impl DiffOperator<f32> for Conv2dOperator {
       }
       ParamInitKind::Kaiming => {
         //let std = (2.0 / max(self.cfg.in_dim.2, self.cfg.out_chan) as f64).sqrt();
-        let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        //let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        let std = (2.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Normal::new(0.0, std);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
@@ -533,7 +535,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
         }
       }
       ParamInitKind::Xavier => {
-        let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        //let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        let half_range = (3.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Range::new(-half_range, half_range);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
@@ -541,7 +544,8 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
       }
       ParamInitKind::Kaiming => {
         //let std = (2.0 / max(self.cfg.in_dim.2, self.cfg.out_chan) as f64).sqrt();
-        let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        //let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        let std = (2.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Normal::new(0.0, std);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
@@ -937,7 +941,8 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
         }
       }
       ParamInitKind::Xavier => {
-        let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        //let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        let half_range = (3.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Range::new(-half_range, half_range);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
@@ -945,7 +950,8 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
       }
       ParamInitKind::Kaiming => {
         //let std = (2.0 / max(self.cfg.in_dim.2, self.cfg.out_chan) as f64).sqrt();
-        let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        //let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        let std = (2.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Normal::new(0.0, std);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
@@ -1301,7 +1307,8 @@ impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
         }
       }
       ParamInitKind::Xavier => {
-        let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        //let half_range = (6.0 / (self.cfg.in_dim.2 + self.cfg.out_chan) as f64).sqrt();
+        let half_range = (3.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Range::new(-half_range, half_range);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
@@ -1309,7 +1316,8 @@ impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
       }
       ParamInitKind::Kaiming => {
         //let std = (2.0 / max(self.cfg.in_dim.2, self.cfg.out_chan) as f64).sqrt();
-        let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        //let std = (2.0 / self.cfg.in_dim.2 as f64).sqrt();
+        let std = (2.0 / (self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2) as f64).sqrt();
         let dist = Normal::new(0.0, std);
         for e in self.weights.as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;

@@ -124,6 +124,7 @@ impl DiffOperator<f32> for SimpleInputOperator {
 #[derive(Clone)]
 pub enum VarInputPreproc {
   Scale{scale: f32},
+  DivScale{scale: f32},
   ChannelShift{shift: Vec<f32>},
   RandomResize2d{lo: usize, hi: usize, phases: Vec<OpPhase>},
   RandomCrop2d{crop_w: usize, crop_h: usize, pad_w: usize, pad_h: usize, phases: Vec<OpPhase>},
@@ -494,6 +495,13 @@ impl NewDiffOperator<SampleItem> for NewVarInputOperator<SampleItem> {
             out.reshape_mut(dim.flat_len()).vector_scale(scale);
           }
         }
+        &VarInputPreproc::DivScale{scale} => {
+          for idx in 0 .. batch_size {
+            let dim = self.tmp_dims[idx];
+            let mut out = &mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
+            out.reshape_mut(dim.flat_len()).div_scalar(scale);
+          }
+        }
         &VarInputPreproc::ChannelShift{ref shift} => {
           for idx in 0 .. batch_size {
             let dim = self.tmp_dims[idx];
@@ -567,8 +575,6 @@ impl NewDiffOperator<SampleItem> for NewVarInputOperator<SampleItem> {
           if phases.contains(&phase) {
             for idx in 0 .. batch_size {
               let in_dim = self.tmp_dims[idx];
-              assert!(crop_w <= in_dim.0);
-              assert!(crop_h <= in_dim.1);
               let out_dim = (crop_w, crop_h, in_dim.2);
               let out_len = out_dim.flat_len();
               {

@@ -16,6 +16,12 @@ pub struct RegressLossConfig {
   pub batch_sz:     usize,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct LstSqRegressLossConfig {
+  pub batch_sz:     usize,
+  pub grad_clip:    Option<f32>,
+}
+
 pub struct LstSqRegressLossOperator {
   cfg:      RegressLossConfig,
   in_:      CommonOperatorOutput<f32>,
@@ -236,7 +242,7 @@ impl DiffOperator<f32> for NormLstSqRegressLossOperator {
 }
 
 pub struct LstSqRegressLoss<S> {
-  cfg:      RegressLossConfig,
+  cfg:      LstSqRegressLossConfig,
   node:     OperatorNode,
   in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
   in_:      CommonOutput,
@@ -251,7 +257,7 @@ pub struct LstSqRegressLoss<S> {
 }
 
 impl<S> LstSqRegressLoss<S> {
-  pub fn new<InOp>(cfg: RegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<LstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+  pub fn new<InOp>(cfg: LstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<LstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     losses.resize(cfg.batch_sz, 0.0);
     let mut targets = Vec::with_capacity(cfg.batch_sz);
@@ -407,7 +413,15 @@ impl NewDiffOperator<SampleItem> for LstSqRegressLoss<SampleItem> {
       let in_buf = self.in_.buf.borrow();
       let mut in_grad = in_grad.borrow_mut();
       for idx in 0 .. batch_size {
-        in_grad[idx] = self.weights[idx] * (in_buf[idx] - self.targets[idx]);
+        let mut g = in_buf[idx] - self.targets[idx];
+        if let Some(grad_clip) = self.cfg.grad_clip {
+          if g > grad_clip {
+            g = grad_clip;
+          } else if g < -grad_clip {
+            g = -grad_clip
+          }
+        }
+        in_grad[idx] = self.weights[idx] * g;
       }
     }
   }
@@ -618,13 +632,13 @@ impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct IndLstSqRegressLossConfig {
-  pub batch_sz: usize,
-  pub index_sz: usize,
-  pub max_diff: Option<f32>,
+  pub batch_sz:     usize,
+  pub index_sz:     usize,
+  pub grad_clip:    Option<f32>,
 }
 
 pub struct IndLstSqRegressLoss<S> {
-  cfg:      ClassLossConfig,
+  cfg:      IndLstSqRegressLossConfig,
   node:     OperatorNode,
   in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
   in_:      CommonOutput,
@@ -640,7 +654,7 @@ pub struct IndLstSqRegressLoss<S> {
 }
 
 impl<S> IndLstSqRegressLoss<S> {
-  pub fn new<InOp>(cfg: ClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<IndLstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+  pub fn new<InOp>(cfg: IndLstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<IndLstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     losses.resize(cfg.batch_sz, 0.0);
     let mut targets = Vec::with_capacity(cfg.batch_sz);
@@ -649,8 +663,8 @@ impl<S> IndLstSqRegressLoss<S> {
     labels.resize(cfg.batch_sz, 0);
     let mut weights = Vec::with_capacity(cfg.batch_sz);
     weights.resize(cfg.batch_sz, 1.0);
-    let mut preds = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
-    preds.resize(cfg.batch_sz * cfg.num_classes, 0.0);
+    let mut preds = Vec::with_capacity(cfg.batch_sz * cfg.index_sz);
+    preds.resize(cfg.batch_sz * cfg.index_sz, 0.0);
     let in_ = prev_op.borrow()._output(prev_arm);
     Rc::new(RefCell::new(IndLstSqRegressLoss{
       cfg:      cfg,
@@ -776,13 +790,13 @@ impl NewDiffOperator<SampleItem> for IndLstSqRegressLoss<SampleItem> {
     assert_eq!(batch_size, self.out.batch_sz.get());
 
     let in_buf = self.in_.buf.borrow();
-    self.preds[ .. batch_size * self.cfg.num_classes].copy_from_slice(&in_buf[ .. batch_size * self.cfg.num_classes]);
+    self.preds[ .. batch_size * self.cfg.index_sz].copy_from_slice(&in_buf[ .. batch_size * self.cfg.index_sz]);
     let mut batch_loss = 0.0;
     for idx in 0 .. batch_size {
       let loss = if self.labels[idx] != u32::MAX {
         let label_k = self.labels[idx] as usize;
-        assert!(label_k < self.cfg.num_classes);
-        let x = in_buf[idx * self.cfg.num_classes + label_k];
+        assert!(label_k < self.cfg.index_sz);
+        let x = in_buf[idx * self.cfg.index_sz + label_k];
         let dx = x - self.targets[idx];
         let loss = 0.5 * self.weights[idx] * dx * dx;
         loss
@@ -818,13 +832,13 @@ impl NewDiffOperator<SampleItem> for IndLstSqRegressLoss<SampleItem> {
         } else {
           unreachable!();
         };
-        assert!(label_k < self.cfg.num_classes);
-        let x = in_buf[idx * self.cfg.num_classes + label_k];
-        for k in 0 .. self.cfg.num_classes {
+        assert!(label_k < self.cfg.index_sz);
+        let x = in_buf[idx * self.cfg.index_sz + label_k];
+        for k in 0 .. self.cfg.index_sz {
           if k == label_k {
-            in_grad[idx * self.cfg.num_classes + k] = self.weights[idx] * (x - self.targets[idx]);
+            in_grad[idx * self.cfg.index_sz + k] = self.weights[idx] * (x - self.targets[idx]);
           } else {
-            in_grad[idx * self.cfg.num_classes + k] = 0.0;
+            in_grad[idx * self.cfg.index_sz + k] = 0.0;
           }
         }
       }
