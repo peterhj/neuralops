@@ -27,6 +27,7 @@ pub use conv_nnpack::{
   NewConv2dOperator,
   NewBatchNormConv2dOperator,
 };
+pub use data::{Dtype};
 pub use deconv::{
   ConvTranspose2dOperatorConfig,
   BatchNormConvTranspose2dOperatorConfig,

@@ -139,6 +139,7 @@ pub struct VarInputOperatorConfig {
   pub batch_sz:     usize,
   pub max_stride:   usize,
   pub out_dim:      (usize, usize, usize),
+  pub in_dtype:     Dtype,
   pub preprocs:     Vec<VarInputPreproc>,
 }
 

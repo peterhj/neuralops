@@ -291,8 +291,10 @@ impl<S> NewAffineOperator<S> {
       in_op:    prev_op,
       in_:      in_,
       out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim, cap),
-      weights:  Array2d::zeros((cfg.in_dim, cfg.out_dim)),
-      w_grad:   Array2d::zeros((cfg.in_dim, cfg.out_dim)),
+      weights:  Array2d::zeros((cfg.out_dim, cfg.in_dim)),
+      w_grad:   Array2d::zeros((cfg.out_dim, cfg.in_dim)),
+      //weights:  Array2d::zeros((cfg.in_dim, cfg.out_dim)),
+      //w_grad:   Array2d::zeros((cfg.in_dim, cfg.out_dim)),
       bias:     Array1d::zeros(cfg.out_dim),
       b_grad:   Array1d::zeros(cfg.out_dim),
       tmp_buf:  tmp_buf,
@@ -422,7 +424,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
       .matrix_prod(
           1.0,
-          self.weights.as_view(), Transpose::T,
+          self.weights.as_view(), Transpose::N,
           in_buf.reshape((self.cfg.in_dim, batch_size)), Transpose::N,
           0.0,
       );
@@ -448,8 +450,8 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     self.w_grad.as_view_mut()
       .matrix_prod(
           1.0,
-          self.in_.buf.borrow().reshape((self.cfg.in_dim, batch_size)), Transpose::N,
-          self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::T,
+          self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
+          self.in_.buf.borrow().reshape((self.cfg.in_dim, batch_size)), Transpose::T,
           1.0,
       );
     for j in 0 .. batch_size {
@@ -465,7 +467,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
       in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, batch_size))
         .matrix_prod(
             1.0,
-            self.weights.as_view(), Transpose::N,
+            self.weights.as_view(), Transpose::T,
             self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
             0.0,
         );

@@ -35,6 +35,14 @@ pub fn partition_range(upper_bound: usize, parts: usize) -> Vec<(usize, usize)> 
   ranges
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Dtype {
+  F32,
+  F64,
+  F16,
+  U8,
+}
+
 #[derive(Clone)]
 pub struct OwnedSample<T> where T: Copy {
   pub input:    Vec<T>,

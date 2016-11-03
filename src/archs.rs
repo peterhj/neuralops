@@ -191,6 +191,7 @@ pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     //stride:     32 * 32 * 3,
     max_stride: 32 * 32 * 3,
     out_dim:    (32, 32, 3),
+    in_dtype:   Dtype::F32,
     preprocs:   vec![
       // XXX: the pixel mean is:
       // (1.25306915e2 1.2295039e2 1.1386535e2).
@@ -311,6 +312,7 @@ pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     //stride:     32 * 32 * 3,
     max_stride: 32 * 32 * 3,
     out_dim:    (32, 32, 3),
+    in_dtype:   Dtype::F32,
     preprocs:   vec![
       // XXX: the pixel mean is:
       // (1.25306915e2 1.2295039e2 1.1386535e2).
@@ -460,6 +462,7 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
     batch_sz:   batch_sz,
     max_stride: 32 * 32 * 3,
     out_dim:    (32, 32, 3),
+    in_dtype:   Dtype::F32,
     preprocs:   vec![
       // XXX: the pixel mean is:
       // (1.25306915e2 1.2295039e2 1.1386535e2).
@@ -571,6 +574,7 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     //stride:     32 * 32 * 3,
     max_stride: 32 * 32 * 3,
     out_dim:    (32, 32, 3),
+    in_dtype:   Dtype::F32,
     preprocs:   vec![
       // XXX: the pixel mean is:
       // (1.25306915e2 1.2295039e2 1.1386535e2).
