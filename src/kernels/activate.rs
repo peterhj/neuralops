@@ -111,3 +111,82 @@ impl ActivateKernel {
     }
   }
 }
+
+pub struct ParallelActivateKernel {
+  batch_sz: usize,
+  dim:      usize,
+  act_kind: ActivationKind,
+}
+
+impl ParallelActivateKernel {
+  pub fn new(batch_sz: usize, dim: usize, act_kind: ActivationKind) -> ParallelActivateKernel {
+    ParallelActivateKernel{
+      batch_sz: batch_sz,
+      dim:      dim,
+      act_kind: act_kind,
+    }
+  }
+
+  pub fn forward(&mut self, batch_sz: usize, in_buf: &[f32], out_buf: &mut [f32]) {
+    assert!(batch_sz <= self.batch_sz);
+    match self.act_kind {
+      ActivationKind::Identity => {
+        out_buf.copy_from_slice(in_buf);
+      }
+      ActivationKind::Rect => {
+        unsafe { neuralops_gomp_rect_fwd(
+            batch_sz,
+            self.dim,
+            in_buf.as_ptr(),
+            out_buf.as_mut_ptr(),
+        ) };
+      }
+      ActivationKind::LeakyRect(_) => {
+        unimplemented!();
+      }
+      ActivationKind::Logistic => {
+        unsafe { neuralops_gomp_logistic_fwd(
+            batch_sz,
+            self.dim,
+            in_buf.as_ptr(),
+            out_buf.as_mut_ptr(),
+        ) };
+      }
+      ActivationKind::Tanh => {
+        unimplemented!();
+      }
+    }
+  }
+
+  pub fn backward(&mut self, batch_sz: usize, in_buf: &[f32], out_grad: &[f32], in_grad: &mut [f32]) {
+    match self.act_kind {
+      ActivationKind::Identity => {
+        in_grad.copy_from_slice(out_grad);
+      }
+      ActivationKind::Rect => {
+        unsafe { neuralops_gomp_rect_bwd(
+            batch_sz,
+            self.dim,
+            in_buf.as_ptr(),
+            out_grad.as_ptr(),
+            in_grad.as_mut_ptr(),
+        ) };
+      }
+      ActivationKind::LeakyRect(_) => {
+        unimplemented!();
+      }
+      ActivationKind::Logistic => {
+        unsafe { neuralops_gomp_logistic_bwd(
+            batch_sz,
+            self.dim,
+            in_buf.as_ptr(),
+            out_grad.as_ptr(),
+            in_grad.as_mut_ptr(),
+        ) };
+      }
+      ActivationKind::Tanh => {
+        unimplemented!();
+      }
+    }
+  }
+}

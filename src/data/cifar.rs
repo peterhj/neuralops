@@ -9,6 +9,7 @@ use byteorder::{ReadBytesExt, BigEndian};
 
 use std::fs::{File};
 use std::path::{PathBuf};
+use std::rc::{Rc};
 use std::sync::{Arc};
 
 #[derive(Clone, Copy, Debug)]
@@ -95,7 +96,7 @@ impl IndexedDataShard<SampleItem> for CifarDataShard {
     };
     let mut item = SampleItem::new();
     item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(input_buf));
-    item.kvs.insert::<SampleInputShape3dKey>((32, 32, 3));
+    item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new((32, 32, 3)));
     item.kvs.insert::<SampleClassLabelKey>(label);
     item
   }

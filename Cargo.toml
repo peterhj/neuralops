@@ -2,11 +2,12 @@
 name = "neuralops"
 version = "0.1.0"
 authors = ["Peter Jin <peterhaijin@gmail.com>"]
-#build = "build.rs"
 
-#[features]
+[features]
 #default = ["nnpack"]
 #mkl = ["mkl_dnn", "nnpack"]
+default = ["neuralops_gomp_kernels"]
+iomp = ["neuralops_iomp_kernels"]
 
 [lib]
 name = "neuralops"
@@ -42,6 +43,8 @@ path = "tools/train-cifar10-new.rs"
 
 [dependencies]
 neuralops_kernels = { path = "kernels" }
+neuralops_gomp_kernels = { path = "gomp_kernels", optional = true }
+neuralops_iomp_kernels = { path = "iomp_kernels", optional = true }
 byteorder = "*"
 float = "*"
 libc = "*"

@@ -11,12 +11,8 @@ fn main() {
     .pic(true)
     .flag("-std=gnu99")
     .flag("-march=native")
+    .flag("-fopenmp")
     .file("activate.c")
-    .file("batchnorm.c")
-    .file("conv.c")
-    .file("image.c")
-    .file("interpolate.c")
-    .file("pool.c")
-    .compile("libneuralops_kernels.a");
+    .compile("libneuralops_gomp_kernels.a");
   println!("cargo:rustc-link-search=native={}", out_dir);
 }

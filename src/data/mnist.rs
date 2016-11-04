@@ -9,6 +9,7 @@ use byteorder::{ReadBytesExt, BigEndian};
 
 use std::fs::{File};
 use std::path::{PathBuf};
+use std::rc::{Rc};
 use std::sync::{Arc};
 
 fn mmap_idx_file(mut file: File) -> (usize, Option<(usize, usize, usize)>, MemoryMap<u8>) {
@@ -106,7 +107,7 @@ impl IndexedDataShard<SampleItem> for MnistDataShard {
     let label = self.labels_m.as_slice()[idx] as u32;
     let mut item = SampleItem::new();
     item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(input_buf));
-    item.kvs.insert::<SampleInputShape3dKey>(self.frame_d);
+    item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new(self.frame_d));
     item.kvs.insert::<SampleClassLabelKey>(label);
     item
   }

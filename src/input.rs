@@ -471,12 +471,19 @@ impl NewDiffOperator<SampleItem> for NewVarInputOperator<SampleItem> {
       } else {
         panic!();
       }
-      if sample.kvs.contains::<SampleInputShape3dKey>() {
-        let in_dim = *sample.kvs.get::<SampleInputShape3dKey>().unwrap();
+      if sample.kvs.contains::<SampleInputShapeKey<(usize, usize, usize)>>() {
+        let data = sample.kvs.get::<SampleInputShapeKey<(usize, usize, usize)>>().unwrap();
+        let in_dim = data.input_shape().unwrap();
         self.in_dims.push(in_dim);
       } else {
         panic!();
       }
+      /*if sample.kvs.contains::<SampleInputShape3dKey>() {
+        let in_dim = *sample.kvs.get::<SampleInputShape3dKey>().unwrap();
+        self.in_dims.push(in_dim);
+      } else {
+        panic!();
+      }*/
     }
   }
 
