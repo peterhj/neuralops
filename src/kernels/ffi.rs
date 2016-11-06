@@ -1,2 +1,2 @@
 pub use neuralops_kernels::*;
-pub use neuralops_gomp_kernels::*;
+pub use neuralops_omp_kernels::*;

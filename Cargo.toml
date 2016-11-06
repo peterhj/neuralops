@@ -6,8 +6,8 @@ authors = ["Peter Jin <peterhaijin@gmail.com>"]
 [features]
 #default = ["nnpack"]
 #mkl = ["mkl_dnn", "nnpack"]
-default = ["neuralops_gomp_kernels"]
-iomp = ["neuralops_iomp_kernels"]
+default = ["neuralops_omp_kernels"]
+iomp = ["neuralops_omp_kernels/iomp"]
 
 [lib]
 name = "neuralops"
@@ -43,8 +43,7 @@ path = "tools/train-cifar10-new.rs"
 
 [dependencies]
 neuralops_kernels = { path = "kernels" }
-neuralops_gomp_kernels = { path = "gomp_kernels", optional = true }
-neuralops_iomp_kernels = { path = "iomp_kernels", optional = true }
+neuralops_omp_kernels = { path = "omp_kernels", optional = true }
 byteorder = "*"
 float = "*"
 libc = "*"

@@ -134,7 +134,7 @@ impl ParallelActivateKernel {
         out_buf.copy_from_slice(in_buf);
       }
       ActivationKind::Rect => {
-        unsafe { neuralops_gomp_rect_fwd(
+        unsafe { neuralops_omp_rect_fwd(
             batch_sz,
             self.dim,
             in_buf.as_ptr(),
@@ -145,7 +145,7 @@ impl ParallelActivateKernel {
         unimplemented!();
       }
       ActivationKind::Logistic => {
-        unsafe { neuralops_gomp_logistic_fwd(
+        unsafe { neuralops_omp_logistic_fwd(
             batch_sz,
             self.dim,
             in_buf.as_ptr(),
@@ -164,7 +164,7 @@ impl ParallelActivateKernel {
         in_grad.copy_from_slice(out_grad);
       }
       ActivationKind::Rect => {
-        unsafe { neuralops_gomp_rect_bwd(
+        unsafe { neuralops_omp_rect_bwd(
             batch_sz,
             self.dim,
             in_buf.as_ptr(),
@@ -176,7 +176,7 @@ impl ParallelActivateKernel {
         unimplemented!();
       }
       ActivationKind::Logistic => {
-        unsafe { neuralops_gomp_logistic_bwd(
+        unsafe { neuralops_omp_logistic_bwd(
             batch_sz,
             self.dim,
             in_buf.as_ptr(),

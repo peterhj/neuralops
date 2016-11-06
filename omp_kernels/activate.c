@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-void neuralops_gomp_rect_fwd(
+void neuralops_omp_rect_fwd(
     size_t batch_sz,
     size_t dim,
     const float *in_buf,
@@ -19,7 +19,7 @@ void neuralops_gomp_rect_fwd(
   }
 }
 
-void neuralops_gomp_rect_bwd(
+void neuralops_omp_rect_bwd(
     size_t batch_sz,
     size_t dim,
     const float *in_buf,
@@ -37,7 +37,7 @@ void neuralops_gomp_rect_bwd(
   }
 }
 
-void neuralops_gomp_logistic_fwd(
+void neuralops_omp_logistic_fwd(
     size_t batch_sz,
     size_t dim,
     const float *in_buf,
@@ -50,7 +50,7 @@ void neuralops_gomp_logistic_fwd(
   }
 }
 
-void neuralops_gomp_logistic_bwd(
+void neuralops_omp_logistic_bwd(
     size_t batch_sz,
     size_t dim,
     const float *in_buf,

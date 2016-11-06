@@ -4,7 +4,11 @@ use std::env;
 
 fn main() {
   let out_dir = env::var("OUT_DIR").unwrap();
-  let cc = env::var("CC").unwrap_or("gcc".to_owned());
+  let cc = if cfg!(not(feature = "iomp")) {
+    env::var("CC").unwrap_or("gcc".to_owned())
+  } else {
+    "icc".to_owned()
+  };
   gcc::Config::new()
     .compiler(&cc)
     .opt_level(3)
@@ -12,8 +16,12 @@ fn main() {
     .flag("-std=gnu99")
     .flag("-march=native")
     .flag("-fno-strict-aliasing")
-    .flag("-fopenmp")
+    .flag(if cfg!(not(feature = "iomp")) {
+      "-fopenmp"
+    } else {
+      "-qopenmp"
+    })
     .file("activate.c")
-    .compile("libneuralops_gomp_kernels.a");
+    .compile("libneuralops_omp_kernels.a");
   println!("cargo:rustc-link-search=native={}", out_dir);
 }
