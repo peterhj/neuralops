@@ -44,6 +44,12 @@ pub use join::{
   JoinOperatorConfig,
   NewAddJoinOperator,
 };
+pub use loss::{
+  L2RegOperator,
+};
+pub use param::{
+  ParamBlock,
+};
 pub use pool::{
   Pool2dOperatorConfig,
   NewPool2dOperator,

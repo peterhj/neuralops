@@ -267,10 +267,10 @@ pub struct NewAffineOperator<S> {
   in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
-  weights:  Array2d<f32>,
-  w_grad:   Array2d<f32>,
-  bias:     Array1d<f32>,
-  b_grad:   Array1d<f32>,
+  weights:  Rc<RefCell<ParamBlock<Array2d<f32>>>>,
+  //w_grad:   Array2d<f32>,
+  bias:     Rc<RefCell<ParamBlock<Array1d<f32>>>>,
+  //b_grad:   Array1d<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   act_kern: ActivateKernel,
@@ -291,12 +291,10 @@ impl<S> NewAffineOperator<S> {
       in_op:    prev_op,
       in_:      in_,
       out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim, cap),
-      weights:  Array2d::zeros((cfg.out_dim, cfg.in_dim)),
-      w_grad:   Array2d::zeros((cfg.out_dim, cfg.in_dim)),
-      //weights:  Array2d::zeros((cfg.in_dim, cfg.out_dim)),
-      //w_grad:   Array2d::zeros((cfg.in_dim, cfg.out_dim)),
-      bias:     Array1d::zeros(cfg.out_dim),
-      b_grad:   Array1d::zeros(cfg.out_dim),
+      weights:  ParamBlock::<Array2d<f32>>::new((cfg.out_dim, cfg.in_dim), cap),
+      //w_grad:   Array2d::zeros((cfg.out_dim, cfg.in_dim)),
+      bias:     ParamBlock::<Array1d<f32>>::new(cfg.out_dim, cap),
+      //b_grad:   Array1d::zeros(cfg.out_dim),
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim, cfg.act_kind),
@@ -357,20 +355,20 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
       }
       ParamInitKind::Uniform{lo, hi} => {
         let dist = Range::new(lo, hi);
-        for e in self.weights.as_mut_slice().iter_mut() {
+        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
       ParamInitKind::Normal{mean, std} => {
         let dist = Normal::new(mean as f64, std as f64);
-        for e in self.weights.as_mut_slice().iter_mut() {
+        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
       ParamInitKind::Xavier => {
         let half_range = (6.0 / (self.cfg.in_dim + self.cfg.out_dim) as f64).sqrt();
         let dist = Range::new(-half_range, half_range);
-        for e in self.weights.as_mut_slice().iter_mut() {
+        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
@@ -378,40 +376,40 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
         //let std = (2.0 / max(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
         let std = (2.0 / self.cfg.in_dim as f64).sqrt();
         let dist = Normal::new(0.0, std);
-        for e in self.weights.as_mut_slice().iter_mut() {
+        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
     }
-    for e in self.bias.as_mut_slice().iter_mut() {
+    for e in self.bias.borrow_mut().as_mut_slice().iter_mut() {
       *e = 0.0;
     }
   }
 
   fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_reader.read_buf(offset, self.weights.as_mut_slice());
-    offset += param_reader.read_buf(offset, self.bias.as_mut_slice());
+    offset += param_reader.read_buf(offset, self.weights.borrow_mut().as_mut_slice());
+    offset += param_reader.read_buf(offset, self.bias.borrow_mut().as_mut_slice());
     offset - init_offset
   }
 
   fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_writer.write_buf(offset, self.weights.as_slice());
-    offset += param_writer.write_buf(offset, self.bias.as_slice());
+    offset += param_writer.write_buf(offset, self.weights.borrow().as_slice());
+    offset += param_writer.write_buf(offset, self.bias.borrow().as_slice());
     offset - init_offset
   }
 
   fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += grad_writer.write_buf(offset, self.w_grad.as_slice());
-    offset += grad_writer.write_buf(offset, self.b_grad.as_slice());
+    offset += grad_writer.write_buf(offset, self.weights.borrow().grad().as_slice());
+    offset += grad_writer.write_buf(offset, self.bias.borrow().grad().as_slice());
     offset - init_offset
   }
 
   fn _reset_grad(&mut self) {
-    self.w_grad.as_view_mut().set_constant(0.0);
-    self.b_grad.as_view_mut().set_constant(0.0);
+    self.weights.borrow_mut().grad_mut().as_view_mut().set_constant(0.0);
+    self.bias.borrow_mut().grad_mut().as_view_mut().set_constant(0.0);
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
@@ -424,7 +422,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
       .matrix_prod(
           1.0,
-          self.weights.as_view(), Transpose::N,
+          self.weights.borrow().as_view(), Transpose::N,
           in_buf.reshape((self.cfg.in_dim, batch_size)), Transpose::N,
           0.0,
       );
@@ -433,7 +431,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
         .view_mut((0, j), (self.cfg.out_dim, j+1))
         .matrix_add(
             1.0,
-            self.bias.as_view().reshape((self.cfg.out_dim, 1)),
+            self.bias.borrow().as_view().reshape((self.cfg.out_dim, 1)),
         );
     }
 
@@ -447,7 +445,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
 
     self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
-    self.w_grad.as_view_mut()
+    self.weights.borrow_mut().grad_mut().as_view_mut()
       .matrix_prod(
           1.0,
           self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
@@ -455,7 +453,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
           1.0,
       );
     for j in 0 .. batch_size {
-      self.b_grad.as_view_mut().reshape_mut((self.cfg.out_dim, 1))
+      self.bias.borrow_mut().grad_mut().as_view_mut().reshape_mut((self.cfg.out_dim, 1))
         .matrix_add(
             1.0,
             self.tmp_grad.reshape((self.cfg.out_dim, batch_size))
@@ -467,7 +465,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
       in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, batch_size))
         .matrix_prod(
             1.0,
-            self.weights.as_view(), Transpose::T,
+            self.weights.borrow().as_view(), Transpose::T,
             self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
             0.0,
         );

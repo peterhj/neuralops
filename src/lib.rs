@@ -43,6 +43,7 @@ pub mod kernels;
 //pub mod lazy_v3;
 pub mod loss;
 pub mod mux;
+pub mod param;
 pub mod pool;
 pub mod prelude;
 pub mod regress_loss;
