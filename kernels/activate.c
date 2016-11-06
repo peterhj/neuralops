@@ -10,28 +10,21 @@ void neuralops_rect_fwd(
 {
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
     float x = in_buf[p];
-    if (x > 0.0f) {
-      out_buf[p] = x;
-    } else {
-      out_buf[p] = 0.0f;
-    }
+    out_buf[p] = x * (x > 0.0f);
   }
 }
 
 void neuralops_rect_bwd(
     size_t batch_sz,
     size_t dim,
-    const float *in_buf,
+    const float *out_buf,
     const float *out_grad,
     float *in_grad)
 {
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
-    float x = in_buf[p];
-    if (x > 0.0f) {
-      in_grad[p] = out_grad[p];
-    } else {
-      in_grad[p] = 0.0f;
-    }
+    float y = out_buf[p];
+    float dy = out_grad[p];
+    in_grad[p] = dy * (y > 0.0f);
   }
 }
 
@@ -50,14 +43,13 @@ void neuralops_logistic_fwd(
 void neuralops_logistic_bwd(
     size_t batch_sz,
     size_t dim,
-    const float *in_buf,
+    const float *out_buf,
     const float *out_grad,
     float *in_grad)
 {
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
-    float x = in_buf[p];
-    float z = expf(-x);
-    float y = 1.0 / (1.0 + z);
-    in_grad[p] = out_grad[p] * z * y * y;
+    float y = out_buf[p];
+    float dy = out_grad[p];
+    in_grad[p] = y * (1.0f - y) * dy;
   }
 }

@@ -285,7 +285,7 @@ impl DiffOperator<f32> for Conv2dOperator {
     let batch_size = *self.out.batch_size.borrow();
 
     //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.out.out_buf.borrow(), &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     let out_dim = self.cfg.out_dim();
     unsafe { neuralops_conv2d_bias_bwd(
@@ -709,7 +709,7 @@ impl DiffOperator<f32> for BatchNormConv2dOperator {
     let batch_size = *self.out.batch_size.borrow();
 
     let out_len = batch_size * self.cfg.out_dim().flat_len();
-    self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
+    self.act_kern.backward(batch_size, &self.out.out_buf.borrow(), &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
     self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
     self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 
@@ -1055,7 +1055,7 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
   fn _backward(&mut self) {
     let batch_size = self.out.batch_sz.get();
 
-    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     let out_dim = self.cfg.out_dim();
     unsafe { neuralops_conv2d_bias_bwd(
@@ -1425,7 +1425,7 @@ impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
     let batch_size = self.out.batch_sz.get();
 
     let out_len = batch_size * self.cfg.out_dim().flat_len();
-    self.act_kern.backward(batch_size, &self.tmp3_buf, &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
+    self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
     self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
     self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 

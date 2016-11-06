@@ -45,11 +45,13 @@ pub mod kernels;
 //pub mod lazy;
 //pub mod lazy_v3;
 pub mod loss;
+pub mod mux;
 pub mod pool;
 pub mod prelude;
 pub mod regress_loss;
 pub mod seq;
 //pub mod softmax;
 pub mod split;
+pub mod util;
 
 mod ops;

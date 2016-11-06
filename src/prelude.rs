@@ -5,6 +5,7 @@ pub use affine::{
   NewAffineOperator,
 };
 pub use class_loss::{
+  BinaryClassLossConfig,
   ClassLossConfig,
   SoftmaxNLLClassLoss,
   EntRegSoftmaxNLLClassLossConfig,

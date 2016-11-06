@@ -13,7 +13,7 @@ extern "C" {
   pub fn neuralops_rect_bwd(
       batch_sz: size_t,
       dim: size_t,
-      in_buf: *const f32,
+      out_buf: *const f32,
       out_grad: *const f32,
       in_grad: *mut f32,
   );
@@ -26,7 +26,7 @@ extern "C" {
   pub fn neuralops_logistic_bwd(
       batch_sz: size_t,
       dim: size_t,
-      in_buf: *const f32,
+      out_buf: *const f32,
       out_grad: *const f32,
       in_grad: *mut f32,
   );

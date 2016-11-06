@@ -221,7 +221,7 @@ impl DiffOperator<f32> for AffineOperator {
     let batch_size = *self.out.batch_size.borrow();
 
     //activate_bwd(self.cfg.act_kind, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
-    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.out.out_buf.borrow(), &self.out.out_grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     self.w_grad.as_view_mut()
       .matrix_prod(
@@ -445,7 +445,7 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
   fn _backward(&mut self) {
     let batch_size = self.out.batch_sz.get();
 
-    self.act_kern.backward(batch_size, &self.tmp_buf, &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     self.w_grad.as_view_mut()
       .matrix_prod(

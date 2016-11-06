@@ -11,6 +11,7 @@ fn main() {
     .pic(true)
     .flag("-std=gnu99")
     .flag("-march=native")
+    .flag("-fno-strict-aliasing")
     .flag("-fopenmp")
     .file("activate.c")
     .compile("libneuralops_gomp_kernels.a");

@@ -2,9 +2,14 @@
 use operator::prelude::*;
 //use operator::{OpCapability};
 use sharedmem::{RwMem};
+use util::{LazyVec};
 
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc};
+
+thread_local! {
+  static COMMON_SCRATCH_BUF: LazyVec<f32> = LazyVec::new();
+}
 
 /*pub trait ArmOutput {
   type Output;

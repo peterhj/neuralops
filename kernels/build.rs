@@ -11,6 +11,7 @@ fn main() {
     .pic(true)
     .flag("-std=gnu99")
     .flag("-march=native")
+    .flag("-fno-strict-aliasing")
     .file("activate.c")
     .file("batchnorm.c")
     .file("conv.c")

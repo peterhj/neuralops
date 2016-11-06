@@ -13,6 +13,11 @@ use std::iter::{Sum};
 use std::rc::{Rc};
 
 #[derive(Clone, Copy)]
+pub struct BinaryClassLossConfig {
+  pub batch_sz:     usize,
+}
+
+#[derive(Clone, Copy)]
 pub struct ClassLossConfig {
   pub batch_sz:     usize,
   pub num_classes:  usize,
