@@ -36,7 +36,7 @@ void neuralops_logistic_fwd(
 {
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
     float x = in_buf[p];
-    out_buf[p] = 1.0 / (1.0 + expf(-x));
+    out_buf[p] = 1.0f / (1.0f + expf(-x));
   }
 }
 

@@ -158,7 +158,7 @@ impl ParallelActivateKernel {
     }
   }
 
-  pub fn backward(&mut self, batch_sz: usize, in_buf: &[f32], out_grad: &[f32], in_grad: &mut [f32]) {
+  pub fn backward(&mut self, batch_sz: usize, out_buf: &[f32], out_grad: &[f32], in_grad: &mut [f32]) {
     match self.act_kind {
       ActivationKind::Identity => {
         in_grad.copy_from_slice(out_grad);
@@ -167,7 +167,7 @@ impl ParallelActivateKernel {
         unsafe { neuralops_omp_rect_bwd(
             batch_sz,
             self.dim,
-            in_buf.as_ptr(),
+            out_buf.as_ptr(),
             out_grad.as_ptr(),
             in_grad.as_mut_ptr(),
         ) };
@@ -179,7 +179,7 @@ impl ParallelActivateKernel {
         unsafe { neuralops_omp_logistic_bwd(
             batch_sz,
             self.dim,
-            in_buf.as_ptr(),
+            out_buf.as_ptr(),
             out_grad.as_ptr(),
             in_grad.as_mut_ptr(),
         ) };

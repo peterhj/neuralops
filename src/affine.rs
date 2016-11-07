@@ -291,9 +291,9 @@ impl<S> NewAffineOperator<S> {
       in_op:    prev_op,
       in_:      in_,
       out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim, cap),
-      weights:  ParamBlock::<Array2d<f32>>::new((cfg.out_dim, cfg.in_dim), cap),
+      weights:  ParamBlock::new(cap, || Array2d::zeros((cfg.out_dim, cfg.in_dim))),
       //w_grad:   Array2d::zeros((cfg.out_dim, cfg.in_dim)),
-      bias:     ParamBlock::<Array1d<f32>>::new(cfg.out_dim, cap),
+      bias:     ParamBlock::new(cap, || Array1d::zeros(cfg.out_dim)),
       //b_grad:   Array1d::zeros(cfg.out_dim),
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
@@ -330,18 +330,20 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
 
   //fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf, Op=CommonOperator>)) {
   fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
-    self.node.step(epoch);
+    self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
     apply(self);
+    self.node.pop(epoch);
   }
 
   //fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf, Op=CommonOperator>)) {
   fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
-    self.node.step(epoch);
+    self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
     self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
+    self.node.pop(epoch);
   }
 
   fn _diff_param_sz(&self) -> usize {

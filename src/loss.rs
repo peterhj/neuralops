@@ -45,17 +45,19 @@ impl<A, S> NewDiffOperator<S> for L2RegOperator<A> {
   type IoBuf = [f32];
 
   fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
-    self.node.step(epoch);
+    self.node.push(epoch);
     assert!(self.node.limit(1));
     self.param.borrow_mut()._traverse_fwd(epoch, apply);
     apply(self);
+    self.node.pop(epoch);
   }
 
   fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
-    self.node.step(epoch);
+    self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
     self.param.borrow_mut()._traverse_fwd(epoch, apply);
+    self.node.pop(epoch);
   }
 
   default fn _forward(&mut self, _phase: OpPhase) {

@@ -40,25 +40,34 @@ pub struct CommonOutput {
   pub batch_sz: Rc<Cell<usize>>,
   pub buf:      RwMem<f32>,
   pub grad:     Option<RwMem<f32>>,
+  pub r_buf:    Option<RwMem<f32>>,
 }
 
 impl CommonOutput {
-  pub fn new(batch_size: usize, frame_size: usize, cap: OpCapability) -> Self {
-    let out_len = batch_size * frame_size;
-    let mut out_buf = Vec::with_capacity(out_len);
-    out_buf.resize(out_len, 0.0);
-    let out_buf = RwMem::new(out_buf);
-    let out_grad = if cap.enable_backward() {
-      let mut out_grad = Vec::with_capacity(out_len);
-      out_grad.resize(out_len, 0.0);
-      Some(RwMem::new(out_grad))
+  pub fn new(batch_size: usize, stride: usize, cap: OpCapability) -> Self {
+    let out_len = batch_size * stride;
+    let mut buf = Vec::with_capacity(out_len);
+    buf.resize(out_len, 0.0);
+    let buf = RwMem::new(buf);
+    let grad = if cap.enable_backward() {
+      let mut grad = Vec::with_capacity(out_len);
+      grad.resize(out_len, 0.0);
+      Some(RwMem::new(grad))
+    } else {
+      None
+    };
+    let r_buf = if cap.enable_r_forward() {
+      let mut r_buf = Vec::with_capacity(out_len);
+      r_buf.resize(out_len, 0.0);
+      Some(RwMem::new(r_buf))
     } else {
       None
     };
     CommonOutput{
-      batch_sz: Rc::new(Cell::new(batch_size)),
-      buf:      out_buf,
-      grad:     out_grad,
+      batch_sz: Rc::new(Cell::new(0)),
+      buf:      buf,
+      grad:     grad,
+      r_buf:    r_buf,
     }
   }
 }
