@@ -1,13 +1,12 @@
-use prelude::*;
-use data::{IndexedDataShard, OwnedSample};
+use data::{IndexedDataShard};
 
 use operator::prelude::*;
-use varraydb::{VarrayDb};
+//use varraydb::{VarrayDb};
 use varraydb::shared::{SharedVarrayDb};
 
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
-pub struct VarrayDbShard {
+/*pub struct VarrayDbShard {
   prefix:       PathBuf,
   db:           VarrayDb,
   start_idx:    usize,
@@ -53,7 +52,7 @@ impl IndexedDataShard<OwnedSample<u8>> for VarrayDbShard {
       input:    value.to_owned(),
     }
   }
-}
+}*/
 
 pub struct SharedVarrayDbShard {
   prefix:       PathBuf,
@@ -75,7 +74,7 @@ impl SharedVarrayDbShard {
   }
 
   pub fn open_partition(prefix: PathBuf, part: usize, num_parts: usize) -> SharedVarrayDbShard {
-    let mut shard = Self::open(prefix);
+    //let shard = Self::open(prefix);
     unimplemented!();
   }
 

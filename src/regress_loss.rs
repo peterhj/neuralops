@@ -1,12 +1,10 @@
 use prelude::*;
-use common::{CommonResources, CommonOperatorOutput};
 
-use float::ord::{F32InfNan};
-use iter_utils::{argmax};
+//use float::ord::{F32InfNan};
+//use iter_utils::{argmax};
 use operator::prelude::*;
-use rng::xorshift::{Xorshiftplus128Rng};
 
-use std::f32::consts::{PI};
+//use std::f32::consts::{PI};
 use std::u32;
 use std::cell::{RefCell, Ref};
 use std::rc::{Rc};

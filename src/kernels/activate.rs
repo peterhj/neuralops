@@ -1,12 +1,13 @@
-use common::{CommonResources, ActivationKind};
+//use common::{CommonResources, ActivationKind};
+use prelude::*;
 use kernels::ffi::*;
 
 /*use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;*/
 
-use libc::{size_t};
-use std::ptr::{null_mut};
-use std::rc::{Rc};
+//use libc::{size_t};
+//use std::ptr::{null_mut};
+//use std::rc::{Rc};
 
 pub struct ActivateKernel {
   batch_sz: usize,

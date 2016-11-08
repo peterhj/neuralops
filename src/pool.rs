@@ -1,15 +1,13 @@
 use prelude::*;
-use common::{CommonResources, CommonOperatorOutput};
 use kernels::ffi::*;
 
-use densearray::{ArrayIndex};
+use densearray::prelude::*;
 //use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
 //use densearray::linalg::{Transpose};
 //use nnpack::{NnpackHandle, NnpackPthreadPool};
 //use nnpack::ffi::*;
 use operator::prelude::*;
 //use operator::rw::{ReadAccumulateBuffer, AccumulateBuffer};
-use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::cell::{RefCell};
 use std::cmp::{max};
@@ -40,7 +38,7 @@ impl Pool2dOperatorConfig {
     let (in_w, in_h, in_chan) = self.in_dim;
     let out_w = max(0, (in_w + 2 * self.pad_w - self.pool_w + self.stride_w) as isize) as usize / self.stride_w;
     let out_h = max(0, (in_h + 2 * self.pad_h - self.pool_h + self.stride_h) as isize) as usize / self.stride_h;
-    (out_w, out_h, self.in_dim.2)
+    (out_w, out_h, in_chan)
   }
 }
 

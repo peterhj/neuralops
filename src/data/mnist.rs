@@ -1,7 +1,6 @@
-use prelude::*;
-use data::{IndexedDataShard, SharedClassSample2d};
+use data::{IndexedDataShard};
 
-use densearray::{ArrayIndex, Array3d};
+use densearray::prelude::*;
 use operator::prelude::*;
 use sharedmem::{MemoryMap, SharedMem};
 
@@ -55,8 +54,8 @@ pub struct MnistDataShard {
 
 impl MnistDataShard {
   pub fn new(data_path: PathBuf, labels_path: PathBuf) -> MnistDataShard {
-    let mut frames_file = File::open(&data_path).unwrap();
-    let mut labels_file = File::open(&labels_path).unwrap();
+    let frames_file = File::open(&data_path).unwrap();
+    let labels_file = File::open(&labels_path).unwrap();
     let (f_n, frame_dim, frames_mmap) = mmap_idx_file(frames_file);
     let (l_n, _, labels_mmap) = mmap_idx_file(labels_file);
     assert_eq!(f_n, l_n);

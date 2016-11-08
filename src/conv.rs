@@ -1,23 +1,20 @@
 use prelude::*;
-use common::{CommonResources};
 use kernels::activate::{ActivateKernel};
-use kernels::batchnorm::{BatchNorm2dKernel};
-use kernels::conv::*;
+//use kernels::batchnorm::{BatchNorm2dKernel};
+//use kernels::conv::*;
 
-use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
-use densearray::linalg::{Transpose};
+use densearray::prelude::*;
 /*use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;*/
 use operator::prelude::*;
-use operator::rw::{ReadBuffer, ReadAccumulateBuffer, WriteBuffer, AccumulateBuffer};
-use rng::xorshift::{Xorshiftplus128Rng};
+//use rng::xorshift::{Xorshiftplus128Rng};
 
-use rand::distributions::{IndependentSample};
-use rand::distributions::normal::{Normal};
-use rand::distributions::range::{Range};
+//use rand::distributions::{IndependentSample};
+//use rand::distributions::normal::{Normal};
+//use rand::distributions::range::{Range};
 use std::cell::{RefCell};
 use std::cmp::{max};
-use std::ptr::{null_mut};
+//use std::ptr::{null_mut};
 use std::rc::{Rc};
 
 #[derive(Clone, Copy, Debug)]
@@ -61,7 +58,7 @@ pub struct Conv2dOperatorConfig {
 
 impl Conv2dOperatorConfig {
   pub fn out_dim(&self) -> (usize, usize, usize) {
-    let (in_w, in_h, in_chan) = self.in_dim;
+    let (in_w, in_h, _) = self.in_dim;
     let out_w = max(0, (in_w + 2 * self.pad_w - self.kernel_w + self.stride_w) as isize) as usize / self.stride_w;
     let out_h = max(0, (in_h + 2 * self.pad_h - self.kernel_h + self.stride_h) as isize) as usize / self.stride_h;
     (out_w, out_h, self.out_chan)
@@ -120,7 +117,7 @@ pub struct BatchNormConv2dOperatorConfig {
 
 impl BatchNormConv2dOperatorConfig {
   pub fn out_dim(&self) -> (usize, usize, usize) {
-    let (in_w, in_h, in_chan) = self.in_dim;
+    let (in_w, in_h, _) = self.in_dim;
     let out_w = max(0, (in_w + 2 * self.pad_w - self.kernel_w + self.stride_w) as isize) as usize / self.stride_w;
     let out_h = max(0, (in_h + 2 * self.pad_h - self.kernel_h + self.stride_h) as isize) as usize / self.stride_h;
     (out_w, out_h, self.out_chan)

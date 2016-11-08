@@ -1,8 +1,8 @@
 use kernels::ffi::*;
 
-use densearray::{ArrayIndex, Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
+use densearray::prelude::*;
 
-use libc::{size_t};
+//use libc::{size_t};
 
 pub struct BatchMean2dKernel {
   pub batch_sz: usize,

@@ -1,5 +1,4 @@
 use prelude::*;
-use common::{CommonOperatorOutput, CommonResources};
 use kernels::ffi::*;
 
 use densearray::{ReshapeMut, ArrayIndex};

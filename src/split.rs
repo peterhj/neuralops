@@ -1,11 +1,9 @@
 use prelude::*;
-use common::{CommonResources, CommonOperatorOutput};
 
-use densearray::{Reshape, ReshapeMut};
+use densearray::prelude::*;
 use operator::prelude::*;
-use rng::xorshift::{Xorshiftplus128Rng};
 
-use std::cell::{Cell, RefCell};
+use std::cell::{RefCell};
 use std::rc::{Rc};
 
 #[derive(Clone, Copy, Debug)]
@@ -27,7 +25,7 @@ impl<S> NewCopySplitOperator<S> {
   pub fn new<InOp>(cfg: SplitOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewCopySplitOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
     let prev_out = prev_op.borrow()._output(prev_arm);
     let mut out = Vec::with_capacity(cfg.out_arms);
-    for arm in 0 .. cfg.out_arms {
+    for _ in 0 .. cfg.out_arms {
       out.push(CommonOutput::new(cfg.batch_sz, cfg.dim, cap));
     }
     Rc::new(RefCell::new(NewCopySplitOperator{

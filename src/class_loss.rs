@@ -1,10 +1,8 @@
 use prelude::*;
-use common::{CommonResources, CommonOperatorOutput};
 
 use float::ord::{F32InfNan};
 use iter_utils::{argmax};
 use operator::prelude::*;
-use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::u32;
 use std::cell::{RefCell, Ref};
@@ -29,35 +27,41 @@ pub struct SoftmaxNLLClassLoss<S> {
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
-  max_log:  Vec<f32>,
+  //max_log:  Vec<f32>,
   facts:    Vec<f32>,
-  sum_fact: Vec<f32>,
+  //sum_fact: Vec<f32>,
   hats:     Vec<u32>,
   losses:   Vec<f32>,
+  r_losses: Vec<f32>,
+  labels:   Vec<u32>,
+  weights:  Vec<f32>,
+  jac_mix:  Vec<f32>,
   nsamples: usize,
   acc_loss: f32,
   reg_loss: f32,
   accuracy: usize,
-  labels:   Vec<u32>,
-  weights:  Vec<f32>,
 }
 
 impl<S> SoftmaxNLLClassLoss<S> {
   pub fn new<InOp>(cfg: ClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
-    let mut max_log = Vec::with_capacity(cfg.batch_sz);
-    max_log.resize(cfg.batch_sz, 0.0);
+    /*let mut max_log = Vec::with_capacity(cfg.batch_sz);
+    max_log.resize(cfg.batch_sz, 0.0);*/
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
     facts.resize(cfg.batch_sz * cfg.num_classes, 0.0);
-    let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
-    sum_fact.resize(cfg.batch_sz, 0.0);
+    /*let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
+    sum_fact.resize(cfg.batch_sz, 0.0);*/
     let mut hats = Vec::with_capacity(cfg.batch_sz);
     hats.resize(cfg.batch_sz, 0);
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     losses.resize(cfg.batch_sz, 0.0);
+    let mut r_losses = Vec::with_capacity(cfg.batch_sz);
+    r_losses.resize(cfg.batch_sz, 0.0);
     let mut labels = Vec::with_capacity(cfg.batch_sz);
     labels.resize(cfg.batch_sz, 0);
     let mut weights = Vec::with_capacity(cfg.batch_sz);
     weights.resize(cfg.batch_sz, 1.0);
+    let mut jac_mix = Vec::with_capacity(cfg.batch_sz);
+    jac_mix.resize(cfg.batch_sz, 1.0);
     let in_ = prev_op.borrow()._output(prev_arm);
     Rc::new(RefCell::new(SoftmaxNLLClassLoss{
       cfg:      cfg,
@@ -66,22 +70,35 @@ impl<S> SoftmaxNLLClassLoss<S> {
       in_:      in_,
       out:      CommonOutput::new(cfg.batch_sz, cfg.num_classes, cap),
       batch_nr: None,
-      max_log:  max_log,
+      //max_log:  max_log,
       facts:    facts,
-      sum_fact: sum_fact,
+      //sum_fact: sum_fact,
       hats:     hats,
       losses:   losses,
+      r_losses: r_losses,
+      labels:   labels,
+      weights:  weights,
+      jac_mix:  jac_mix,
       nsamples: 0,
       acc_loss: 0.0,
       reg_loss: 0.0,
       accuracy: 0,
-      labels:   labels,
-      weights:  weights,
     }))
   }
 
-  pub fn batch_probs(&self) -> Ref<[f32]> {
+  /*pub fn batch_probs(&self) -> Ref<[f32]> {
     self.out.buf.borrow()
+  }*/
+
+  pub fn reset_jacobian_mixing(&mut self) {
+    for idx in 0 .. self.cfg.batch_sz {
+      self.jac_mix[idx] = 1.0;
+    }
+  }
+
+  pub fn set_jacobian_mixing_with_r_loss(&mut self) {
+    // FIXME(20161108): useful for natural gradient.
+    unimplemented!();
   }
 }
 
@@ -198,28 +215,21 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
     assert_eq!(batch_size, self.out.batch_sz.get());
 
     let in_buf = self.in_.buf.borrow();
-    let mut out_buf = self.out.buf.borrow_mut();
+    //let mut out_buf = self.out.buf.borrow_mut();
     //println!("DEBUG: softmax: input: {:?}", &in_buf[ .. self.cfg.num_classes]);
     for idx in 0 .. batch_size {
       let range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(in_buf[range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
       let max_logit = in_buf[idx * self.cfg.num_classes + max_logit_k];
-      self.max_log[idx] = max_logit;
+      //self.max_log[idx] = max_logit;
       self.hats[idx] = max_logit_k as u32;
       for k in 0 .. self.cfg.num_classes {
         self.facts[idx * self.cfg.num_classes + k] = (in_buf[idx * self.cfg.num_classes + k] - max_logit).exp();
       }
       let sum_fact: f32 = Sum::sum(self.facts[range].iter().map(|&x| x));
       for k in 0 .. self.cfg.num_classes {
-        //out_buf[idx * self.cfg.num_classes + k] = self.facts[idx * self.cfg.num_classes + k] / sum_fact;
         self.facts[idx * self.cfg.num_classes + k] /= sum_fact;
       }
-      /*//self.losses[idx] = -self.weights[idx] * out_buf[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
-      if self.labels[idx] != u32::MAX {
-        self.losses[idx] = -self.weights[idx] * self.facts[idx * self.cfg.num_classes + self.labels[idx] as usize].ln();
-      } else {
-        self.losses[idx] = 0.0;
-      }*/
     }
 
     let mut batch_loss = 0.0;
@@ -234,7 +244,7 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
       let loss = if self.labels[idx] == u32::MAX {
         0.0
       } else {
-        -self.weights[idx] * self.facts[idx * self.cfg.num_classes + self.labels[idx] as usize].ln()
+        -self.weights[idx] * self.jac_mix[idx] * self.facts[idx * self.cfg.num_classes + self.labels[idx] as usize].ln()
       };
       self.losses[idx] = loss;
       batch_loss += loss;
@@ -265,19 +275,23 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
       for idx in 0 .. batch_size {
         for k in 0 .. self.cfg.num_classes {
           in_grad[p] =
-              self.weights[idx] *
-              //(out_buf[p] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
-              (self.facts[p] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
+              self.weights[idx] * self.jac_mix[idx]
+              * (self.facts[p] - if k == self.labels[idx] as usize { 1.0 } else { 0.0 });
           p += 1;
         }
       }
     }
   }
+
+  fn _r_forward(&mut self) {
+    // FIXME(20161108)
+    unimplemented!();
+  }
 }
 
 impl<S> LossReport<ClassLossStats> for SoftmaxNLLClassLoss<S> {
   fn update_stats(&mut self, iter_nr: usize, stats: &mut ClassLossStats) {
-    let batch_size = self.out.batch_sz.get();
+    //let batch_size = self.out.batch_sz.get();
     stats.iter_nr = iter_nr;
     stats.sample_count += self.nsamples;
     stats.correct_count += self.accuracy;
@@ -299,9 +313,9 @@ pub struct EntRegSoftmaxNLLClassLoss<S> {
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
-  max_log:  Vec<f32>,
+  //max_log:  Vec<f32>,
   facts:    Vec<f32>,
-  sum_fact: Vec<f32>,
+  //sum_fact: Vec<f32>,
   hats:     Vec<u32>,
   ents:     Vec<f32>,
   losses:   Vec<f32>,
@@ -315,12 +329,12 @@ pub struct EntRegSoftmaxNLLClassLoss<S> {
 
 impl<S> EntRegSoftmaxNLLClassLoss<S> {
   pub fn new<InOp>(cfg: EntRegSoftmaxNLLClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<EntRegSoftmaxNLLClassLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
-    let mut max_log = Vec::with_capacity(cfg.batch_sz);
-    max_log.resize(cfg.batch_sz, 0.0);
+    /*let mut max_log = Vec::with_capacity(cfg.batch_sz);
+    max_log.resize(cfg.batch_sz, 0.0);*/
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
     facts.resize(cfg.batch_sz * cfg.num_classes, 0.0);
-    let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
-    sum_fact.resize(cfg.batch_sz, 0.0);
+    /*let mut sum_fact = Vec::with_capacity(cfg.batch_sz);
+    sum_fact.resize(cfg.batch_sz, 0.0);*/
     let mut hats = Vec::with_capacity(cfg.batch_sz);
     hats.resize(cfg.batch_sz, 0);
     let mut ents = Vec::with_capacity(cfg.batch_sz);
@@ -339,9 +353,9 @@ impl<S> EntRegSoftmaxNLLClassLoss<S> {
       in_:      in_,
       out:      CommonOutput::new(cfg.batch_sz, cfg.num_classes, cap),
       batch_nr: None,
-      max_log:  max_log,
+      //max_log:  max_log,
       facts:    facts,
-      sum_fact: sum_fact,
+      //sum_fact: sum_fact,
       hats:     hats,
       ents:     ents,
       losses:   losses,
@@ -460,13 +474,13 @@ impl NewDiffOperator<SampleItem> for EntRegSoftmaxNLLClassLoss<SampleItem> {
     assert_eq!(batch_size, self.out.batch_sz.get());
 
     let in_buf = self.in_.buf.borrow();
-    let mut out_buf = self.out.buf.borrow_mut();
+    //let mut out_buf = self.out.buf.borrow_mut();
     //println!("DEBUG: softmax: input: {:?}", &in_buf[ .. self.cfg.num_classes]);
     for idx in 0 .. batch_size {
       let range = idx * self.cfg.num_classes .. (idx+1) * self.cfg.num_classes;
       let max_logit_k = argmax(in_buf[range.clone()].iter().map(|&x| F32InfNan(x))).unwrap();
       let max_logit = in_buf[idx * self.cfg.num_classes + max_logit_k];
-      self.max_log[idx] = max_logit;
+      //self.max_log[idx] = max_logit;
       self.hats[idx] = max_logit_k as u32;
       for k in 0 .. self.cfg.num_classes {
         self.facts[idx * self.cfg.num_classes + k] = (in_buf[idx * self.cfg.num_classes + k] - max_logit).exp();

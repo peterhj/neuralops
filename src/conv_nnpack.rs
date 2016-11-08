@@ -1,8 +1,7 @@
 use prelude::*;
-use common::{CommonOperatorOutput, CommonResources};
 //use conv::{Conv2dOperatorConfig, BatchNorm2dOperatorConfig};
 //use join::{AddJoinOperator};
-use kernels::*;
+//use kernels::*;
 use kernels::activate::{ActivateKernel};
 use kernels::batchnorm::{BatchNorm2dKernel};
 use kernels::conv::*;
@@ -10,21 +9,22 @@ use kernels::ffi::*;
 //use ops::*;
 //use split::{CopySplitOperator};
 
-use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
-use densearray::linalg::{Transpose};
+//use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
+//use densearray::linalg::{Transpose};
+use densearray::prelude::*;
 /*use nnpack::{NnpackHandle, NnpackPthreadPool};
 use nnpack::ffi::*;*/
 use operator::prelude::*;
 use operator::io::{IoBuffer};
-use operator::rw::{ReadBuffer, ReadAccumulateBuffer, WriteBuffer, AccumulateBuffer};
+//use operator::rw::{ReadBuffer, ReadAccumulateBuffer, WriteBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
 use std::cell::{RefCell};
-use std::cmp::{max};
-use std::ptr::{null_mut};
+//use std::cmp::{max};
+//use std::ptr::{null_mut};
 use std::rc::{Rc};
 
 pub struct NewConv2dOperator<S> {
@@ -271,9 +271,9 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
     ) };
 
     if !self.cfg.prefer_gemm_conv() {
-      let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
-      self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
       unimplemented!();
+      /*let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
+      self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
       /*let status = unsafe { nnp_convolution_kernel_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           batch_size,
@@ -293,7 +293,7 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
       if status.is_err() {
         panic!("nnpack convolution failed: {:?}", status);
       }*/
-      self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));
+      self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));*/
     } else {
       let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
       let in_len = self.cfg.in_dim.flat_len();
@@ -635,9 +635,9 @@ impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
     self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 
     if !self.cfg.prefer_gemm_conv() {
-      let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
-      self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
       unimplemented!();
+      /*let w_dim = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2 * self.cfg.out_chan;
+      self.w_g_tmp.as_view_mut().reshape_mut(w_dim).set_constant(0.0);
       /*let status = unsafe { nnp_convolution_kernel_gradient(
           nnp_convolution_algorithm::nnp_convolution_algorithm_auto,
           //nnp_convolution_algorithm::nnp_convolution_algorithm_implicit_gemm,
@@ -658,7 +658,7 @@ impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
       if status.is_err() {
         panic!("nnpack convolution failed: {:?}", status);
       }*/
-      self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));
+      self.w_grad.as_view_mut().reshape_mut(w_dim).vector_add(1.0, self.w_g_tmp.as_view().reshape(w_dim));*/
     } else {
       let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
       let in_len = self.cfg.in_dim.flat_len();

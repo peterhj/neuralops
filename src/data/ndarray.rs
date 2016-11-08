@@ -1,11 +1,8 @@
-use prelude::*;
-use data::{IndexedDataShard, OwnedSample};
-
 use densearray::prelude::*;
 use operator::prelude::*;
-use sharedmem::{SharedMem, SharedSlice};
+use sharedmem::{SharedMem};
 
-use std::io::{Read, Cursor};
+use std::io::{Cursor};
 use std::sync::{Arc};
 
 pub struct DecodeArray3dData<Iter> {

@@ -1,11 +1,7 @@
-use prelude::*;
-use data::{IndexedDataShard, SharedClassSample2d};
+use data::{IndexedDataShard};
 
-use densearray::{ArrayIndex, Array3d};
 use operator::prelude::*;
 use sharedmem::{MemoryMap, SharedMem};
-
-use byteorder::{ReadBytesExt, BigEndian};
 
 use std::fs::{File};
 use std::path::{PathBuf};

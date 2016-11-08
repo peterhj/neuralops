@@ -1,13 +1,11 @@
 use prelude::*;
-use common::{CommonResources};
-use kernels::activate::{ActivateKernel};
+/*use kernels::activate::{ActivateKernel};
 use kernels::batchnorm::{BatchNorm2dKernel};
 use kernels::conv::*;
 
-use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
+use densearray::prelude::*;
 use densearray::linalg::{Transpose};
 use operator::prelude::*;
-use operator::rw::{ReadBuffer, ReadAccumulateBuffer, WriteBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::distributions::{IndependentSample};
@@ -16,7 +14,7 @@ use rand::distributions::range::{Range};
 use std::cell::{RefCell};
 use std::cmp::{max};
 use std::ptr::{null_mut};
-use std::rc::{Rc};
+use std::rc::{Rc};*/
 
 #[derive(Clone, Copy, Debug)]
 pub struct ConvTranspose2dOperatorConfig {

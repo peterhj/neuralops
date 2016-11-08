@@ -1,8 +1,8 @@
 use kernels::ffi::*;
 
-use densearray::{ArrayIndex, Reshape, ReshapeMut, AsView, AsViewMut, Array1d};
+use densearray::prelude::*;
 
-use libc::*;
+//use libc::*;
 
 pub struct ConvScale2dKernel {
   pub batch_sz:     usize,

@@ -1,21 +1,20 @@
 use prelude::*;
 //use common::*;
-use common::{CommonResources, CommonOperatorOutput};
 use kernels::activate::{ActivateKernel};
 
-use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array2d};
-use densearray::linalg::{Transpose};
+//use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array2d};
+//use densearray::linalg::{Transpose};
+use densearray::prelude::*;
 use operator::prelude::*;
 use operator::io::{IoBuffer};
-use operator::rw::{ReadBuffer, WriteBuffer, ReadAccumulateBuffer, AccumulateBuffer};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::distributions::{IndependentSample};
 use rand::distributions::normal::{Normal};
 use rand::distributions::range::{Range};
 use std::cell::{RefCell};
-use std::cmp::{max};
-use std::marker::{PhantomData};
+//use std::cmp::{max};
+//use std::marker::{PhantomData};
 use std::rc::{Rc};
 
 #[derive(Clone, Copy)]

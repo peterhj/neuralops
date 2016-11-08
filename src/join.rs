@@ -1,10 +1,7 @@
 use prelude::*;
-use common::{CommonResources, CommonOperatorOutput};
 
-use densearray::{Reshape, ReshapeMut};
+use densearray::prelude::*;
 use operator::prelude::*;
-use operator::io::{IoBuffer};
-use rng::xorshift::{Xorshiftplus128Rng};
 
 use std::cell::{RefCell};
 use std::rc::{Rc};
@@ -26,8 +23,8 @@ pub struct NewAddJoinOperator<S> {
 
 impl<S> NewAddJoinOperator<S> {
   pub fn new(cfg: JoinOperatorConfig, cap: OpCapability) -> Rc<RefCell<NewAddJoinOperator<S>>> {
-    let mut in_ops = Vec::with_capacity(cfg.in_arms);
-    let mut in_ = Vec::with_capacity(cfg.in_arms);
+    let in_ops = Vec::with_capacity(cfg.in_arms);
+    let in_ = Vec::with_capacity(cfg.in_arms);
     Rc::new(RefCell::new(NewAddJoinOperator{
       cfg:  cfg,
       node: OperatorNode::default(),

@@ -77,6 +77,7 @@ impl<S> Operator for BatchMuxOperator<S> {
 
 impl<S> CommonOperator for BatchMuxOperator<S> {
   fn _output(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
     self.out.clone()
   }
 }
@@ -193,6 +194,7 @@ impl<S> Operator for BatchDemuxOperator<S> {
 
 impl<S> CommonOperator for BatchDemuxOperator<S> {
   fn _output(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
     self.out.clone()
   }
 }

@@ -1,14 +1,8 @@
-use prelude::*;
-use data::{IndexedDataShard, OwnedSample};
-
 use operator::prelude::*;
-use sharedmem::{SharedMem, SharedSlice};
+use sharedmem::{SharedMem};
 use stb_image::image::{Image, LoadResult, load_from_memory};
 use turbojpeg::{TurbojpegDecoder};
-use varraydb::{VarrayDb};
-use varraydb::shared::{SharedVarrayDb};
 
-use std::path::{Path, PathBuf};
 use std::sync::{Arc};
 
 pub struct DecodeJpegData<Iter> {

@@ -7,13 +7,13 @@ use byteorder::{ReadBytesExt, LittleEndian};
 //use typemap::{TypeMap, Key};
 
 use rand::{Rng, thread_rng};
-use std::cell::{RefCell};
-use std::cmp::{min};
+//use std::cell::{RefCell};
+//use std::cmp::{min};
 use std::collections::{HashSet};
-use std::io::{Read, Cursor};
+use std::io::{Cursor};
 //use std::marker::{PhantomData, Reflect};
 use std::marker::{PhantomData};
-use std::rc::{Rc};
+//use std::rc::{Rc};
 use std::sync::{Arc};
 
 pub mod cifar;
