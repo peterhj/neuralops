@@ -22,6 +22,29 @@ use std::ptr::{null_mut};
 use std::rc::{Rc};
 
 #[derive(Clone, Copy, Debug)]
+pub struct Conv1dOperatorConfig {
+  pub batch_sz: usize,
+  pub in_dim:   (usize, usize),
+  pub kernel:   usize,
+  pub stride:   usize,
+  pub dilation: usize,
+  pub pad:      usize,
+  pub out_chan: usize,
+  pub bias:     bool,
+  pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
+}
+
+impl Conv1dOperatorConfig {
+  pub fn out_dim(&self) -> (usize, usize) {
+    // FIXME(20161106): dilation.
+    let (in_u, _) = self.in_dim;
+    let out_u = max(0, (in_u + 2 * self.pad - self.kernel + self.stride) as isize) as usize / self.stride;
+    (out_u, self.out_chan)
+  }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Conv2dOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   (usize, usize, usize),
@@ -48,6 +71,34 @@ impl Conv2dOperatorConfig {
   pub fn prefer_gemm_conv(&self) -> bool {
     //self.cfg.stride_w != 1 || self.cfg.stride_h != 1
     true
+  }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Conv3dOperatorConfig {
+  pub batch_sz: usize,
+  pub in_dim:   (usize, usize, usize, usize),
+  pub kernel:   (usize, usize, usize),
+  pub stride:   (usize, usize, usize),
+  pub dilation: (usize, usize, usize),
+  pub pad:      (usize, usize, usize),
+  pub out_chan: usize,
+  pub bias:     bool,
+  pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
+}
+
+impl Conv3dOperatorConfig {
+  pub fn out_dim(&self) -> (usize, usize, usize, usize) {
+    // FIXME(20161106): dilation.
+    let (in_u, in_v, in_w, _) = self.in_dim;
+    let (kernel_u, kernel_v, kernel_w) = self.kernel;
+    let (stride_u, stride_v, stride_w) = self.stride;
+    let (pad_u, pad_v, pad_w) = self.pad;
+    let out_u = max(0, (in_u + 2 * pad_u - kernel_u + stride_u) as isize) as usize / stride_u;
+    let out_v = max(0, (in_v + 2 * pad_v - kernel_v + stride_v) as isize) as usize / stride_v;
+    let out_w = max(0, (in_w + 2 * pad_w - kernel_w + stride_w) as isize) as usize / stride_w;
+    (out_u, out_v, out_w, self.out_chan)
   }
 }
 

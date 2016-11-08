@@ -44,17 +44,17 @@ path = "tools/train-cifar10-new.rs"
 [dependencies]
 neuralops_kernels = { path = "kernels" }
 neuralops_omp_kernels = { path = "omp_kernels", optional = true }
-byteorder = "*"
-float = "*"
 libc = "*"
 rand = "*"
-densearray = { path = "../libdensearray" }
-iter_utils = { path = "../libiter_utils" }
+byteorder = "*"
+densearray = "^0.1"
+float = "^0.1"
+iter_utils = "^0.1"
 #mkl_dnn = { path = "../libmkl_dnn", optional = true }
 #nnpack = { path = "../libnnpack", optional = true }
 operator = { path = "../liboperator" }
-rng = { path = "../librng" }
-sharedmem = { path = "../libsharedmem" }
+rng = "^0.1"
+sharedmem = "^0.1"
 stb_image = { path = "../rust-stb-image" }
 turbojpeg = { path = "../libturbojpeg" }
 typemap = { path = "../rust-typemap" }
