@@ -33,9 +33,9 @@ pub use deconv::{
   ConvTranspose2dOperatorConfig,
   BatchNormConvTranspose2dOperatorConfig,
 };
-pub use graph::{GraphOperator, GraphOperatorConfig};
+//pub use graph::{GraphOperator, GraphOperatorConfig};
 pub use input::{
-  SimpleInputOperatorConfig,
+  //SimpleInputOperatorConfig,
   VarInputOperatorConfig,
   VarInputPreproc,
   NewVarInputOperator,
@@ -63,7 +63,7 @@ pub use regress_loss::{
   IndLstSqRegressLossConfig,
   IndLstSqRegressLoss,
 };
-pub use seq::{SeqOperator, SeqOperatorConfig};
+//pub use seq::{SeqOperator, SeqOperatorConfig};
 pub use split::{
   SplitOperatorConfig,
   NewCopySplitOperator,

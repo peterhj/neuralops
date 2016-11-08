@@ -3,7 +3,6 @@ use common::{CommonResources};
 use kernels::activate::{ActivateKernel};
 use kernels::batchnorm::{BatchNorm2dKernel};
 use kernels::conv::*;
-use ops::*;
 
 use densearray::{ArrayIndex, Reshape, ReshapeMut, View, ViewMut, AsView, AsViewMut, Array1d, Array4d};
 use densearray::linalg::{Transpose};

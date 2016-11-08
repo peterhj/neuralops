@@ -1,5 +1,4 @@
 use prelude::*;
-use input::{InputPreproc};
 
 use operator::prelude::*;
 
@@ -9,7 +8,7 @@ use std::rc::{Rc};
 const RESNET_AVG_RATE:  f32 = 0.05;
 const RESNET_EPSILON:   f32 = 1.0e-6;
 
-pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
+/*pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
   op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
@@ -70,9 +69,9 @@ pub fn build_cifar10_simple_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     num_classes:    10,
   }));
   op_cfg
-}
+}*/
 
-pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
+/*pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
   op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
@@ -175,9 +174,9 @@ pub fn build_cifar10_simple2_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     num_classes:    10,
   }));
   op_cfg
-}
+}*/
 
-pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
+/*pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
   /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
@@ -296,9 +295,9 @@ pub fn build_cifar10_simple2b_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     num_classes:    10,
   }));
   op_cfg
-}
+}*/
 
-pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
+/*pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
   /*op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
@@ -414,9 +413,9 @@ pub fn build_cifar10_simple2res_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
     num_classes:    10,
   }));
   op_cfg
-}
+}*/
 
-pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
+/*pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   let mut op_cfg = vec![];
   op_cfg.push(SeqOperatorConfig::SimpleInput(SimpleInputOperatorConfig{
     batch_sz:   batch_sz,
@@ -454,7 +453,7 @@ pub fn build_cifar10_krizh_seq(batch_sz: usize) -> Vec<SeqOperatorConfig> {
   }));
   // FIXME(20161002): unimplemented.
   op_cfg
-}
+}*/
 
 //pub fn build_cifar10_resnet20_loss<S>(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<S>>> where S: 'static + SampleDatum<[f32]> + SampleLabel {
 pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<SampleItem>>> {
@@ -565,7 +564,7 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
   loss
 }
 
-pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
+/*pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
   let num_res = (num_layers - 2) / 6;
   assert_eq!(0, (num_layers - 2) % 6);
   let mut op_cfg = vec![];
@@ -678,9 +677,9 @@ pub fn build_cifar10_resnet_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOp
     num_classes:    10,
   }));
   op_cfg
-}
+}*/
 
-pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
+/*pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> Vec<SeqOperatorConfig> {
   let num_res = (num_layers - 2) / 3;
   assert_eq!(0, (num_layers - 2) % 3);
   let mut op_cfg = vec![];
@@ -805,4 +804,4 @@ pub fn build_cifar10_resnet_avgpool_seq(batch_sz: usize, num_layers: usize) -> V
     num_classes:    10,
   }));
   op_cfg
-}
+}*/
