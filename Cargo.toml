@@ -57,5 +57,4 @@ rng = "^0.1"
 sharedmem = "^0.1"
 stb_image = { path = "../rust-stb-image" }
 turbojpeg = { path = "../libturbojpeg" }
-typemap = { path = "../rust-typemap" }
 varraydb = { path = "../varraydb" }
