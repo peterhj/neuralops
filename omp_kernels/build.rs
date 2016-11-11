@@ -21,7 +21,9 @@ fn main() {
     } else {
       "-qopenmp"
     })
-    .file("activate.c")
+    .flag("-Isrc")
+    .flag("-DNEURALOPS_OMP")
+    .file("src/activate.c")
     .compile("libneuralops_omp_kernels.a");
   println!("cargo:rustc-link-search=native={}", out_dir);
 }

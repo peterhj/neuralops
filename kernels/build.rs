@@ -12,12 +12,14 @@ fn main() {
     .flag("-std=gnu99")
     .flag("-march=native")
     .flag("-fno-strict-aliasing")
-    .file("activate.c")
-    .file("batchnorm.c")
-    .file("conv.c")
-    .file("image.c")
-    .file("interpolate.c")
-    .file("pool.c")
+    .flag("-Isrc")
+    //.flag("-DNEURALOPS_PREFIX=neuralops")
+    .file("src/activate.c")
+    .file("src/batchnorm.c")
+    .file("src/conv.c")
+    .file("src/image.c")
+    .file("src/interpolate.c")
+    .file("src/pool.c")
     .compile("libneuralops_kernels.a");
   println!("cargo:rustc-link-search=native={}", out_dir);
 }

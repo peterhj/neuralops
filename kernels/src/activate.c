@@ -1,26 +1,29 @@
+#include "lib.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-void neuralops_rect_fwd(
+void NEURALOPS_SYMBOL(rect_fwd)(
     size_t batch_sz,
     size_t dim,
     const float *in_buf,
     float *out_buf)
 {
+  #pragma omp parallel for
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
     float x = in_buf[p];
     out_buf[p] = x * (x > 0.0f);
   }
 }
 
-void neuralops_rect_bwd(
+void NEURALOPS_SYMBOL(rect_bwd)(
     size_t batch_sz,
     size_t dim,
     const float *out_buf,
     const float *out_grad,
     float *in_grad)
 {
+  #pragma omp parallel for
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
     float y = out_buf[p];
     float dy = out_grad[p];
@@ -28,25 +31,27 @@ void neuralops_rect_bwd(
   }
 }
 
-void neuralops_logistic_fwd(
+void NEURALOPS_SYMBOL(logistic_fwd)(
     size_t batch_sz,
     size_t dim,
     const float *in_buf,
     float *out_buf)
 {
+  #pragma omp parallel for
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
     float x = in_buf[p];
     out_buf[p] = 1.0f / (1.0f + expf(-x));
   }
 }
 
-void neuralops_logistic_bwd(
+void NEURALOPS_SYMBOL(logistic_bwd)(
     size_t batch_sz,
     size_t dim,
     const float *out_buf,
     const float *out_grad,
     float *in_grad)
 {
+  #pragma omp parallel for
   for (size_t p = 0; p < batch_sz * dim; p += 1) {
     float y = out_buf[p];
     float dy = out_grad[p];
