@@ -566,3 +566,29 @@ impl NewDiffOperator<SampleItem> for EntRegSoftmaxNLLClassLoss<SampleItem> {
     }
   }
 }
+
+pub struct LogisticNLLClassLoss<S> {
+  cfg:      BinaryClassLossConfig,
+  node:     OperatorNode,
+  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_:      CommonOutput,
+  out:      CommonOutput,
+  batch_nr: Option<usize>,
+  facts:    Vec<f32>,
+  hats:     Vec<u32>,
+  losses:   Vec<f32>,
+  r_losses: Vec<f32>,
+  labels:   Vec<u32>,
+  weights:  Vec<f32>,
+  jac_mix:  Vec<f32>,
+  nsamples: usize,
+  acc_loss: f32,
+  reg_loss: f32,
+  accuracy: usize,
+}
+
+impl<S> LogisticNLLClassLoss<S> {
+  pub fn new<InOp>(cfg: BinaryClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<LogisticNLLClassLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+    unimplemented!();
+  }
+}

@@ -10,6 +10,7 @@ pub use class_loss::{
   SoftmaxNLLClassLoss,
   EntRegSoftmaxNLLClassLossConfig,
   EntRegSoftmaxNLLClassLoss,
+  LogisticNLLClassLoss,
 };
 pub use common::{
   ActivationKind, ParamInitKind, PoolKind,
