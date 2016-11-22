@@ -31,9 +31,18 @@ impl CommonResources {
 }
 
 pub trait CommonOperator {
-  //fn op<S>(&mut self) -> &mut NewDiffOperator<S, IoBuf=[f32], Op=Rc<RefCell<CommonOperator>>> { unimplemented!(); }
   fn _output(&self, arm: usize) -> CommonOutput;
+  fn diff_op(&mut self) -> &mut NewDiffOperator<SampleItem, IoBuf=[f32], /*OpRef=CommonOperator + 'static*/> { unimplemented!(); }
 }
+
+/*pub trait NewCommonOperator: NewDiffOpCast<SampleItem, OpTarget=NewCommonOperator> {
+  fn _output_new(&self, arm: usize) -> CommonOutput;
+}*/
+
+/*impl NewDiffOpCast<SampleItem> for NewCommonOperator {
+  fn diff_op(&mut self) -> &mut NewDiffOperator2<SampleItem, OpRef=> {
+  }
+}*/
 
 #[derive(Clone)]
 pub struct CommonOutput {

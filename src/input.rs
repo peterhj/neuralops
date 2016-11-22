@@ -80,12 +80,34 @@ impl<S> Operator for NewVarInputOperator<S> {
   }
 }
 
-impl<S> CommonOperator for NewVarInputOperator<S> {
+impl CommonOperator for NewVarInputOperator<SampleItem> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
+
+  fn diff_op(&mut self) -> &mut NewDiffOperator<SampleItem, IoBuf=[f32]> {
+    self
+  }
 }
+
+/*impl NewDiffOperator2<SampleItem> for NewVarInputOperator<SampleItem> {
+  type OpRef = CommonOperator + 'static;
+
+  fn _traverse_fwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (CommonOperator + 'static))) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (CommonOperator + 'static))) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+}*/
 
 impl NewDiffOperator<SampleItem> for NewVarInputOperator<SampleItem> {
   type IoBuf = [f32];

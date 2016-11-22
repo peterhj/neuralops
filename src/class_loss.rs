@@ -112,12 +112,57 @@ impl<S> Operator for SoftmaxNLLClassLoss<S> {
   }
 }
 
-impl<S> CommonOperator for SoftmaxNLLClassLoss<S> {
+impl CommonOperator for SoftmaxNLLClassLoss<SampleItem> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
+
+/*impl NewCommonOperator for SoftmaxNLLClassLoss<SampleItem> {
+  fn _output_new(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
+    self.out.clone()
+  }
+}
+
+impl NewDiffOpCast<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
+  type OpTarget = NewCommonOperator + 'static;
+
+  fn diff_op(&mut self) -> &mut NewDiffOperator2<SampleItem, OpRef=(NewCommonOperator + 'static)> {
+    self
+  }
+}
+
+/*impl<S> Deref for SoftmaxNLLClassLoss<S> {
+  type Target = NewDiffOperator2<SampleItem, OpRef=NewCommonOperator>;
+
+  fn deref(&self) -> &Self::Target {
+    unimplemented!();
+  }
+}*/
+
+impl NewDiffOperator2<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
+  //type IoBuf = [f32];
+  type OpRef = NewCommonOperator + 'static;
+
+  fn _traverse_fwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (NewCommonOperator + 'static))) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (NewCommonOperator + 'static))) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+}
+
+impl NewDiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
+}*/
 
 impl DiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
   fn reset_loss(&mut self) {
