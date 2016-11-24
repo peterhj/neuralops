@@ -17,9 +17,9 @@ path = "src/lib.rs"
 #name = "train-mnist"
 #path = "tools/train-mnist.rs"
 
-[[bin]]
-name = "train-mnist-new"
-path = "tools/train-mnist-new.rs"
+#[[bin]]
+#name = "train-mnist-new"
+#path = "tools/train-mnist-new.rs"
 
 #[[bin]]
 #name = "calc-mean-cifar10"
@@ -29,9 +29,13 @@ path = "tools/train-mnist-new.rs"
 #name = "train-cifar10"
 #path = "tools/train-cifar10.rs"
 
+#[[bin]]
+#name = "train-cifar10-new"
+#path = "tools/train-cifar10-new.rs"
+
 [[bin]]
-name = "train-cifar10-new"
-path = "tools/train-cifar10-new.rs"
+name = "train-cifar10-sgd"
+path = "tools/train-cifar10-sgd.rs"
 
 #[[bin]]
 #name = "shsync-train-cifar10"

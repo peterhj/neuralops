@@ -28,10 +28,6 @@ impl<A> Operator for L2RegOperator<A> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
 impl<A> CommonOperator for L2RegOperator<A> {
@@ -41,22 +37,27 @@ impl<A> CommonOperator for L2RegOperator<A> {
   }
 }
 
-impl<A, S> NewDiffOperator<S> for L2RegOperator<A> {
-  type IoBuf = [f32];
+impl<A, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for L2RegOperator<A> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<A, S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<A> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
-    self.param.borrow_mut()._traverse_fwd(epoch, apply);
+    // FIXME(20161123): pass through to parameter.
+    //self.param.borrow_mut()._traverse_fwd(epoch, apply);
     apply(self);
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
-    self.param.borrow_mut()._traverse_fwd(epoch, apply);
+    // FIXME(20161123): pass through to parameter.
+    //self.param.borrow_mut()._traverse_fwd(epoch, apply);
     self.node.pop(epoch);
   }
 
@@ -69,7 +70,7 @@ impl<A, S> NewDiffOperator<S> for L2RegOperator<A> {
   }
 }
 
-impl<S> NewDiffOperator<S> for L2RegOperator<Array1d<f32>> {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<Array1d<f32>> {
   fn _forward(&mut self, phase: OpPhase) {
     let param = self.param.borrow();
     let param_norm = param.val.as_view().l2_norm();
@@ -84,7 +85,7 @@ impl<S> NewDiffOperator<S> for L2RegOperator<Array1d<f32>> {
   }
 }
 
-impl<S> NewDiffOperator<S> for L2RegOperator<Array2d<f32>> {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<Array2d<f32>> {
   fn _forward(&mut self, phase: OpPhase) {
     let param = self.param.borrow();
     let param_sz = param.val.dim().flat_len();
@@ -101,7 +102,7 @@ impl<S> NewDiffOperator<S> for L2RegOperator<Array2d<f32>> {
   }
 }
 
-impl<S> NewDiffOperator<S> for L2RegOperator<Array4d<f32>> {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<Array4d<f32>> {
   fn _forward(&mut self, phase: OpPhase) {
     let param = self.param.borrow();
     let param_sz = param.val.dim().flat_len();

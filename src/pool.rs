@@ -42,16 +42,16 @@ impl Pool2dOperatorConfig {
   }
 }
 
-pub struct NewPool2dOperator<S> {
+pub struct NewPool2dOperator<S, IoBuf: ?Sized> {
   cfg:      Pool2dOperatorConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
 }
 
-impl<S> NewPool2dOperator<S> {
-  pub fn new<InOp>(cfg: Pool2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewPool2dOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> NewPool2dOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: Pool2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewPool2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let in_ = prev_op.borrow()._output(prev_arm);
     Rc::new(RefCell::new(NewPool2dOperator{
       cfg:      cfg,
@@ -63,27 +63,26 @@ impl<S> NewPool2dOperator<S> {
   }
 }
 
-impl<S> Operator for NewPool2dOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewPool2dOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewPool2dOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewPool2dOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewPool2dOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewPool2dOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewPool2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -91,7 +90,7 @@ impl<S> NewDiffOperator<S> for NewPool2dOperator<S> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);

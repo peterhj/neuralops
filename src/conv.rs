@@ -165,16 +165,16 @@ impl ProjResidualConv2dOperatorConfig {
   }
 }
 
-pub struct NewResidualConv2dOperator<S> {
+pub struct NewResidualConv2dOperator<S, IoBuf: ?Sized> {
   cfg:      ResidualConv2dOperatorConfig,
   node:     OperatorNode,
-  join_op:  Rc<RefCell<NewAddJoinOperator<S>>>,
+  join_op:  Rc<RefCell<NewAddJoinOperator<S, IoBuf>>>,
   out:      CommonOutput,
   act_k:    ActivateKernel,
 }
 
-impl<S> NewResidualConv2dOperator<S> where S: 'static {
-  pub fn new<InOp>(cfg: ResidualConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewResidualConv2dOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> NewResidualConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
+  pub fn new<InOp>(cfg: ResidualConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewResidualConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let split_cfg = SplitOperatorConfig{
       batch_sz: cfg.batch_sz,
       out_arms: 2,
@@ -231,27 +231,26 @@ impl<S> NewResidualConv2dOperator<S> where S: 'static {
   }
 }
 
-impl<S> Operator for NewResidualConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewResidualConv2dOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewResidualConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewResidualConv2dOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewResidualConv2dOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewResidualConv2dOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewResidualConv2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.join_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -259,7 +258,7 @@ impl<S> NewDiffOperator<S> for NewResidualConv2dOperator<S> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -283,16 +282,16 @@ impl<S> NewDiffOperator<S> for NewResidualConv2dOperator<S> {
   }
 }
 
-pub struct NewProjResidualConv2dOperator<S> {
+pub struct NewProjResidualConv2dOperator<S, IoBuf: ?Sized> {
   cfg:      ProjResidualConv2dOperatorConfig,
   node:     OperatorNode,
-  join_op:  Rc<RefCell<NewAddJoinOperator<S>>>,
+  join_op:  Rc<RefCell<NewAddJoinOperator<S, IoBuf>>>,
   out:      CommonOutput,
   act_k:    ActivateKernel,
 }
 
-impl<S> NewProjResidualConv2dOperator<S> where S: 'static {
-  pub fn new<InOp>(cfg: ProjResidualConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewProjResidualConv2dOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> NewProjResidualConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
+  pub fn new<InOp>(cfg: ProjResidualConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewProjResidualConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let split_cfg = SplitOperatorConfig{
       batch_sz: cfg.batch_sz,
       out_arms: 2,
@@ -365,27 +364,26 @@ impl<S> NewProjResidualConv2dOperator<S> where S: 'static {
   }
 }
 
-impl<S> Operator for NewProjResidualConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewProjResidualConv2dOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewProjResidualConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewProjResidualConv2dOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewProjResidualConv2dOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewProjResidualConv2dOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewProjResidualConv2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.join_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -393,7 +391,7 @@ impl<S> NewDiffOperator<S> for NewProjResidualConv2dOperator<S> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);

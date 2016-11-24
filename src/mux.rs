@@ -24,10 +24,10 @@ pub struct BatchDemuxOperatorConfig {
   pub dim:          usize,
 }
 
-pub struct BatchMuxOperator<S> {
+pub struct BatchMuxOperator<S, IoBuf: ?Sized> {
   cfg:      BatchMuxOperatorConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batchszs: Vec<usize>,
@@ -36,8 +36,8 @@ pub struct BatchMuxOperator<S> {
   fwdprop:  bool,
 }
 
-impl<S> BatchMuxOperator<S> {
-  pub fn new<InOp>(cfg: BatchMuxOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<BatchMuxOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> BatchMuxOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: BatchMuxOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<BatchMuxOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let prev_out = prev_op.borrow()._output(prev_arm);
     let out = CommonOutput::new(cfg.out_batch_sz, cfg.dim, cap);
     let num_out_batches = (cfg.in_batch_sz + cfg.out_batch_sz - 1) / cfg.out_batch_sz;
@@ -65,27 +65,26 @@ impl<S> BatchMuxOperator<S> {
   }
 }
 
-impl<S> Operator for BatchMuxOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for BatchMuxOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for BatchMuxOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for BatchMuxOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for BatchMuxOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for BatchMuxOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for BatchMuxOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     let num_out_batches = (self.cfg.in_batch_sz + self.cfg.out_batch_sz - 1) / self.cfg.out_batch_sz;
     assert!(self.node.limit(num_out_batches as _));
@@ -109,7 +108,7 @@ impl<S> NewDiffOperator<S> for BatchMuxOperator<S> {
     }
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     let num_out_batches = (self.cfg.in_batch_sz + self.cfg.out_batch_sz - 1) / self.cfg.out_batch_sz;
     assert!(self.node.limit(num_out_batches as _));
@@ -146,11 +145,11 @@ impl<S> NewDiffOperator<S> for BatchMuxOperator<S> {
   }
 }
 
-pub struct BatchDemuxOperator<S> {
+pub struct BatchDemuxOperator<S, IoBuf: ?Sized> {
   cfg:      BatchDemuxOperatorConfig,
   node:     OperatorNode,
-  mux_op:   Rc<RefCell<BatchMuxOperator<S>>>,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  mux_op:   Rc<RefCell<BatchMuxOperator<S, IoBuf>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batchszs: Vec<usize>,
@@ -159,8 +158,8 @@ pub struct BatchDemuxOperator<S> {
   fwdepoch: u64,
 }
 
-impl<S> BatchDemuxOperator<S> {
-  pub fn new<InOp>(cfg: BatchDemuxOperatorConfig, cap: OpCapability, mux_op: Rc<RefCell<BatchMuxOperator<S>>>, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<BatchDemuxOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> BatchDemuxOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: BatchDemuxOperatorConfig, cap: OpCapability, mux_op: Rc<RefCell<BatchMuxOperator<S, IoBuf>>>, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<BatchDemuxOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     assert_eq!(cfg.out_batch_sz, mux_op.borrow().cfg.out_batch_sz);
     let prev_out = prev_op.borrow()._output(prev_arm);
     let out = CommonOutput::new(cfg.out_batch_sz, cfg.dim, cap);
@@ -182,27 +181,26 @@ impl<S> BatchDemuxOperator<S> {
   }
 }
 
-impl<S> Operator for BatchDemuxOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for BatchDemuxOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for BatchDemuxOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for BatchDemuxOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for BatchDemuxOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for BatchDemuxOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for BatchDemuxOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     let num_in_batches = (self.cfg.out_batch_sz + self.cfg.in_batch_sz - 1) / self.cfg.in_batch_sz;
@@ -219,7 +217,7 @@ impl<S> NewDiffOperator<S> for BatchDemuxOperator<S> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     let num_in_batches = (self.cfg.out_batch_sz + self.cfg.in_batch_sz - 1) / self.cfg.in_batch_sz;
@@ -260,7 +258,7 @@ impl<S> NewDiffOperator<S> for BatchDemuxOperator<S> {
 }
 
 // FIXME(20161105)
-pub struct BatchDemuxLoss<S, Loss> {
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+pub struct BatchDemuxLoss<S, IoBuf: ?Sized, Loss> {
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   loss:     Rc<RefCell<Loss>>,
 }

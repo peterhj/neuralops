@@ -32,7 +32,7 @@ impl CommonResources {
 
 pub trait CommonOperator {
   fn _output(&self, arm: usize) -> CommonOutput;
-  fn diff_op(&mut self) -> &mut NewDiffOperator<SampleItem, IoBuf=[f32], /*OpRef=CommonOperator + 'static*/> { unimplemented!(); }
+  //fn diff_op(&mut self) -> &mut NewDiffOperator<SampleItem, IoBuf=[f32], /*OpRef=CommonOperator + 'static*/> { unimplemented!(); }
 }
 
 /*pub trait NewCommonOperator: NewDiffOpCast<SampleItem, OpTarget=NewCommonOperator> {

@@ -456,7 +456,7 @@ const RESNET_EPSILON:   f32 = 1.0e-6;
 }*/
 
 //pub fn build_cifar10_resnet20_loss<S>(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<S>>> where S: 'static + SampleDatum<[f32]> + SampleLabel {
-pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<SampleItem>>> {
+pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<SampleItem, [f32]>>> {
   let input_cfg = VarInputOperatorConfig{
     batch_sz:   batch_sz,
     max_stride: 32 * 32 * 3,

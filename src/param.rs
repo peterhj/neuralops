@@ -128,23 +128,22 @@ impl<A> Operator for ParamBlock<A> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<A, S> NewDiffOperator<S> for ParamBlock<A> {
-  type IoBuf = [f32];
+/*impl<A, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParamBlock<A> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<A, S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParamBlock<A> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -158,4 +157,4 @@ impl<A, S> NewDiffOperator<S> for ParamBlock<A> {
   fn _backward(&mut self) {
     // Do nothing.
   }
-}
+}*/

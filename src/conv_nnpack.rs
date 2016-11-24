@@ -27,10 +27,10 @@ use std::cell::{RefCell};
 //use std::ptr::{null_mut};
 use std::rc::{Rc};
 
-pub struct NewConv2dOperator<S> {
+pub struct NewConv2dOperator<S, IoBuf: ?Sized> {
   cfg:      Conv2dOperatorConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   weights:  Array4d<f32>,
@@ -45,8 +45,8 @@ pub struct NewConv2dOperator<S> {
   act_kern: ActivateKernel,
 }
 
-impl<S> NewConv2dOperator<S> {
-  pub fn new<InOp>(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewConv2dOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> NewConv2dOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: Conv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let (col_buf, col_grad) =
         if cfg.prefer_gemm_conv() {
           let w_in_len = cfg.kernel_w * cfg.kernel_h * cfg.in_dim.2;
@@ -86,27 +86,60 @@ impl<S> NewConv2dOperator<S> {
   }
 }
 
-impl<S> Operator for NewConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewConv2dOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewConv2dOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewConv2dOperator<S, IoBuf> {
+  default fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  default fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
+
+  default fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
+}
+
+impl<S> DiffOperatorIo<[f32]> for NewConv2dOperator<S, [f32]> {
+  fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += param_reader.read_buf(offset, self.weights.as_mut_slice());
+    offset += param_reader.read_buf(offset, self.bias.as_mut_slice());
+    offset - init_offset
+  }
+
+  fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += param_writer.write_buf(offset, self.weights.as_slice());
+    offset += param_writer.write_buf(offset, self.bias.as_slice());
+    offset - init_offset
+  }
+
+  fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += grad_writer.write_buf(offset, self.w_grad.as_slice());
+    offset += grad_writer.write_buf(offset, self.b_grad.as_slice());
+    offset - init_offset
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewConv2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -114,7 +147,7 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -162,27 +195,6 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
       }
     }
     self.bias.as_view_mut().set_constant(0.0);
-  }
-
-  fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += param_reader.read_buf(offset, self.weights.as_mut_slice());
-    offset += param_reader.read_buf(offset, self.bias.as_mut_slice());
-    offset - init_offset
-  }
-
-  fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += param_writer.write_buf(offset, self.weights.as_slice());
-    offset += param_writer.write_buf(offset, self.bias.as_slice());
-    offset - init_offset
-  }
-
-  fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += grad_writer.write_buf(offset, self.w_grad.as_slice());
-    offset += grad_writer.write_buf(offset, self.b_grad.as_slice());
-    offset - init_offset
   }
 
   fn _reset_grad(&mut self) {
@@ -371,10 +383,10 @@ impl<S> NewDiffOperator<S> for NewConv2dOperator<S> {
   }
 }
 
-pub struct NewBatchNormConv2dOperator<S> {
+pub struct NewBatchNormConv2dOperator<S, IoBuf: ?Sized> {
   cfg:      BatchNormConv2dOperatorConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   weights:  Array4d<f32>,
@@ -395,8 +407,8 @@ pub struct NewBatchNormConv2dOperator<S> {
   act_kern: ActivateKernel,
 }
 
-impl<S> NewBatchNormConv2dOperator<S> {
-  pub fn new<InOp>(cfg: BatchNormConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewBatchNormConv2dOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> NewBatchNormConv2dOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: BatchNormConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewBatchNormConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let (col_buf, col_grad) =
         if cfg.prefer_gemm_conv() {
           let w_in_len = cfg.kernel_w * cfg.kernel_h * cfg.in_dim.2;
@@ -450,27 +462,63 @@ impl<S> NewBatchNormConv2dOperator<S> {
   }
 }
 
-impl<S> Operator for NewBatchNormConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewBatchNormConv2dOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewBatchNormConv2dOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewBatchNormConv2dOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewBatchNormConv2dOperator<S, IoBuf> {
+  default fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  default fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
+
+  default fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
+}
+
+impl<S> DiffOperatorIo<[f32]> for NewBatchNormConv2dOperator<S, [f32]> {
+  fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += param_reader.read_buf(offset, self.weights.as_mut_slice());
+    offset += param_reader.read_buf(offset, self.scale_k.scale.as_mut_slice());
+    offset += param_reader.read_buf(offset, self.scale_k.bias.as_mut_slice());
+    offset - init_offset
+  }
+
+  fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += param_writer.write_buf(offset, self.weights.as_slice());
+    offset += param_writer.write_buf(offset, self.scale_k.scale.as_slice());
+    offset += param_writer.write_buf(offset, self.scale_k.bias.as_slice());
+    offset - init_offset
+  }
+
+  fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += grad_writer.write_buf(offset, self.w_grad.as_slice());
+    offset += grad_writer.write_buf(offset, self.scale_k.scale_grad.as_slice());
+    offset += grad_writer.write_buf(offset, self.scale_k.bias_grad.as_slice());
+    offset - init_offset
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewBatchNormConv2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -478,7 +526,7 @@ impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -534,30 +582,6 @@ impl<S> NewDiffOperator<S> for NewBatchNormConv2dOperator<S> {
     self.bnorm_k.run_var.as_view_mut().set_constant(1.0);
     self.scale_k.scale.as_view_mut().set_constant(1.0);
     self.scale_k.bias.as_view_mut().set_constant(0.0);
-  }
-
-  fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += param_reader.read_buf(offset, self.weights.as_mut_slice());
-    offset += param_reader.read_buf(offset, self.scale_k.scale.as_mut_slice());
-    offset += param_reader.read_buf(offset, self.scale_k.bias.as_mut_slice());
-    offset - init_offset
-  }
-
-  fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += param_writer.write_buf(offset, self.weights.as_slice());
-    offset += param_writer.write_buf(offset, self.scale_k.scale.as_slice());
-    offset += param_writer.write_buf(offset, self.scale_k.bias.as_slice());
-    offset - init_offset
-  }
-
-  fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += grad_writer.write_buf(offset, self.w_grad.as_slice());
-    offset += grad_writer.write_buf(offset, self.scale_k.scale_grad.as_slice());
-    offset += grad_writer.write_buf(offset, self.scale_k.bias_grad.as_slice());
-    offset - init_offset
   }
 
   fn _reset_grad(&mut self) {

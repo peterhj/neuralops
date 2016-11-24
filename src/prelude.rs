@@ -60,7 +60,7 @@ pub use regress_loss::{
   LstSqRegressLossConfig,
   LstSqRegressLoss,
   NormLstSqRegressLossConfig,
-  NormLstSqRegressLoss,
+  //NormLstSqRegressLoss,
   IndLstSqRegressLossConfig,
   IndLstSqRegressLoss,
 };

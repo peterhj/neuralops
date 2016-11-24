@@ -13,16 +13,16 @@ pub struct SplitOperatorConfig {
   pub dim:      usize,
 }
 
-pub struct NewCopySplitOperator<S> {
+pub struct NewCopySplitOperator<S, IoBuf: ?Sized> {
   cfg:  SplitOperatorConfig,
   node: OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:  Vec<CommonOutput>,
 }
 
-impl<S> NewCopySplitOperator<S> {
-  pub fn new<InOp>(cfg: SplitOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewCopySplitOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> NewCopySplitOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: SplitOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewCopySplitOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let prev_out = prev_op.borrow()._output(prev_arm);
     let mut out = Vec::with_capacity(cfg.out_arms);
     for _ in 0 .. cfg.out_arms {
@@ -38,26 +38,25 @@ impl<S> NewCopySplitOperator<S> {
   }
 }
 
-impl<S> Operator for NewCopySplitOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewCopySplitOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewCopySplitOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewCopySplitOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     self.out[arm].clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewCopySplitOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewCopySplitOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewCopySplitOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(self.cfg.out_arms as _));
     if self.node.count() == 1 {
@@ -70,7 +69,7 @@ impl<S> NewDiffOperator<S> for NewCopySplitOperator<S> {
     }
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(self.cfg.out_arms as _));
     if self.node.count() == self.cfg.out_arms as _ {

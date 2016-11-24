@@ -20,10 +20,10 @@ pub struct ClassLossConfig {
   pub num_classes:  usize,
 }
 
-pub struct SoftmaxNLLClassLoss<S> {
+pub struct SoftmaxNLLClassLoss<S, IoBuf: ?Sized> {
   cfg:      ClassLossConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
@@ -42,8 +42,8 @@ pub struct SoftmaxNLLClassLoss<S> {
   accuracy: usize,
 }
 
-impl<S> SoftmaxNLLClassLoss<S> {
-  pub fn new<InOp>(cfg: ClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> SoftmaxNLLClassLoss<S, IoBuf> {
+  pub fn new<InOp>(cfg: ClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     /*let mut max_log = Vec::with_capacity(cfg.batch_sz);
     max_log.resize(cfg.batch_sz, 0.0);*/
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
@@ -102,69 +102,20 @@ impl<S> SoftmaxNLLClassLoss<S> {
   }
 }
 
-impl<S> Operator for SoftmaxNLLClassLoss<S> {
+impl<S, IoBuf: ?Sized> Operator for SoftmaxNLLClassLoss<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl CommonOperator for SoftmaxNLLClassLoss<SampleItem> {
+impl<S, IoBuf: ?Sized> CommonOperator for SoftmaxNLLClassLoss<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-/*impl NewCommonOperator for SoftmaxNLLClassLoss<SampleItem> {
-  fn _output_new(&self, arm: usize) -> CommonOutput {
-    assert_eq!(0, arm);
-    self.out.clone()
-  }
-}
-
-impl NewDiffOpCast<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
-  type OpTarget = NewCommonOperator + 'static;
-
-  fn diff_op(&mut self) -> &mut NewDiffOperator2<SampleItem, OpRef=(NewCommonOperator + 'static)> {
-    self
-  }
-}
-
-/*impl<S> Deref for SoftmaxNLLClassLoss<S> {
-  type Target = NewDiffOperator2<SampleItem, OpRef=NewCommonOperator>;
-
-  fn deref(&self) -> &Self::Target {
-    unimplemented!();
-  }
-}*/
-
-impl NewDiffOperator2<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
-  //type IoBuf = [f32];
-  type OpRef = NewCommonOperator + 'static;
-
-  fn _traverse_fwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (NewCommonOperator + 'static))) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _traverse_bwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (NewCommonOperator + 'static))) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-}
-
-impl NewDiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
-}*/
-
-impl DiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
+impl<IoBuf: ?Sized> DiffLoss<SampleItem, IoBuf> for SoftmaxNLLClassLoss<SampleItem, IoBuf> {
   fn reset_loss(&mut self) {
     self.nsamples = 0;
     self.acc_loss = 0.0;
@@ -185,10 +136,13 @@ impl DiffLoss<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
   }
 }
 
-impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
-  type IoBuf = [f32];
+impl<IoBuf: ?Sized> DiffOperatorIo<IoBuf> for SoftmaxNLLClassLoss<SampleItem, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for SoftmaxNLLClassLoss<SampleItem, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -202,7 +156,7 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -334,7 +288,7 @@ impl NewDiffOperator<SampleItem> for SoftmaxNLLClassLoss<SampleItem> {
   }
 }
 
-impl<S> LossReport<ClassLossStats> for SoftmaxNLLClassLoss<S> {
+impl<S, IoBuf: ?Sized> LossReport<ClassLossStats> for SoftmaxNLLClassLoss<S, IoBuf> {
   fn update_stats(&mut self, iter_nr: usize, stats: &mut ClassLossStats) {
     //let batch_size = self.out.batch_sz.get();
     stats.iter_nr = iter_nr;
@@ -351,10 +305,10 @@ pub struct EntRegSoftmaxNLLClassLossConfig {
   pub entropy_coef: f32,
 }
 
-pub struct EntRegSoftmaxNLLClassLoss<S> {
+pub struct EntRegSoftmaxNLLClassLoss<S, IoBuf: ?Sized> {
   cfg:      EntRegSoftmaxNLLClassLossConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
@@ -372,8 +326,8 @@ pub struct EntRegSoftmaxNLLClassLoss<S> {
   weights:  Vec<f32>,
 }
 
-impl<S> EntRegSoftmaxNLLClassLoss<S> {
-  pub fn new<InOp>(cfg: EntRegSoftmaxNLLClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<EntRegSoftmaxNLLClassLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+/*impl<S> EntRegSoftmaxNLLClassLoss<S> {
+  pub fn new<InOp>(cfg: EntRegSoftmaxNLLClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<EntRegSoftmaxNLLClassLoss<S>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf=[f32]> {
     /*let mut max_log = Vec::with_capacity(cfg.batch_sz);
     max_log.resize(cfg.batch_sz, 0.0);*/
     let mut facts = Vec::with_capacity(cfg.batch_sz * cfg.num_classes);
@@ -456,10 +410,10 @@ impl DiffLoss<SampleItem> for EntRegSoftmaxNLLClassLoss<SampleItem> {
   }
 }
 
-impl NewDiffOperator<SampleItem> for EntRegSoftmaxNLLClassLoss<SampleItem> {
+impl DiffOperator<SampleItem> for EntRegSoftmaxNLLClassLoss<SampleItem> {
   type IoBuf = [f32];
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -473,7 +427,7 @@ impl NewDiffOperator<SampleItem> for EntRegSoftmaxNLLClassLoss<SampleItem> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -610,12 +564,12 @@ impl NewDiffOperator<SampleItem> for EntRegSoftmaxNLLClassLoss<SampleItem> {
       }
     }
   }
-}
+}*/
 
-pub struct LogisticNLLClassLoss<S> {
+pub struct LogisticNLLClassLoss<S, IoBuf: ?Sized> {
   cfg:      BinaryClassLossConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
@@ -632,8 +586,8 @@ pub struct LogisticNLLClassLoss<S> {
   accuracy: usize,
 }
 
-impl<S> LogisticNLLClassLoss<S> {
-  pub fn new<InOp>(cfg: BinaryClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<LogisticNLLClassLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> LogisticNLLClassLoss<S, IoBuf> {
+  pub fn new<InOp>(cfg: BinaryClassLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<LogisticNLLClassLoss<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     unimplemented!();
   }
 }

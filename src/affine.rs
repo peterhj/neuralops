@@ -27,10 +27,10 @@ pub struct AffineOperatorConfig {
   pub w_init:   ParamInitKind,
 }
 
-pub struct NewAffineOperator<S> {
+pub struct NewAffineOperator<S, IoBuf: ?Sized> {
   cfg:      AffineOperatorConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   weights:  Rc<RefCell<ParamBlock<Array2d<f32>>>>,
@@ -43,8 +43,8 @@ pub struct NewAffineOperator<S> {
   //_marker:  PhantomData<S>,
 }
 
-impl<S> NewAffineOperator<S> {
-  pub fn new<InOp>(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewAffineOperator<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> NewAffineOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: AffineOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NewAffineOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let out_len = cfg.batch_sz * cfg.out_dim;
     let mut tmp_buf = Vec::with_capacity(out_len);
     tmp_buf.resize(out_len, 0.0);
@@ -68,34 +68,67 @@ impl<S> NewAffineOperator<S> {
     }))
   }
 
-  pub fn diff_op(&mut self) -> &mut NewDiffOperator<S, IoBuf=[f32]> {
+  /*pub fn diff_op(&mut self) -> &mut DiffOperator<S, IoBuf> {
     self
-  }
+  }*/
 }
 
-impl<S> Operator for NewAffineOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewAffineOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewAffineOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewAffineOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewAffineOperator<S, IoBuf> {
+  default fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
+
+  default fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
+
+  default fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut IoBuf) -> usize {
+    unimplemented!();
+  }
+}
+
+impl<S> DiffOperatorIo<[f32]> for NewAffineOperator<S, [f32]> {
+  fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += param_reader.read_buf(offset, self.weights.borrow_mut().as_mut_slice());
+    offset += param_reader.read_buf(offset, self.bias.borrow_mut().as_mut_slice());
+    offset - init_offset
+  }
+
+  fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += param_writer.write_buf(offset, self.weights.borrow().as_slice());
+    offset += param_writer.write_buf(offset, self.bias.borrow().as_slice());
+    offset - init_offset
+  }
+
+  fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    offset += grad_writer.write_buf(offset, self.weights.borrow().grad().as_slice());
+    offset += grad_writer.write_buf(offset, self.bias.borrow().grad().as_slice());
+    offset - init_offset
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
+  //type IoBuf = [f32];
   //type Op = Rc<RefCell<CommonOperator>>;
 
-  //fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf, Op=CommonOperator>)) {
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  //fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf, Op=CommonOperator>)) {
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -103,8 +136,8 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     self.node.pop(epoch);
   }
 
-  //fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf, Op=CommonOperator>)) {
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  //fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf, Op=CommonOperator>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -152,27 +185,6 @@ impl<S> NewDiffOperator<S> for NewAffineOperator<S> {
     for e in self.bias.borrow_mut().as_mut_slice().iter_mut() {
       *e = 0.0;
     }
-  }
-
-  fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += param_reader.read_buf(offset, self.weights.borrow_mut().as_mut_slice());
-    offset += param_reader.read_buf(offset, self.bias.borrow_mut().as_mut_slice());
-    offset - init_offset
-  }
-
-  fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += param_writer.write_buf(offset, self.weights.borrow().as_slice());
-    offset += param_writer.write_buf(offset, self.bias.borrow().as_slice());
-    offset - init_offset
-  }
-
-  fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
-    let mut offset = init_offset;
-    offset += grad_writer.write_buf(offset, self.weights.borrow().grad().as_slice());
-    offset += grad_writer.write_buf(offset, self.bias.borrow().grad().as_slice());
-    offset - init_offset
   }
 
   fn _reset_grad(&mut self) {

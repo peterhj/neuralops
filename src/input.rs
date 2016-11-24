@@ -34,7 +34,7 @@ pub struct VarInputOperatorConfig {
   pub preprocs:     Vec<VarInputPreproc>,
 }
 
-pub struct NewVarInputOperator<S> {
+pub struct NewVarInputOperator<S, IoBuf: ?Sized> {
   cfg:      VarInputOperatorConfig,
   node:     OperatorNode,
   out:      CommonOutput,
@@ -43,11 +43,11 @@ pub struct NewVarInputOperator<S> {
   in_dims:  Vec<(usize, usize, usize)>,
   tmp_dims: Vec<(usize, usize, usize)>,
   tmp_buf:  Vec<f32>,
-  _marker:  PhantomData<S>,
+  _marker:  PhantomData<fn (S, IoBuf)>,
 }
 
-impl<S> NewVarInputOperator<S> {
-  pub fn new(cfg: VarInputOperatorConfig, cap: OpCapability) -> Rc<RefCell<NewVarInputOperator<S>>> {
+impl<S, IoBuf: ?Sized> NewVarInputOperator<S, IoBuf> {
+  pub fn new(cfg: VarInputOperatorConfig, cap: OpCapability) -> Rc<RefCell<NewVarInputOperator<S, IoBuf>>> {
     let batch_sz = cfg.batch_sz;
     let mut tmp_buf = Vec::with_capacity(batch_sz * cfg.max_stride);
     tmp_buf.resize(batch_sz * cfg.max_stride, 0.0);
@@ -65,61 +65,42 @@ impl<S> NewVarInputOperator<S> {
     }))
   }
 
-  pub fn _output(&self) -> RwSlice<f32> {
+  /*pub fn _get_output(&self) -> RwSlice<f32> {
     self.out.buf.as_slice()
-  }
+  }*/
 }
 
-impl<S> Operator for NewVarInputOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewVarInputOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl CommonOperator for NewVarInputOperator<SampleItem> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewVarInputOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 
-  fn diff_op(&mut self) -> &mut NewDiffOperator<SampleItem, IoBuf=[f32]> {
+  /*fn diff_op(&mut self) -> &mut DiffOperator<SampleItem, IoBuf=[f32]> {
     self
-  }
+  }*/
 }
 
-/*impl NewDiffOperator2<SampleItem> for NewVarInputOperator<SampleItem> {
-  type OpRef = CommonOperator + 'static;
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewVarInputOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (CommonOperator + 'static))) {
+impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<SampleItem, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd_new(&mut self, epoch: u64, apply: &mut FnMut(&mut (CommonOperator + 'static))) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-}*/
-
-impl NewDiffOperator<SampleItem> for NewVarInputOperator<SampleItem> {
-  type IoBuf = [f32];
-
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);

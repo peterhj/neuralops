@@ -13,16 +13,16 @@ pub struct JoinOperatorConfig {
   pub dim:      usize,
 }
 
-pub struct NewAddJoinOperator<S> {
+pub struct NewAddJoinOperator<S, IoBuf: ?Sized> {
   cfg:  JoinOperatorConfig,
   node: OperatorNode,
-  in_ops:   Vec<Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>>,
+  in_ops:   Vec<Rc<RefCell<DiffOperator<S, IoBuf>>>>,
   in_:  Vec<CommonOutput>,
   out:  CommonOutput,
 }
 
-impl<S> NewAddJoinOperator<S> {
-  pub fn new(cfg: JoinOperatorConfig, cap: OpCapability) -> Rc<RefCell<NewAddJoinOperator<S>>> {
+impl<S, IoBuf: ?Sized> NewAddJoinOperator<S, IoBuf> {
+  pub fn new(cfg: JoinOperatorConfig, cap: OpCapability) -> Rc<RefCell<NewAddJoinOperator<S, IoBuf>>> {
     let in_ops = Vec::with_capacity(cfg.in_arms);
     let in_ = Vec::with_capacity(cfg.in_arms);
     Rc::new(RefCell::new(NewAddJoinOperator{
@@ -34,7 +34,7 @@ impl<S> NewAddJoinOperator<S> {
     }))
   }
 
-  pub fn append_input<InOp>(&mut self, in_op: Rc<RefCell<InOp>>, in_arm: usize) where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+  pub fn append_input<InOp>(&mut self, in_op: Rc<RefCell<InOp>>, in_arm: usize) where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     assert!(self.in_ops.len() < self.cfg.in_arms);
     assert_eq!(self.in_ops.len(), self.in_.len());
     let out = in_op.borrow()._output(in_arm);
@@ -43,27 +43,26 @@ impl<S> NewAddJoinOperator<S> {
   }
 }
 
-impl<S> Operator for NewAddJoinOperator<S> {
+impl<S, IoBuf: ?Sized> Operator for NewAddJoinOperator<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for NewAddJoinOperator<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for NewAddJoinOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl<S> NewDiffOperator<S> for NewAddJoinOperator<S> {
-  type IoBuf = [f32];
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewAddJoinOperator<S, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAddJoinOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     for in_op in self.in_ops.iter() {
@@ -73,7 +72,7 @@ impl<S> NewDiffOperator<S> for NewAddJoinOperator<S> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<S, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);

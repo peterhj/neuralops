@@ -20,10 +20,10 @@ pub struct LstSqRegressLossConfig {
   pub grad_clip:    Option<f32>,
 }
 
-pub struct LstSqRegressLoss<S> {
+pub struct LstSqRegressLoss<S, IoBuf: ?Sized> {
   cfg:      LstSqRegressLossConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
@@ -35,8 +35,8 @@ pub struct LstSqRegressLoss<S> {
   preds:    Vec<f32>,
 }
 
-impl<S> LstSqRegressLoss<S> {
-  pub fn new<InOp>(cfg: LstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<LstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> LstSqRegressLoss<S, IoBuf> {
+  pub fn new<InOp>(cfg: LstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<LstSqRegressLoss<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     losses.resize(cfg.batch_sz, 0.0);
     let mut targets = Vec::with_capacity(cfg.batch_sz);
@@ -62,29 +62,25 @@ impl<S> LstSqRegressLoss<S> {
     }))
   }
 
-  pub fn batch_probs(&self) -> Ref<[f32]> {
+  /*pub fn batch_probs(&self) -> Ref<[f32]> {
     self.out.buf.borrow()
-  }
+  }*/
 }
 
-impl<S> Operator for LstSqRegressLoss<S> {
+impl<S, IoBuf: ?Sized> Operator for LstSqRegressLoss<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for LstSqRegressLoss<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for LstSqRegressLoss<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl DiffLoss<SampleItem> for LstSqRegressLoss<SampleItem> {
+impl<IoBuf: ?Sized> DiffLoss<SampleItem, IoBuf> for LstSqRegressLoss<SampleItem, IoBuf> {
   fn reset_loss(&mut self) {
     self.acc_loss = 0.0;
     self.reg_loss = 0.0;
@@ -104,10 +100,13 @@ impl DiffLoss<SampleItem> for LstSqRegressLoss<SampleItem> {
   }*/
 }
 
-impl NewDiffOperator<SampleItem> for LstSqRegressLoss<SampleItem> {
-  type IoBuf = [f32];
+impl<IoBuf: ?Sized> DiffOperatorIo<IoBuf> for LstSqRegressLoss<SampleItem, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for LstSqRegressLoss<SampleItem, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -121,7 +120,7 @@ impl NewDiffOperator<SampleItem> for LstSqRegressLoss<SampleItem> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -216,10 +215,10 @@ pub struct NormLstSqRegressLossConfig {
   pub init_var: f32,
 }
 
-pub struct NormLstSqRegressLoss<S> {
+/*pub struct NormLstSqRegressLoss<S> {
   cfg:      NormLstSqRegressLossConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf=[f32]>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
@@ -236,7 +235,7 @@ pub struct NormLstSqRegressLoss<S> {
 }
 
 impl<S> NormLstSqRegressLoss<S> {
-  pub fn new<InOp>(cfg: NormLstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NormLstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+  pub fn new<InOp>(cfg: NormLstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<NormLstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf=[f32]> {
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     losses.resize(cfg.batch_sz, 0.0);
     let mut targets = Vec::with_capacity(cfg.batch_sz);
@@ -308,10 +307,10 @@ impl DiffLoss<SampleItem> for NormLstSqRegressLoss<SampleItem> {
   }*/
 }
 
-impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
+impl DiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
   type IoBuf = [f32];
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -325,7 +324,7 @@ impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
@@ -419,7 +418,7 @@ impl NewDiffOperator<SampleItem> for NormLstSqRegressLoss<SampleItem> {
       }
     }
   }
-}
+}*/
 
 #[derive(Clone, Copy, Debug)]
 pub struct IndLstSqRegressLossConfig {
@@ -428,10 +427,10 @@ pub struct IndLstSqRegressLossConfig {
   pub grad_clip:    Option<f32>,
 }
 
-pub struct IndLstSqRegressLoss<S> {
+pub struct IndLstSqRegressLoss<S, IoBuf: ?Sized> {
   cfg:      IndLstSqRegressLossConfig,
   node:     OperatorNode,
-  in_op:    Rc<RefCell<NewDiffOperator<S, IoBuf=[f32]>>>,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
   batch_nr: Option<usize>,
@@ -444,8 +443,8 @@ pub struct IndLstSqRegressLoss<S> {
   preds:    Vec<f32>,
 }
 
-impl<S> IndLstSqRegressLoss<S> {
-  pub fn new<InOp>(cfg: IndLstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<IndLstSqRegressLoss<S>>> where InOp: 'static + CommonOperator + NewDiffOperator<S, IoBuf=[f32]> {
+impl<S, IoBuf: ?Sized> IndLstSqRegressLoss<S, IoBuf> {
+  pub fn new<InOp>(cfg: IndLstSqRegressLossConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<IndLstSqRegressLoss<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let mut losses = Vec::with_capacity(cfg.batch_sz);
     losses.resize(cfg.batch_sz, 0.0);
     let mut targets = Vec::with_capacity(cfg.batch_sz);
@@ -474,29 +473,25 @@ impl<S> IndLstSqRegressLoss<S> {
     }))
   }
 
-  pub fn batch_probs(&self) -> Ref<[f32]> {
+  /*pub fn batch_probs(&self) -> Ref<[f32]> {
     self.out.buf.borrow()
-  }
+  }*/
 }
 
-impl<S> Operator for IndLstSqRegressLoss<S> {
+impl<S, IoBuf: ?Sized> Operator for IndLstSqRegressLoss<S, IoBuf> {
   fn _next(&self) -> u64 {
     self.node._next()
   }
-
-  fn _epoch(&self) -> u64 {
-    self.node._epoch()
-  }
 }
 
-impl<S> CommonOperator for IndLstSqRegressLoss<S> {
+impl<S, IoBuf: ?Sized> CommonOperator for IndLstSqRegressLoss<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);
     self.out.clone()
   }
 }
 
-impl DiffLoss<SampleItem> for IndLstSqRegressLoss<SampleItem> {
+impl<IoBuf: ?Sized> DiffLoss<SampleItem, IoBuf> for IndLstSqRegressLoss<SampleItem, IoBuf> {
   fn reset_loss(&mut self) {
     self.acc_loss = 0.0;
     self.reg_loss = 0.0;
@@ -516,10 +511,13 @@ impl DiffLoss<SampleItem> for IndLstSqRegressLoss<SampleItem> {
   }*/
 }
 
-impl NewDiffOperator<SampleItem> for IndLstSqRegressLoss<SampleItem> {
-  type IoBuf = [f32];
+impl<IoBuf: ?Sized> DiffOperatorIo<IoBuf> for IndLstSqRegressLoss<SampleItem, IoBuf> {
+}
 
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for IndLstSqRegressLoss<SampleItem, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
@@ -533,7 +531,7 @@ impl NewDiffOperator<SampleItem> for IndLstSqRegressLoss<SampleItem> {
     self.node.pop(epoch);
   }
 
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut NewDiffOperator<SampleItem, IoBuf=Self::IoBuf>)) {
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
     apply(self);
