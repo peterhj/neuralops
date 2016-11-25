@@ -8,8 +8,8 @@ extern crate float;
 extern crate iter_utils;
 #[cfg(feature = "mkl")]
 extern crate mkl_dnn;
-extern crate neuralops_kernels;
-extern crate neuralops_omp_kernels;
+//extern crate neuralops_kernels;
+//extern crate neuralops_omp_kernels;
 //extern crate nnpack;
 extern crate operator;
 extern crate rng;

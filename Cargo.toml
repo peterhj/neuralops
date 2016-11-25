@@ -2,12 +2,12 @@
 name = "neuralops"
 version = "0.1.0"
 authors = ["Peter Jin <peterhaijin@gmail.com>"]
+build = "build.rs"
 
 [features]
-#default = ["nnpack"]
-#mkl = ["mkl_dnn", "nnpack"]
-default = ["neuralops_omp_kernels"]
-iomp = ["neuralops_omp_kernels/iomp"]
+default = []
+iomp = ["densearray/mkl_parallel"]
+knl = ["densearray/mkl_parallel", "densearray/knl"]
 
 [lib]
 name = "neuralops"
@@ -45,9 +45,13 @@ path = "tools/train-cifar10-sgd.rs"
 #name = "bench-typemap"
 #path = "tools/bench-typemap.rs"
 
+[build-dependencies]
+gcc = "*"
+walkdir = "*"
+
 [dependencies]
-neuralops_kernels = { path = "kernels" }
-neuralops_omp_kernels = { path = "omp_kernels", optional = true }
+#neuralops_kernels = { path = "kernels" }
+#neuralops_omp_kernels = { path = "omp_kernels", optional = true }
 libc = "*"
 rand = "*"
 byteorder = "*"
