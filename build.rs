@@ -4,6 +4,7 @@ extern crate walkdir;
 use walkdir::{WalkDir};
 
 use std::env;
+use std::path::{PathBuf};
 
 fn main() {
   println!("cargo:rerun-if-changed=build.rs");
@@ -57,10 +58,10 @@ fn main() {
       .pic(true)
       .flag("-std=c99")
       .flag("-fno-strict-aliasing")
-      .flag("-openmp");
+      .flag("-qopenmp");
     if cfg!(feature = "knl") {
       openmp_gcc
-        .flag("-no-offload")
+        .flag("-qno-offload")
         .flag("-xMIC-AVX512");
     }
   }

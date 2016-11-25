@@ -1,22 +1,14 @@
-//extern crate devicemem_cuda;
-//extern crate march;
 extern crate neuralops;
-//extern crate neuralops_cuda;
 extern crate operator;
 extern crate rand;
 extern crate rng;
 
-//use devicemem_cuda::prelude::*;
-//use march::march_sgd_new::*;
 use neuralops::prelude::*;
 use neuralops::data::{CyclicDataIter, RandomSampleDataIter};
 use neuralops::data::cifar::{CifarFlavor, CifarDataShard};
 use neuralops::archs::*;
-//use neuralops_cuda::archs::*;
 use operator::prelude::*;
-//use operator::opt::sgd_new::{SgdConfig, SgdWorker};
 use operator::opt::sgd::{SgdConfig, SgdUpdate};
-//use operator::opt::stochastic::{StochasticGradWorker};
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::{thread_rng};
@@ -49,9 +41,7 @@ fn main() {
     trace:  true,
   });
   checkpoint.append_config_info(&sgd_cfg);
-  let mut sgd: StochasticGradWorker<f32, SgdUpdate<_, _, _, _>, _, _, _> = StochasticGradWorker::new(batch_sz, batch_sz, sgd_cfg, loss);
-  //checkpoint.append_config_info(&marchsgd_cfg);
-  //let mut sgd: StochasticGradWorker<f32, MarchRmspropUpdateStep<_, _, _>, _, _> = StochasticGradWorker::new(batch_sz, batch_sz, marchsgd_cfg, loss);
+  let mut sgd: StochasticGradWorker<f32, SgdUpdate<_>, _, _, _> = StochasticGradWorker::new(batch_sz, batch_sz, sgd_cfg, loss);
   let mut stats = ClassLossStats::default();
   let mut display_stats = ClassLossStats::default();
   let mut rng = Xorshiftplus128Rng::new(&mut thread_rng());
