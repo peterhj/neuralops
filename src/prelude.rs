@@ -43,7 +43,9 @@ pub use input::{
 };
 pub use join::{
   JoinOperatorConfig,
+  ConcatJoinOperatorConfig,
   NewAddJoinOperator,
+  ConcatJoinOperator,
 };
 pub use loss::{
   L2RegOperator,
