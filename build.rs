@@ -69,6 +69,10 @@ fn main() {
     .flag("-Ikernels")
     .flag("-DNEURALOPS_OMP")
     .file("kernels/activate.c")
+    .file("omp_kernels/conv.c")
+    .file("omp_kernels/image.c")
+    .file("omp_kernels/interpolate.c")
+    .file("omp_kernels/pool.c")
     .compile("libneuralops_omp_kernels.a");
 
   println!("cargo:rustc-link-search=native={}", out_dir);
