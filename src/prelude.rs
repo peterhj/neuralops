@@ -20,9 +20,11 @@ pub use conv::{
   Conv2dOperatorConfig,
   BatchNormConv2dOperatorConfig,
   ResidualConv2dOperatorConfig,
-  NewResidualConv2dOperator,
   ProjResidualConv2dOperatorConfig,
+  SqueezeConv2dOperatorConfig,
+  NewResidualConv2dOperator,
   NewProjResidualConv2dOperator,
+  SqueezeConv2dOperator,
 };
 //#[cfg(not(feature = "mkl"))]
 pub use conv_nnpack::{

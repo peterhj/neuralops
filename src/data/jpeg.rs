@@ -85,6 +85,7 @@ impl<Iter> Iterator for DecodeJpegData<Iter> where Iter: Iterator<Item=SampleIte
       let new_mem = SharedMem::new(transp_pixels);
       let new_buf = new_mem.as_slice();
       item.kvs.insert::<SampleSharedSliceDataKey<u8>>(new_buf.clone());
+      item.kvs.insert::<SampleSharedExtractInputKey<[u8]>>(Arc::new(new_buf.clone()));
       item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(new_buf));
 
       let dim: (usize, usize, usize) = (width, height, 3);

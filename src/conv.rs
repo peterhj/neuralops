@@ -1,20 +1,11 @@
 use prelude::*;
 use kernels::activate::{ActivateKernel};
-//use kernels::batchnorm::{BatchNorm2dKernel};
-//use kernels::conv::*;
 
 use densearray::prelude::*;
-/*use nnpack::{NnpackHandle, NnpackPthreadPool};
-use nnpack::ffi::*;*/
 use operator::prelude::*;
-//use rng::xorshift::{Xorshiftplus128Rng};
 
-//use rand::distributions::{IndependentSample};
-//use rand::distributions::normal::{Normal};
-//use rand::distributions::range::{Range};
 use std::cell::{RefCell};
 use std::cmp::{max};
-//use std::ptr::{null_mut};
 use std::rc::{Rc};
 
 #[derive(Clone, Copy, Debug)]
@@ -412,5 +403,146 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewProjResidualConv2dOperator<
       let batch_size = self.out.batch_sz.get();
       self.act_k.backward(batch_size, &*join_out.buf.borrow(), &*self.out.grad.as_ref().unwrap().borrow(), &mut *join_grad.borrow_mut());
     }
+  }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct SqueezeConv2dOperatorConfig {
+  pub batch_sz: usize,
+  pub in_dim:   (usize, usize, usize),
+  pub squeeze:  usize,
+  pub out_chan: usize,
+  pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
+}
+
+impl SqueezeConv2dOperatorConfig {
+  pub fn out_dim(&self) -> (usize, usize, usize) {
+    (self.in_dim.0, self.in_dim.1, self.out_chan)
+  }
+}
+
+pub struct SqueezeConv2dOperator<S, IoBuf: ?Sized> {
+  cfg:      SqueezeConv2dOperatorConfig,
+  node:     OperatorNode,
+  join_op:  Rc<RefCell<ConcatJoinOperator<S, IoBuf>>>,
+  //out:      CommonOutput,
+}
+
+impl<S, IoBuf: ?Sized> SqueezeConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
+  pub fn new<InOp>(cfg: SqueezeConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<SqueezeConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
+    let squeeze_dim = (cfg.in_dim.0, cfg.in_dim.1, cfg.squeeze);
+    let outer_chan = cfg.out_chan / 2;
+    assert_eq!(0, cfg.out_chan % 2);
+    let conv1_cfg = Conv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 1,  kernel_h: 1,
+      stride_w: 1,  stride_h: 1,
+      pad_w:    0,  pad_h:    0,
+      out_chan: cfg.squeeze,
+      bias:     false,
+      act_kind: ActivationKind::Rect,
+      w_init:   cfg.w_init,
+    };
+    let split_cfg = SplitOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      out_arms: 2,
+      dim:      squeeze_dim.flat_len(),
+    };
+    let conv1x1_cfg = Conv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   squeeze_dim,
+      kernel_w: 1,  kernel_h: 1,
+      stride_w: 1,  stride_h: 1,
+      pad_w:    0,  pad_h:    0,
+      out_chan: outer_chan,
+      bias:     false,
+      act_kind: ActivationKind::Rect,
+      w_init:   cfg.w_init,
+    };
+    let conv3x3_cfg = Conv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   squeeze_dim,
+      kernel_w: 3,  kernel_h: 3,
+      stride_w: 1,  stride_h: 1,
+      pad_w:    1,  pad_h:    1,
+      out_chan: outer_chan,
+      bias:     false,
+      act_kind: ActivationKind::Rect,
+      w_init:   cfg.w_init,
+    };
+    let join_cfg = ConcatJoinOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_arms:  2,
+      //dim:      cfg.in_dim.flat_len(),
+      in_dims:  vec![conv1x1_cfg.out_dim().flat_len(), conv3x3_cfg.out_dim().flat_len()],
+    };
+    let conv1_op = NewConv2dOperator::new(conv1_cfg, cap, prev_op, prev_arm);
+    let split_op = NewCopySplitOperator::new(split_cfg, cap, conv1_op, 0);
+    let conv1x1_op = NewConv2dOperator::new(conv1x1_cfg, cap, split_op.clone(), 0);
+    let conv3x3_op = NewConv2dOperator::new(conv3x3_cfg, cap, split_op.clone(), 1);
+    let join_op = ConcatJoinOperator::new(join_cfg, cap);
+    join_op.borrow_mut().append_input(conv1x1_op, 0);
+    join_op.borrow_mut().append_input(conv3x3_op, 0);
+    Rc::new(RefCell::new(SqueezeConv2dOperator{
+      cfg:      cfg,
+      node:     OperatorNode::default(),
+      join_op:  join_op,
+      //out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
+    }))
+  }
+}
+
+impl<S, IoBuf: ?Sized> Operator for SqueezeConv2dOperator<S, IoBuf> {
+  fn _next(&self) -> u64 {
+    self.node._next()
+  }
+}
+
+impl<S, IoBuf: ?Sized> CommonOperator for SqueezeConv2dOperator<S, IoBuf> {
+  fn _output(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
+    //self.out.clone()
+    let join_out = self.join_op.borrow()._output(0);
+    join_out
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for SqueezeConv2dOperator<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for SqueezeConv2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    self.join_op.borrow_mut()._traverse_fwd(epoch, apply);
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.join_op.borrow_mut()._traverse_bwd(epoch, apply);
+    self.node.pop(epoch);
+  }
+
+  fn _forward(&mut self, phase: OpPhase) {
+    /*let join_out = self.join_op.borrow()._output(0);
+    let batch_size = join_out.batch_sz.get();
+    self.out.batch_sz.set(batch_size);
+    self.act_k.forward(batch_size, &*join_out.buf.borrow(), &mut *self.out.buf.borrow_mut());*/
+  }
+
+  fn _backward(&mut self) {
+    /*let join_out = self.join_op.borrow()._output(0);
+    if let Some(ref join_grad) = join_out.grad.as_ref() {
+      let batch_size = self.out.batch_sz.get();
+      self.act_k.backward(batch_size, &*join_out.buf.borrow(), &*self.out.grad.as_ref().unwrap().borrow(), &mut *join_grad.borrow_mut());
+    }*/
   }
 }
