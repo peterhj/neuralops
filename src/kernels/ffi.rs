@@ -11,6 +11,18 @@ extern "C" {}
 #[link(name = "iomp5")]
 extern "C" {}
 
+#[cfg(feature = "iomp")]
+#[link(name = "imf")]
+extern "C" {}
+
+#[cfg(feature = "iomp")]
+#[link(name = "irc")]
+extern "C" {}
+
+#[cfg(feature = "iomp")]
+#[link(name = "irc_s")]
+extern "C" {}
+
 #[link(name = "neuralops_kernels", kind = "static")]
 extern "C" {
   pub fn neuralops_rect_fwd(
