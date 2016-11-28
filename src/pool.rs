@@ -265,7 +265,25 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
             self.cfg.pad_h,
         ) };
       }
-      _ => unimplemented!(),
+      PoolKind::Max => {
+        // FIXME(20161128)
+        unsafe { neuralops_omp_caffe_avgpool2d_fwd(
+            batch_size,
+            self.cfg.in_dim.0,
+            self.cfg.in_dim.1,
+            self.cfg.in_dim.2,
+            self.in_.buf.borrow().as_ptr(),
+            out_w,
+            out_h,
+            self.out.buf.borrow_mut().as_mut_ptr(),
+            self.cfg.pool_w,
+            self.cfg.pool_h,
+            self.cfg.stride_w,
+            self.cfg.stride_h,
+            self.cfg.pad_w,
+            self.cfg.pad_h,
+        ) };
+      }
     }
   }
 
@@ -275,24 +293,42 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
     if let Some(in_grad) = self.in_.grad.as_ref() {
       match self.cfg.kind {
         PoolKind::Average => {
-        unsafe { neuralops_omp_caffe_avgpool2d_bwd(
-            batch_size,
-            self.cfg.in_dim.0,
-            self.cfg.in_dim.1,
-            self.cfg.in_dim.2,
-            out_w,
-            out_h,
-            self.out.grad.as_ref().unwrap().borrow().as_ptr(),
-            in_grad.borrow_mut().as_mut_ptr(),
-            self.cfg.pool_w,
-            self.cfg.pool_h,
-            self.cfg.stride_w,
-            self.cfg.stride_h,
-            self.cfg.pad_w,
-            self.cfg.pad_h,
-        ) };
+          unsafe { neuralops_omp_caffe_avgpool2d_bwd(
+              batch_size,
+              self.cfg.in_dim.0,
+              self.cfg.in_dim.1,
+              self.cfg.in_dim.2,
+              out_w,
+              out_h,
+              self.out.grad.as_ref().unwrap().borrow().as_ptr(),
+              in_grad.borrow_mut().as_mut_ptr(),
+              self.cfg.pool_w,
+              self.cfg.pool_h,
+              self.cfg.stride_w,
+              self.cfg.stride_h,
+              self.cfg.pad_w,
+              self.cfg.pad_h,
+          ) };
         }
-        _ => unimplemented!(),
+        PoolKind::Max => {
+          // FIXME(20161128)
+          unsafe { neuralops_omp_caffe_avgpool2d_bwd(
+              batch_size,
+              self.cfg.in_dim.0,
+              self.cfg.in_dim.1,
+              self.cfg.in_dim.2,
+              out_w,
+              out_h,
+              self.out.grad.as_ref().unwrap().borrow().as_ptr(),
+              in_grad.borrow_mut().as_mut_ptr(),
+              self.cfg.pool_w,
+              self.cfg.pool_h,
+              self.cfg.stride_w,
+              self.cfg.stride_h,
+              self.cfg.pad_w,
+              self.cfg.pad_h,
+          ) };
+        }
       }
     }
   }

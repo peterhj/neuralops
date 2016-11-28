@@ -28,7 +28,7 @@ void neuralops_omp_caffe_avgpool2d_fwd(
   #pragma omp parallel for
   for (size_t n = 0; n < batch_sz; ++n) {
     const float *bottom_data = in_buf + n * in_width * in_height * chan;
-    float *top_data = out_buf + n * in_width * in_height * chan;
+    float *top_data = out_buf + n * out_width * out_height * chan;
     for (size_t c = 0; c < chan; ++c) {
       for (size_t ph = 0; ph < out_height; ++ph) {
         for (size_t pw = 0; pw < out_width; ++pw) {
@@ -81,7 +81,7 @@ void neuralops_omp_caffe_avgpool2d_bwd(
   #pragma omp parallel for
   for (size_t n = 0; n < batch_sz; ++n) {
     float *bottom_diff = in_grad + n * in_width * in_height * chan;
-    const float *top_diff = out_grad + n * in_width * in_height * chan;
+    const float *top_diff = out_grad + n * out_width * out_height * chan;
     for (size_t c = 0; c < chan; ++c) {
       for (size_t ph = 0; ph < out_height; ++ph) {
         for (size_t pw = 0; pw < out_width; ++pw) {

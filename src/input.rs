@@ -43,6 +43,7 @@ pub struct NewVarInputOperator<S, IoBuf: ?Sized> {
   in_dims:  Vec<(usize, usize, usize)>,
   tmp_dims: Vec<(usize, usize, usize)>,
   tmp_buf:  Vec<f32>,
+  watch:    Stopwatch,
   _marker:  PhantomData<fn (S, IoBuf)>,
 }
 
@@ -51,7 +52,7 @@ impl<S, IoBuf: ?Sized> NewVarInputOperator<S, IoBuf> {
     let batch_sz = cfg.batch_sz;
     let mut tmp_buf = Vec::with_capacity(batch_sz * cfg.max_stride);
     tmp_buf.resize(batch_sz * cfg.max_stride, 0.0);
-    let out = CommonOutput::new(batch_sz, cfg.max_stride, cap);
+    let out = CommonOutput::new(batch_sz, cfg.max_stride, OpCapability::Forward);
     Rc::new(RefCell::new(NewVarInputOperator{
       cfg:      cfg,
       node:     OperatorNode::default(),
@@ -61,6 +62,7 @@ impl<S, IoBuf: ?Sized> NewVarInputOperator<S, IoBuf> {
       in_dims:  Vec::with_capacity(batch_sz),
       tmp_dims: Vec::with_capacity(batch_sz),
       tmp_buf:  tmp_buf,
+      watch:    Stopwatch::new(),
       _marker:  PhantomData,
     }))
   }
@@ -118,6 +120,8 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<Samp
   }
 
   fn _load_batch(&mut self, samples: &[SampleItem]) {
+    self.watch.lap();
+
     let batch_size = samples.len();
     assert!(batch_size <= self.cfg.batch_sz);
     self.out.batch_sz.set(batch_size);
@@ -149,9 +153,14 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<Samp
         panic!();
       }*/
     }
+
+    self.watch.lap();
+    println!("DEBUG: varinput: load batch: {:.6}", self.watch.elapsed());
   }
 
   fn _forward(&mut self, phase: OpPhase) {
+    self.watch.lap();
+
     let batch_size = self.out.batch_sz.get();
     self.tmp_dims.clear();
     for idx in 0 .. batch_size {
@@ -334,6 +343,9 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<Samp
     }
     out_buf[ .. batch_size * out_len].copy_from_slice(&self.tmp_buf[ .. batch_size * out_len]);
     //println!("DEBUG: varinput: output: {:?}", &out_buf[ .. out_len]);
+
+    self.watch.lap();
+    println!("DEBUG: varinput: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {

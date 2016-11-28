@@ -3,6 +3,7 @@ use sharedmem::{SharedMem};
 use stb_image::image::{Image, LoadResult, load_from_memory};
 use turbojpeg::{TurbojpegDecoder};
 
+use std::rc::{Rc};
 use std::sync::{Arc};
 
 pub struct DecodeJpegData<Iter> {
@@ -87,9 +88,8 @@ impl<Iter> Iterator for DecodeJpegData<Iter> where Iter: Iterator<Item=SampleIte
       item.kvs.insert::<SampleSharedSliceDataKey<u8>>(new_buf.clone());
       item.kvs.insert::<SampleSharedExtractInputKey<[u8]>>(Arc::new(new_buf.clone()));
       item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(new_buf));
-
       let dim: (usize, usize, usize) = (width, height, 3);
-      item.kvs.insert::<SampleInputShape3dKey>(dim);
+      item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new(dim));
 
       return Some(item);
     }

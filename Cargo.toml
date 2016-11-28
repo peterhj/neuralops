@@ -6,6 +6,7 @@ build = "build.rs"
 
 [features]
 default = []
+mkldnn = ["mkl_dnn"]
 iomp = ["densearray/mkl_parallel"]
 knl = ["densearray/mkl_parallel", "densearray/knl"]
 
@@ -58,9 +59,10 @@ byteorder = "*"
 densearray = "^0.1"
 float = "^0.1"
 iter_utils = "^0.1"
-#mkl_dnn = { path = "../libmkl_dnn", optional = true }
+mkl_dnn = { path = "../libmkl_dnn", optional = true }
 #nnpack = { path = "../libnnpack", optional = true }
 operator = { path = "../liboperator" }
+#rayon = "*"
 rng = "^0.1"
 sharedmem = "^0.1"
 stb_image = { path = "../rust-stb-image" }

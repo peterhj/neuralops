@@ -34,6 +34,14 @@ pub use conv_gemm::{
   ParallelConv2dOperator,
   ParallelBatchNormConv2dOperator,
 };
+#[cfg(feature = "mkldnn")]
+pub use conv_mkldnn::{
+  MklConv2dOperator,
+  MklBatchNormConv2dOperator,
+  MklResidualConv2dOperator,
+  MklProjResidualConv2dOperator,
+  MklSqueezeConv2dOperator,
+};
 //#[cfg(not(feature = "mkl"))]
 pub use conv_nnpack::{
   NewConv2dOperator,
@@ -43,6 +51,10 @@ pub use data::{Dtype};
 pub use deconv::{
   ConvTranspose2dOperatorConfig,
   BatchNormConvTranspose2dOperatorConfig,
+};
+pub use dummy::{
+  DummyOperatorConfig,
+  DummyOperator,
 };
 //pub use graph::{GraphOperator, GraphOperatorConfig};
 pub use input::{
@@ -67,6 +79,10 @@ pub use pool::{
   Pool2dOperatorConfig,
   NewPool2dOperator,
   ParallelPool2dOperator,
+};
+#[cfg(feature = "mkldnn")]
+pub use pool_mkldnn::{
+  MklPool2dOperator,
 };
 pub use regress_loss::{
   RegressLossConfig,
