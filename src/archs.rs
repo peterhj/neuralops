@@ -809,14 +809,18 @@ pub fn build_cifar10_resnet20_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClas
 pub fn build_squeezenet_v1_1_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClassLoss<SampleItem, [f32]>>> {
   let input_cfg = VarInputOperatorConfig{
     batch_sz:   batch_sz,
-    max_stride: 224 * 224 * 3,
+    max_stride: 16 * 480 * 480 * 3,
     out_dim:    (224, 224, 3),
     in_dtype:   Dtype::F32,
     preprocs:   vec![
-      VarInputPreproc::ChannelShift{shift: vec![104.0, 117.0, 123.0]},
+      VarInputPreproc::RandomResize2d{hi: 480, lo: 256, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::RandomResize2d{hi: 256, lo: 256, phases: vec![OpPhase::Inference]},
+      VarInputPreproc::RandomCrop2d{crop_w: 224, crop_h: 224, pad_w: 0, pad_h: 0, phases: vec![OpPhase::Learning]},
+      VarInputPreproc::CenterCrop2d{crop_w: 224, crop_h: 224, phases: vec![OpPhase::Inference]},
+      VarInputPreproc::RandomFlipX{phases: vec![OpPhase::Learning]},
+      //VarInputPreproc::ChannelShift{shift: vec![125.0, 123.0, 114.0]},
       VarInputPreproc::Scale{scale: 1.0 / 255.0},
-      //VarInputPreproc::RandomCrop2d{crop_w: 32, crop_h: 32, pad_w: 4, pad_h: 4, phases: vec![OpPhase::Learning]},
-      //VarInputPreproc::RandomFlipX{phases: vec![OpPhase::Learning]},
+      //VarInputPreproc::AddPixelwisePCALigtingNoise{},
     ],
   };
   let conv1_cfg = Conv2dOperatorConfig{
@@ -826,7 +830,7 @@ pub fn build_squeezenet_v1_1_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClass
     stride_w:   2,  stride_h:   2,
     pad_w:      1,  pad_h:      1,
     out_chan:   64,
-    bias:       false,
+    bias:       true,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   };
@@ -925,11 +929,11 @@ pub fn build_squeezenet_v1_1_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClass
     stride_w:   1,  stride_h:   1,
     pad_w:      0,  pad_h:      0,
     out_chan:   1000,
-    bias:       false,
+    bias:       true,
     act_kind:   ActivationKind::Rect,
     w_init:     ParamInitKind::Kaiming,
   };
-  let pool_cfg = Pool2dOperatorConfig{
+  let pool10_cfg = Pool2dOperatorConfig{
     batch_sz:   batch_sz,
     in_dim:     (14, 14, 1000),
     pool_w:     14, pool_h:     14,
@@ -941,20 +945,21 @@ pub fn build_squeezenet_v1_1_loss(batch_sz: usize) -> Rc<RefCell<SoftmaxNLLClass
     batch_sz:       batch_sz,
     num_classes:    1000,
   };
-  unimplemented!();
-  /*let input = NewVarInputOperator::new(input_cfg, OpCapability::Backward);
-  let conv1 = NewBatchNormConv2dOperator::new(conv1_cfg, OpCapability::Backward, input, 0);
-  let res1_1 = NewResidualConv2dOperator::new(res1_cfg, OpCapability::Backward, conv1, 0);
-  let res1_2 = NewResidualConv2dOperator::new(res1_cfg, OpCapability::Backward, res1_1, 0);
-  let res1_3 = NewResidualConv2dOperator::new(res1_cfg, OpCapability::Backward, res1_2, 0);
-  let res2_1 = NewProjResidualConv2dOperator::new(proj_res2_cfg, OpCapability::Backward, res1_3, 0);
-  let res2_2 = NewResidualConv2dOperator::new(res2_cfg, OpCapability::Backward, res2_1, 0);
-  let res2_3 = NewResidualConv2dOperator::new(res2_cfg, OpCapability::Backward, res2_2, 0);
-  let res3_1 = NewProjResidualConv2dOperator::new(proj_res3_cfg, OpCapability::Backward, res2_3, 0);
-  let res3_2 = NewResidualConv2dOperator::new(res3_cfg, OpCapability::Backward, res3_1, 0);
-  let res3_3 = NewResidualConv2dOperator::new(res3_cfg, OpCapability::Backward, res3_2, 0);
-  let pool = NewPool2dOperator::new(pool_cfg, OpCapability::Backward, res3_3, 0);
-  let affine = NewAffineOperator::new(affine_cfg, OpCapability::Backward, pool, 0);
-  let loss = SoftmaxNLLClassLoss::new(loss_cfg, OpCapability::Backward, affine, 0);
-  loss*/
+  let input = NewVarInputOperator::new(input_cfg, OpCapability::Backward);
+  let conv1 = ParallelConv2dOperator::new(conv1_cfg, OpCapability::Backward, input, 0);
+  let pool1 = ParallelPool2dOperator::new(pool1_cfg, OpCapability::Backward, conv1, 0);
+  let squeeze2 = ParallelSqueezeConv2dOperator::new(squeeze2_cfg, OpCapability::Backward, pool1, 0);
+  let squeeze3 = ParallelSqueezeConv2dOperator::new(squeeze3_cfg, OpCapability::Backward, squeeze2, 0);
+  let pool3 = ParallelPool2dOperator::new(pool3_cfg, OpCapability::Backward, squeeze3, 0);
+  let squeeze4 = ParallelSqueezeConv2dOperator::new(squeeze4_cfg, OpCapability::Backward, pool3, 0);
+  let squeeze5 = ParallelSqueezeConv2dOperator::new(squeeze5_cfg, OpCapability::Backward, squeeze4, 0);
+  let pool5 = ParallelPool2dOperator::new(pool5_cfg, OpCapability::Backward, squeeze5, 0);
+  let squeeze6 = ParallelSqueezeConv2dOperator::new(squeeze6_cfg, OpCapability::Backward, pool5, 0);
+  let squeeze7 = ParallelSqueezeConv2dOperator::new(squeeze7_cfg, OpCapability::Backward, squeeze6, 0);
+  let squeeze8 = ParallelSqueezeConv2dOperator::new(squeeze8_cfg, OpCapability::Backward, squeeze7, 0);
+  let squeeze9 = ParallelSqueezeConv2dOperator::new(squeeze9_cfg, OpCapability::Backward, squeeze8, 0);
+  let conv10 = ParallelConv2dOperator::new(conv10_cfg, OpCapability::Backward, squeeze9, 0);
+  let pool10 = ParallelPool2dOperator::new(pool10_cfg, OpCapability::Backward, conv10, 0);
+  let loss = SoftmaxNLLClassLoss::new(loss_cfg, OpCapability::Backward, pool10, 0);
+  loss
 }
