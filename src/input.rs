@@ -164,7 +164,7 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<Samp
           for idx in 0 .. batch_size {
             let dim = self.tmp_dims[idx];
             let mut out = &mut (&mut *out_buf)[idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
-            out.reshape_mut(dim.flat_len()).vector_scale(scale);
+            out.reshape_mut(dim.flat_len()).scale(scale);
           }
         }
         &VarInputPreproc::DivScale{scale} => {
@@ -180,7 +180,7 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<Samp
             let space_len = dim.0 * dim.1;
             for a in 0 .. self.cfg.out_dim.2 {
               let mut out = &mut (&mut *out_buf)[a * space_len + idx * self.cfg.max_stride .. (idx+1) * self.cfg.max_stride];
-              out.reshape_mut(space_len).vector_add_scalar(-shift[a]);
+              out.reshape_mut(space_len).add_scalar(-shift[a]);
             }
           }
         }

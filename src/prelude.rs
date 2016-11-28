@@ -3,6 +3,7 @@ pub use affine::{
   AffineOperatorConfig,
   BatchNormAffineOperatorConfig,
   NewAffineOperator,
+  ParallelAffineOperator,
 };
 pub use class_loss::{
   BinaryClassLossConfig,
@@ -23,12 +24,15 @@ pub use conv::{
   ProjResidualConv2dOperatorConfig,
   SqueezeConv2dOperatorConfig,
   NewResidualConv2dOperator,
+  ParallelResidualConv2dOperator,
   NewProjResidualConv2dOperator,
+  ParallelProjResidualConv2dOperator,
   SqueezeConv2dOperator,
   ParallelSqueezeConv2dOperator,
 };
 pub use conv_gemm::{
   ParallelConv2dOperator,
+  ParallelBatchNormConv2dOperator,
 };
 //#[cfg(not(feature = "mkl"))]
 pub use conv_nnpack::{

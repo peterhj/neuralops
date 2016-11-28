@@ -1,5 +1,5 @@
 use prelude::*;
-use kernels::activate::{ActivateKernel};
+use kernels::activate::*;
 
 use densearray::prelude::*;
 use operator::prelude::*;
@@ -273,6 +273,123 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewResidualConv2dOperator<S, I
   }
 }
 
+pub struct ParallelResidualConv2dOperator<S, IoBuf: ?Sized> {
+  cfg:      ResidualConv2dOperatorConfig,
+  node:     OperatorNode,
+  join_op:  Rc<RefCell<NewAddJoinOperator<S, IoBuf>>>,
+  out:      CommonOutput,
+  act_k:    ParallelActivateKernel,
+}
+
+impl<S, IoBuf: ?Sized> ParallelResidualConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
+  pub fn new<InOp>(cfg: ResidualConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<ParallelResidualConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
+    let split_cfg = SplitOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      out_arms: 2,
+      dim:      cfg.in_dim.flat_len(),
+    };
+    let conv1_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.in_dim.2,
+      avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
+      act_kind: ActivationKind::Rect,
+      w_init:   cfg.w_init,
+    };
+    let conv2_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.in_dim.2,
+      avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
+      act_kind: ActivationKind::Identity,
+      w_init:   cfg.w_init,
+    };
+    let join_cfg = JoinOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_arms:  2,
+      dim:      cfg.in_dim.flat_len(),
+    };
+    let split_op = NewCopySplitOperator::new(split_cfg, cap, prev_op, prev_arm);
+    let conv1_op = ParallelBatchNormConv2dOperator::new(conv1_cfg, cap, split_op.clone(), 0);
+    let conv2_op = ParallelBatchNormConv2dOperator::new(conv2_cfg, cap, conv1_op, 0);
+    let join_op = NewAddJoinOperator::new(join_cfg, cap);
+    join_op.borrow_mut().append_input(conv2_op, 0);
+    join_op.borrow_mut().append_input(split_op, 1);
+    Rc::new(RefCell::new(ParallelResidualConv2dOperator{
+      cfg:      cfg,
+      node:     OperatorNode::default(),
+      join_op:  join_op,
+      out:      CommonOutput::new(cfg.batch_sz, cfg.in_dim.flat_len(), cap),
+      act_k:    ParallelActivateKernel::new(cfg.batch_sz, cfg.in_dim.flat_len(), cfg.act_kind),
+    }))
+  }
+}
+
+impl<S, IoBuf: ?Sized> Operator for ParallelResidualConv2dOperator<S, IoBuf> {
+  fn _next(&self) -> u64 {
+    self.node._next()
+  }
+}
+
+impl<S, IoBuf: ?Sized> CommonOperator for ParallelResidualConv2dOperator<S, IoBuf> {
+  fn _output(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
+    self.out.clone()
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelResidualConv2dOperator<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelResidualConv2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    self.join_op.borrow_mut()._traverse_fwd(epoch, apply);
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.join_op.borrow_mut()._traverse_bwd(epoch, apply);
+    self.node.pop(epoch);
+  }
+
+  fn _forward(&mut self, phase: OpPhase) {
+    let join_out = self.join_op.borrow()._output(0);
+    let batch_size = join_out.batch_sz.get();
+    self.out.batch_sz.set(batch_size);
+    self.act_k.forward(batch_size, &*join_out.buf.borrow(), &mut *self.out.buf.borrow_mut());
+  }
+
+  fn _backward(&mut self) {
+    let join_out = self.join_op.borrow()._output(0);
+    if let Some(ref join_grad) = join_out.grad.as_ref() {
+      let batch_size = self.out.batch_sz.get();
+      self.act_k.backward(batch_size, &*join_out.buf.borrow(), &*self.out.grad.as_ref().unwrap().borrow(), &mut *join_grad.borrow_mut());
+    }
+  }
+}
+
 pub struct NewProjResidualConv2dOperator<S, IoBuf: ?Sized> {
   cfg:      ProjResidualConv2dOperatorConfig,
   node:     OperatorNode,
@@ -372,6 +489,139 @@ impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewProjResidualConv2dOperator<S
 }
 
 impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewProjResidualConv2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    self.join_op.borrow_mut()._traverse_fwd(epoch, apply);
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.join_op.borrow_mut()._traverse_bwd(epoch, apply);
+    self.node.pop(epoch);
+  }
+
+  fn _forward(&mut self, phase: OpPhase) {
+    let join_out = self.join_op.borrow()._output(0);
+    let batch_size = join_out.batch_sz.get();
+    self.out.batch_sz.set(batch_size);
+    self.act_k.forward(batch_size, &*join_out.buf.borrow(), &mut *self.out.buf.borrow_mut());
+  }
+
+  fn _backward(&mut self) {
+    let join_out = self.join_op.borrow()._output(0);
+    if let Some(ref join_grad) = join_out.grad.as_ref() {
+      let batch_size = self.out.batch_sz.get();
+      self.act_k.backward(batch_size, &*join_out.buf.borrow(), &*self.out.grad.as_ref().unwrap().borrow(), &mut *join_grad.borrow_mut());
+    }
+  }
+}
+
+pub struct ParallelProjResidualConv2dOperator<S, IoBuf: ?Sized> {
+  cfg:      ProjResidualConv2dOperatorConfig,
+  node:     OperatorNode,
+  join_op:  Rc<RefCell<NewAddJoinOperator<S, IoBuf>>>,
+  out:      CommonOutput,
+  act_k:    ParallelActivateKernel,
+}
+
+impl<S, IoBuf: ?Sized> ParallelProjResidualConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
+  pub fn new<InOp>(cfg: ProjResidualConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<ParallelProjResidualConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
+    let split_cfg = SplitOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      out_arms: 2,
+      dim:      cfg.in_dim.flat_len(),
+    };
+    let conv1_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: cfg.stride_w,
+      stride_h: cfg.stride_h,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.out_chan,
+      avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
+      act_kind: ActivationKind::Rect,
+      w_init:   cfg.w_init,
+    };
+    let conv2_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.out_dim(),
+      kernel_w: 3,
+      kernel_h: 3,
+      stride_w: 1,
+      stride_h: 1,
+      pad_w:    1,
+      pad_h:    1,
+      out_chan: cfg.out_chan,
+      avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
+      act_kind: ActivationKind::Identity,
+      w_init:   cfg.w_init,
+    };
+    let conv1x1_cfg = BatchNormConv2dOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_dim:   cfg.in_dim,
+      kernel_w: 1,
+      kernel_h: 1,
+      stride_w: cfg.stride_w,
+      stride_h: cfg.stride_h,
+      pad_w:    0,
+      pad_h:    0,
+      out_chan: cfg.out_chan,
+      avg_rate: cfg.avg_rate,
+      epsilon:  cfg.epsilon,
+      act_kind: ActivationKind::Identity,
+      w_init:   cfg.w_init,
+    };
+    let join_cfg = JoinOperatorConfig{
+      batch_sz: cfg.batch_sz,
+      in_arms:  2,
+      dim:      cfg.out_dim().flat_len(),
+    };
+    let split_op = NewCopySplitOperator::new(split_cfg, cap, prev_op, prev_arm);
+    let conv1_op = ParallelBatchNormConv2dOperator::new(conv1_cfg, cap, split_op.clone(), 0);
+    let conv2_op = ParallelBatchNormConv2dOperator::new(conv2_cfg, cap, conv1_op, 0);
+    let conv1x1_op = ParallelBatchNormConv2dOperator::new(conv1x1_cfg, cap, split_op, 1);
+    let join_op = NewAddJoinOperator::new(join_cfg, cap);
+    join_op.borrow_mut().append_input(conv2_op, 0);
+    join_op.borrow_mut().append_input(conv1x1_op, 0);
+    Rc::new(RefCell::new(ParallelProjResidualConv2dOperator{
+      cfg:      cfg,
+      node:     OperatorNode::default(),
+      join_op:  join_op,
+      out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
+      act_k:    ParallelActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
+    }))
+  }
+}
+
+impl<S, IoBuf: ?Sized> Operator for ParallelProjResidualConv2dOperator<S, IoBuf> {
+  fn _next(&self) -> u64 {
+    self.node._next()
+  }
+}
+
+impl<S, IoBuf: ?Sized> CommonOperator for ParallelProjResidualConv2dOperator<S, IoBuf> {
+  fn _output(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
+    self.out.clone()
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelProjResidualConv2dOperator<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelProjResidualConv2dOperator<S, IoBuf> {
   //type IoBuf = [f32];
 
   fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {

@@ -13,9 +13,16 @@ fn main() {
   let out_dir = env::var("OUT_DIR").unwrap();
   let cc = env::var("CC").unwrap_or("gcc".to_owned());
 
-  let mut kernels_src_dir = PathBuf::from(manifest_dir);
+  let mut kernels_src_dir = PathBuf::from(manifest_dir.clone());
   kernels_src_dir.push("kernels");
   for entry in WalkDir::new(kernels_src_dir.to_str().unwrap()) {
+    let entry = entry.unwrap();
+    println!("cargo:rerun-if-changed={}", entry.path().display());
+  }
+
+  let mut omp_kernels_src_dir = PathBuf::from(manifest_dir.clone());
+  omp_kernels_src_dir.push("omp_kernels");
+  for entry in WalkDir::new(omp_kernels_src_dir.to_str().unwrap()) {
     let entry = entry.unwrap();
     println!("cargo:rerun-if-changed={}", entry.path().display());
   }

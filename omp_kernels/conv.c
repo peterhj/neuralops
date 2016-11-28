@@ -10,14 +10,18 @@ void neuralops_omp_caffe_im2col(
     const int dilation_h, const int dilation_w,
     float *col_buf)
 {
-  const float *data_im = in_buf;
-  float *data_col = col_buf;
+  //const float *data_im = in_buf;
+  //float *data_col = col_buf;
   const int output_h = (height + 2 * pad_h -
     (dilation_h * (kernel_h - 1) + 1)) / stride_h + 1;
   const int output_w = (width + 2 * pad_w -
     (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
   const int channel_size = height * width;
-  for (int channel = channels; channel--; data_im += channel_size) {
+  //for (int channel = channels; channel--; data_im += channel_size) {
+  #pragma omp parallel for
+  for (int channel = 0; channel < channels; channel++) {
+    const float *data_im = in_buf + channel * channel_size;
+    float *data_col = col_buf + channel * output_w * output_h * kernel_w * kernel_h;
     for (int kernel_row = 0; kernel_row < kernel_h; kernel_row++) {
       for (int kernel_col = 0; kernel_col < kernel_w; kernel_col++) {
         int input_row = -pad_h + kernel_row * dilation_h;
@@ -55,15 +59,19 @@ void neuralops_omp_caffe_col2im(
     const int dilation_h, const int dilation_w,
     float *out_buf)
 {
-  const float *data_col = col_buf;
-  float *data_im = out_buf;
+  //const float *data_col = col_buf;
+  //float *data_im = out_buf;
   //caffe_set(height * width * channels, float(0), data_im);
   const int output_h = (height + 2 * pad_h -
     (dilation_h * (kernel_h - 1) + 1)) / stride_h + 1;
   const int output_w = (width + 2 * pad_w -
     (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
   const int channel_size = height * width;
-  for (int channel = channels; channel--; data_im += channel_size) {
+  //for (int channel = channels; channel--; data_im += channel_size) {
+  #pragma omp parallel for
+  for (int channel = 0; channel < channels; channel++) {
+    const float *data_col = col_buf + channel * output_w * output_h * kernel_w * kernel_h;
+    float *data_im = out_buf + channel * channel_size;
     for (int kernel_row = 0; kernel_row < kernel_h; kernel_row++) {
       for (int kernel_col = 0; kernel_col < kernel_w; kernel_col++) {
         int input_row = -pad_h + kernel_row * dilation_h;
