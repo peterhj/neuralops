@@ -275,4 +275,53 @@ extern "C" {
       out_grad: *const f32,
       in_grad: *mut f32,
   );
+
+  pub fn neuralops_omp_caffe_im2col(
+      data_im: *const f32,
+      channels: c_int, height: c_int, width: c_int,
+      kernel_h: c_int, kernel_w: c_int,
+      pad_h: c_int, pad_w: c_int,
+      stride_h: c_int, stride_w: c_int,
+      dilation_h: c_int, dilation_w: c_int,
+      data_col: *mut f32);
+  pub fn neuralops_omp_caffe_col2im(
+      data_col: *const f32,
+      channels: c_int, height: c_int, width: c_int,
+      kernel_h: c_int, kernel_w: c_int,
+      pad_h: c_int, pad_w: c_int,
+      stride_h: c_int, stride_w: c_int,
+      dilation_h: c_int, dilation_w: c_int,
+      data_im: *mut f32);
+
+  pub fn neuralops_omp_caffe_avgpool2d_fwd(
+      batch_sz: usize,
+      in_width: usize,
+      in_height: usize,
+      chan: usize,
+      in_buf: *const f32,
+      out_width: usize,
+      out_height: usize,
+      out_buf: *mut f32,
+      pool_w: usize,
+      pool_h: usize,
+      stride_w: usize,
+      stride_h: usize,
+      pad_w: usize,
+      pad_h: usize);
+  pub fn neuralops_omp_caffe_avgpool2d_bwd(
+      batch_sz: usize,
+      in_width: usize,
+      in_height: usize,
+      chan: usize,
+      //in_buf: *const f32,
+      out_width: usize,
+      out_height: usize,
+      out_grad: *const f32,
+      in_grad: *mut f32,
+      pool_w: usize,
+      pool_h: usize,
+      stride_w: usize,
+      stride_h: usize,
+      pad_w: usize,
+      pad_h: usize);
 }

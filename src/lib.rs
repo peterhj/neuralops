@@ -29,6 +29,7 @@ pub mod checkpoint;
 pub mod class_loss;
 pub mod common;
 pub mod conv;
+pub mod conv_gemm;
 #[cfg(feature = "mkl")]
 pub mod conv_mkl;
 #[cfg(not(feature = "mkl"))]

@@ -25,6 +25,10 @@ pub use conv::{
   NewResidualConv2dOperator,
   NewProjResidualConv2dOperator,
   SqueezeConv2dOperator,
+  ParallelSqueezeConv2dOperator,
+};
+pub use conv_gemm::{
+  ParallelConv2dOperator,
 };
 //#[cfg(not(feature = "mkl"))]
 pub use conv_nnpack::{
@@ -58,6 +62,7 @@ pub use param::{
 pub use pool::{
   Pool2dOperatorConfig,
   NewPool2dOperator,
+  ParallelPool2dOperator,
 };
 pub use regress_loss::{
   RegressLossConfig,

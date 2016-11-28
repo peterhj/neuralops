@@ -184,3 +184,116 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewPool2dOperator<S, IoBuf> {
     }
   }
 }
+
+pub struct ParallelPool2dOperator<S, IoBuf: ?Sized> {
+  cfg:      Pool2dOperatorConfig,
+  node:     OperatorNode,
+  in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
+  in_:      CommonOutput,
+  out:      CommonOutput,
+}
+
+impl<S, IoBuf: ?Sized> ParallelPool2dOperator<S, IoBuf> {
+  pub fn new<InOp>(cfg: Pool2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<ParallelPool2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
+    let in_ = prev_op.borrow()._output(prev_arm);
+    Rc::new(RefCell::new(ParallelPool2dOperator{
+      cfg:      cfg,
+      node:     OperatorNode::default(),
+      in_op:    prev_op,
+      in_:      in_,
+      out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
+    }))
+  }
+}
+
+impl<S, IoBuf: ?Sized> Operator for ParallelPool2dOperator<S, IoBuf> {
+  fn _next(&self) -> u64 {
+    self.node._next()
+  }
+}
+
+impl<S, IoBuf: ?Sized> CommonOperator for ParallelPool2dOperator<S, IoBuf> {
+  fn _output(&self, arm: usize) -> CommonOutput {
+    assert_eq!(0, arm);
+    self.out.clone()
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelPool2dOperator<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
+    self.node.pop(epoch);
+  }
+
+  fn _forward(&mut self, _phase: OpPhase) {
+    let batch_size = self.in_.batch_sz.get();
+    assert!(batch_size <= self.cfg.batch_sz);
+    self.out.batch_sz.set(batch_size);
+    let (out_w, out_h, _) = self.cfg.out_dim();
+    match self.cfg.kind {
+      PoolKind::Average => {
+        unsafe { neuralops_omp_caffe_avgpool2d_fwd(
+            batch_size,
+            self.cfg.in_dim.0,
+            self.cfg.in_dim.1,
+            self.cfg.in_dim.2,
+            self.in_.buf.borrow().as_ptr(),
+            out_w,
+            out_h,
+            self.out.buf.borrow_mut().as_mut_ptr(),
+            self.cfg.pool_w,
+            self.cfg.pool_h,
+            self.cfg.stride_w,
+            self.cfg.stride_h,
+            self.cfg.pad_w,
+            self.cfg.pad_h,
+        ) };
+      }
+      _ => unimplemented!(),
+    }
+  }
+
+  fn _backward(&mut self) {
+    let batch_size = self.out.batch_sz.get();
+    let (out_w, out_h, _) = self.cfg.out_dim();
+    if let Some(in_grad) = self.in_.grad.as_ref() {
+      match self.cfg.kind {
+        PoolKind::Average => {
+        unsafe { neuralops_omp_caffe_avgpool2d_bwd(
+            batch_size,
+            self.cfg.in_dim.0,
+            self.cfg.in_dim.1,
+            self.cfg.in_dim.2,
+            out_w,
+            out_h,
+            self.out.grad.as_ref().unwrap().borrow().as_ptr(),
+            in_grad.borrow_mut().as_mut_ptr(),
+            self.cfg.pool_w,
+            self.cfg.pool_h,
+            self.cfg.stride_w,
+            self.cfg.stride_h,
+            self.cfg.pad_w,
+            self.cfg.pad_h,
+        ) };
+        }
+        _ => unimplemented!(),
+      }
+    }
+  }
+}

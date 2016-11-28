@@ -158,12 +158,12 @@ void neuralops_caffe_avgpool2d_fwd(
     size_t pad_w_,
     size_t pad_h_)
 {
-  size_t top_count = in_width * in_height * chan * batch_sz;
+  size_t top_count = out_width * out_height * chan * batch_sz;
+  for (size_t i = 0; i < top_count; ++i) {
+    out_buf[i] = 0.0f;
+  }
   const float *bottom_data = in_buf;
   float *top_data = out_buf;
-  for (size_t i = 0; i < top_count; ++i) {
-    top_data[i] = 0.0f;
-  }
   for (size_t n = 0; n < batch_sz; ++n) {
     for (size_t c = 0; c < chan; ++c) {
       for (size_t ph = 0; ph < out_height; ++ph) {
@@ -209,6 +209,10 @@ void neuralops_caffe_avgpool2d_bwd(
     size_t pad_w_,
     size_t pad_h_)
 {
+  size_t bottom_count = in_width * in_height * chan * batch_sz;
+  for (size_t i = 0; i < bottom_count; ++i) {
+    in_grad[i] = 0.0f;
+  }
   float *bottom_diff = in_grad;
   const float *top_diff = out_grad;
   for (size_t n = 0; n < batch_sz; ++n) {
