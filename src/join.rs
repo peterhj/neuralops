@@ -117,6 +117,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAddJoinOperator<S, IoBuf> {
 
 pub struct ConcatJoinOperator<S, IoBuf: ?Sized> {
   cfg:  ConcatJoinOperatorConfig,
+  out_dim:  usize,
   node: OperatorNode,
   in_ops:   Vec<Rc<RefCell<DiffOperator<S, IoBuf>>>>,
   in_:  Vec<CommonOutput>,
@@ -135,6 +136,7 @@ impl<S, IoBuf: ?Sized> ConcatJoinOperator<S, IoBuf> {
     let out = CommonOutput::new(cfg.batch_sz, out_dim, cap);
     Rc::new(RefCell::new(ConcatJoinOperator{
       cfg:  cfg,
+      out_dim:  out_dim,
       node: OperatorNode::default(),
       in_ops:   in_ops,
       in_:      in_,
@@ -192,24 +194,28 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ConcatJoinOperator<S, IoBuf> {
     let batch_size = self.in_[0].batch_sz.get();
     assert!(batch_size <= self.cfg.batch_sz);
     self.out.batch_sz.set(batch_size);
-    let mut offset = 0;
-    for arm in 0 .. self.cfg.in_arms {
-      let arm_batch_size = self.in_[arm].batch_sz.get();
-      assert_eq!(batch_size, arm_batch_size);
-      self.out.buf.borrow_mut()[batch_size * offset .. batch_size * (offset + self.cfg.in_dims[arm])]
-        .copy_from_slice(&self.in_[arm].buf.borrow()[ .. batch_size * self.cfg.in_dims[arm]]);
-      offset += self.cfg.in_dims[arm];
+    for idx in 0 .. batch_size {
+      let mut offset = 0;
+      for arm in 0 .. self.cfg.in_arms {
+        let arm_batch_size = self.in_[arm].batch_sz.get();
+        assert_eq!(batch_size, arm_batch_size);
+        self.out.buf.borrow_mut()[idx * self.out_dim + offset .. idx * self.out_dim + offset + self.cfg.in_dims[arm]]
+          .copy_from_slice(&self.in_[arm].buf.borrow()[idx * self.cfg.in_dims[arm] .. (idx+1) * self.cfg.in_dims[arm]]);
+        offset += self.cfg.in_dims[arm];
+      }
     }
   }
 
   fn _backward(&mut self) {
     let batch_size = self.out.batch_sz.get();
-    let mut offset = 0;
-    for arm in 0 .. self.cfg.in_arms {
-      if let Some(in_grad) = self.in_[arm].grad.as_ref() {
-        let mut in_grad = in_grad.borrow_mut();
-        in_grad[ .. batch_size * self.cfg.in_dims[arm]]
-          .copy_from_slice(&self.out.grad.as_ref().unwrap().borrow()[batch_size * offset .. batch_size * (offset + self.cfg.in_dims[arm])]);
+    for idx in 0 .. batch_size {
+      let mut offset = 0;
+      for arm in 0 .. self.cfg.in_arms {
+        if let Some(in_grad) = self.in_[arm].grad.as_ref() {
+          let mut in_grad = in_grad.borrow_mut();
+          in_grad[idx * self.cfg.in_dims[arm] .. (idx+1) * self.cfg.in_dims[arm]]
+            .copy_from_slice(&self.out.grad.as_ref().unwrap().borrow()[idx * self.out_dim + offset .. idx * self.out_dim + offset + self.cfg.in_dims[arm]]);
+        }
         offset += self.cfg.in_dims[arm];
       }
     }

@@ -16,11 +16,15 @@ extern "C" {}
 extern "C" {}
 
 #[cfg(feature = "iomp")]
+#[link(name = "svml")]
+extern "C" {}
+
+#[cfg(feature = "iomp")]
 #[link(name = "irc")]
 extern "C" {}
 
 #[cfg(feature = "iomp")]
-#[link(name = "irc_s")]
+#[link(name = "irc_s", kind = "static")]
 extern "C" {}
 
 #[link(name = "neuralops_kernels", kind = "static")]
@@ -304,6 +308,35 @@ extern "C" {
       stride_h: c_int, stride_w: c_int,
       dilation_h: c_int, dilation_w: c_int,
       data_im: *mut f32);
+
+  pub fn neuralops_omp_image_crop(
+      in_width: size_t,
+      in_height: size_t,
+      chan: size_t,
+      crop_w: size_t,
+      crop_h: size_t,
+      offset_x: ptrdiff_t,
+      offset_y: ptrdiff_t,
+      in_pixels: *const f32,
+      out_pixels: *mut f32,
+  );
+  pub fn neuralops_omp_image_flip(
+      width: size_t,
+      height: size_t,
+      chan: size_t,
+      in_pixels: *const f32,
+      out_pixels: *mut f32,
+  );
+
+  pub fn neuralops_omp_interpolate2d_catmullrom(
+      in_width: size_t,
+      in_height: size_t,
+      chan: size_t,
+      out_width: size_t,
+      out_height: size_t,
+      in_pixels: *const f32,
+      out_pixels: *mut f32,
+  );
 
   pub fn neuralops_omp_caffe_avgpool2d_fwd(
       batch_sz: usize,

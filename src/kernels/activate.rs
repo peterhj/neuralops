@@ -1,6 +1,8 @@
 use prelude::*;
 use kernels::ffi::*;
 
+use densearray::prelude::*;
+
 pub struct ActivateKernel {
   batch_sz: usize,
   dim:      usize,
@@ -99,7 +101,8 @@ impl ParallelActivateKernel {
     assert!(batch_sz <= self.batch_sz);
     match self.act_kind {
       ActivationKind::Identity => {
-        out_buf.copy_from_slice(in_buf);
+        //out_buf.copy_from_slice(in_buf);
+        out_buf.reshape_mut(batch_sz * self.dim).parallel_copy(in_buf.reshape(batch_sz * self.dim));
       }
       ActivationKind::Rect => {
         unsafe { neuralops_omp_rect_fwd(
@@ -129,7 +132,8 @@ impl ParallelActivateKernel {
   pub fn backward(&mut self, batch_sz: usize, out_buf: &[f32], out_grad: &[f32], in_grad: &mut [f32]) {
     match self.act_kind {
       ActivationKind::Identity => {
-        in_grad.copy_from_slice(out_grad);
+        //in_grad.copy_from_slice(out_grad);
+        in_grad.reshape_mut(batch_sz * self.dim).parallel_copy(out_grad.reshape(batch_sz * self.dim));
       }
       ActivationKind::Rect => {
         unsafe { neuralops_omp_rect_bwd(

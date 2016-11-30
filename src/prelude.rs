@@ -62,6 +62,7 @@ pub use input::{
   VarInputOperatorConfig,
   VarInputPreproc,
   NewVarInputOperator,
+  ParallelVarInputOperator,
 };
 pub use join::{
   JoinOperatorConfig,

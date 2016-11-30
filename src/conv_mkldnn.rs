@@ -36,7 +36,7 @@ pub struct MklConv2dOperator<S, IoBuf: ?Sized> {
   conv_bwd_w:   MklDnnConv2dBwdKernel<f32>,
   conv_bwd_b:   MklDnnConv2dBwdBias<f32>,
   conv_bwd_in:  MklDnnConv2dBwdInput<f32>,
-  act_kern: ParallelActivateKernel,
+  act_kern: ActivateKernel,
   watch:    Stopwatch,
 }
 
@@ -85,7 +85,7 @@ impl<S, IoBuf: ?Sized> MklConv2dOperator<S, IoBuf> {
       conv_bwd_w:   MklDnnConv2dBwdKernel::create(conv_cfg.clone()).unwrap(),
       conv_bwd_b:   MklDnnConv2dBwdBias::create(conv_cfg.clone()).unwrap(),
       conv_bwd_in:  MklDnnConv2dBwdInput::create(conv_cfg.clone()).unwrap(),
-      act_kern: ParallelActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
       watch:    Stopwatch::new(),
     }))
   }
@@ -197,12 +197,12 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklConv2dOperator<S, IoBuf> {
         }
       }
     }
-    self.bias.as_view_mut().parallel_set_constant(0.0);
+    self.bias.as_view_mut().set_constant(0.0);
   }
 
   fn _reset_grad(&mut self) {
-    self.w_grad.as_view_mut().parallel_set_constant(0.0);
-    self.b_grad.as_view_mut().parallel_set_constant(0.0);
+    self.w_grad.as_view_mut().set_constant(0.0);
+    self.b_grad.as_view_mut().set_constant(0.0);
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
@@ -223,10 +223,10 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklConv2dOperator<S, IoBuf> {
         self.tmp_buf.as_mut_ptr(),
     ).unwrap() };
 
-    //self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.buf.borrow_mut());
+    self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.buf.borrow_mut());
 
     self.watch.lap();
-    println!("DEBUG: conv2d: fwd: {:.6}", self.watch.elapsed());
+    //println!("DEBUG: conv2d: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {
@@ -234,12 +234,12 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklConv2dOperator<S, IoBuf> {
 
     let batch_size = self.out.batch_sz.get();
 
-    //self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
+    self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
     if self.cfg.bias {
       unsafe { self.conv_bwd_b.execute(
           self.tmp_grad.as_ptr(),
-          self.w_grad.as_view_mut().as_mut_ptr(),
+          self.b_grad.as_view_mut().as_mut_ptr(),
       ).unwrap() };
     }
 
@@ -251,9 +251,8 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklConv2dOperator<S, IoBuf> {
 
     if let Some(in_grad) = self.in_.grad.as_ref() {
       let in_len = self.cfg.in_dim.flat_len();
-      in_grad.borrow_mut().reshape_mut(batch_size * in_len).parallel_set_constant(0.0);
+      in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
       unsafe { self.conv_bwd_in.execute(
-          self.in_.buf.borrow().as_ptr(),
           self.weights.as_view().as_ptr(),
           self.tmp_grad.as_ptr(),
           in_grad.borrow_mut().as_mut_ptr(),
@@ -261,7 +260,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklConv2dOperator<S, IoBuf> {
     }
 
     self.watch.lap();
-    println!("DEBUG: conv2d: bwd: {:.6}", self.watch.elapsed());
+    //println!("DEBUG: conv2d: bwd: {:.6}", self.watch.elapsed());
   }
 }
 
@@ -283,13 +282,16 @@ pub struct MklBatchNormConv2dOperator<S, IoBuf: ?Sized> {
   tmp2_grad: Vec<f32>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
+  /*conv_src_buf: MklDnnBuffer<f32>,
+  conv_w_buf:   MklDnnBuffer<f32>,
+  conv_dst_buf: MklDnnBuffer<f32>,*/
   conv_fwd:     MklDnnConv2dFwd<f32>,
   conv_bwd_w:   MklDnnConv2dBwdKernel<f32>,
   conv_bwd_in:  MklDnnConv2dBwdInput<f32>,
   // FIXME(20161128): parallel versions of batchnorm and convscale.
   bnorm_k:  BatchNorm2dKernel,
   scale_k:  ConvScale2dKernel,
-  act_kern: ParallelActivateKernel,
+  act_kern: ActivateKernel,
   watch:    Stopwatch,
 }
 
@@ -317,6 +319,7 @@ impl<S, IoBuf: ?Sized> MklBatchNormConv2dOperator<S, IoBuf> {
     let mut tmp_grad = Vec::with_capacity(out_len);
     tmp_grad.resize(out_len, 0.0);
     let in_ = prev_op.borrow()._output(prev_arm);
+    //let batch_sz = cfg.batch_sz;
     let in_dim = cfg.in_dim;
     let out_dim = cfg.out_dim();
     let conv_cfg = MklDnnConv2dConfig{
@@ -328,6 +331,9 @@ impl<S, IoBuf: ?Sized> MklBatchNormConv2dOperator<S, IoBuf> {
       pad:      vec![cfg.pad_w, cfg.pad_h],
       bias:     false,
     };
+    let conv_src_buf = MklDnnBuffer::create(MklDnnLayout::create(vec![in_dim.0, in_dim.1, in_dim.2, cfg.batch_sz]).unwrap()).unwrap();
+    let conv_w_buf = MklDnnBuffer::create(MklDnnLayout::create(vec![cfg.kernel_w, cfg.kernel_h, in_dim.2, out_dim.2]).unwrap()).unwrap();
+    let conv_dst_buf = MklDnnBuffer::create(MklDnnLayout::create(vec![out_dim.0, out_dim.1, out_dim.2, cfg.batch_sz]).unwrap()).unwrap();
     Rc::new(RefCell::new(MklBatchNormConv2dOperator{
       cfg:      cfg,
       node:     OperatorNode::default(),
@@ -347,12 +353,15 @@ impl<S, IoBuf: ?Sized> MklBatchNormConv2dOperator<S, IoBuf> {
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       // FIXME(20161128): parallel versions of batchnorm and convscale.
+      /*conv_src_buf: conv_src_buf,
+      conv_w_buf:   conv_w_buf,
+      conv_dst_buf: conv_dst_buf,*/
       conv_fwd:     MklDnnConv2dFwd::create(conv_cfg.clone()).unwrap(),
       conv_bwd_w:   MklDnnConv2dBwdKernel::create(conv_cfg.clone()).unwrap(),
       conv_bwd_in:  MklDnnConv2dBwdInput::create(conv_cfg.clone()).unwrap(),
       bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), cfg.epsilon),
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
-      act_kern: ParallelActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
+      act_kern: ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
       watch:    Stopwatch::new(),
     }))
   }
@@ -479,9 +488,9 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklBatchNormConv2dOperator<S, 
   }
 
   fn _reset_grad(&mut self) {
-    self.w_grad.as_view_mut().parallel_set_constant(0.0);
-    self.scale_k.scale_grad.as_view_mut().parallel_set_constant(0.0);
-    self.scale_k.bias_grad.as_view_mut().parallel_set_constant(0.0);
+    self.w_grad.as_view_mut().set_constant(0.0);
+    self.scale_k.scale_grad.as_view_mut().set_constant(0.0);
+    self.scale_k.bias_grad.as_view_mut().set_constant(0.0);
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
@@ -498,13 +507,48 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklBatchNormConv2dOperator<S, 
         self.tmp_buf.as_mut_ptr(),
     ).unwrap() };
 
+    /*self.conv_src_buf.copy_from(&*self.in_.buf.borrow());
+    self.conv_w_buf.copy_from(self.weights.as_slice());
+    unsafe { self.conv_fwd.execute(
+        self.conv_src_buf.as_ptr(),
+        self.conv_w_buf.as_ptr(),
+        None,
+        self.conv_dst_buf.as_mut_ptr(),
+    ).unwrap() };
+    self.conv_dst_buf.copy_to(&mut self.tmp_buf);*/
+
+    /*{
+      let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
+      let in_len = self.cfg.in_dim.flat_len();
+      let out_len = self.cfg.out_dim().flat_len();
+      let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
+      for idx in 0 .. batch_size {
+        unsafe { neuralops_caffe_im2col(
+            self.in_.buf.borrow()[idx * in_len .. (idx+1) * in_len].as_ptr(),
+            self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
+            self.cfg.kernel_h as _, self.cfg.kernel_w as _,
+            self.cfg.pad_h as _, self.cfg.pad_w as _,
+            self.cfg.stride_h as _, self.cfg.stride_w as _,
+            1, 1,
+            self.col_buf.as_mut_ptr(),
+        ) };
+        self.tmp_buf[idx * out_len .. (idx+1) * out_len]
+          .reshape_mut((out_space_len, self.cfg.out_chan))
+          .matrix_prod(
+              1.0,
+              self.col_buf.reshape((out_space_len, w_in_len)), Transpose::N,
+              self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::N,
+              0.0);
+      }
+    }*/
+
     let out_len = batch_size * self.cfg.out_dim().flat_len();
-    //self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
-    //self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
-    //self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.buf.borrow_mut());
+    self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
+    self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
+    self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.buf.borrow_mut());
 
     self.watch.lap();
-    println!("DEBUG: conv2d: fwd: {:.6}", self.watch.elapsed());
+    //println!("DEBUG: conv2d: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {
@@ -513,9 +557,9 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklBatchNormConv2dOperator<S, 
     let batch_size = self.out.batch_sz.get();
 
     let out_len = batch_size * self.cfg.out_dim().flat_len();
-    //self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
-    //self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
-    //self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
+    self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
+    self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
+    self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 
     unsafe { self.conv_bwd_w.execute(
         self.in_.buf.borrow().as_ptr(),
@@ -523,19 +567,87 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklBatchNormConv2dOperator<S, 
         self.w_grad.as_view_mut().as_mut_ptr(),
     ).unwrap() };
 
+    /*self.conv_src_buf.copy_from(&*self.in_.buf.borrow());
+    self.conv_dst_buf.copy_from(&self.tmp_grad);
+    unsafe { self.conv_bwd_w.execute(
+        self.conv_src_buf.as_ptr(),
+        self.conv_dst_buf.as_ptr(),
+        self.conv_w_buf.as_mut_ptr(),
+    ).unwrap() };
+    self.conv_w_buf.copy_to(self.weights.as_mut_slice());*/
+
+    /*{
+      let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
+      let in_len = self.cfg.in_dim.flat_len();
+      let out_len = self.cfg.out_dim().flat_len();
+      let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
+      for idx in 0 .. batch_size {
+        unsafe { neuralops_caffe_im2col(
+            self.in_.buf.borrow()[idx * in_len .. (idx+1) * in_len].as_ptr(),
+            self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
+            self.cfg.kernel_h as _, self.cfg.kernel_w as _,
+            self.cfg.pad_h as _, self.cfg.pad_w as _,
+            self.cfg.stride_h as _, self.cfg.stride_w as _,
+            1, 1,
+            self.col_buf.as_mut_ptr(),
+        ) };
+        self.w_grad.as_view_mut().reshape_mut((w_in_len, self.cfg.out_chan))
+          .matrix_prod(
+              1.0,
+              self.col_buf.reshape((out_space_len, w_in_len)), Transpose::T,
+              self.tmp_grad[idx * out_len .. (idx+1) * out_len].reshape((out_space_len, self.cfg.out_chan)), Transpose::N,
+              1.0,
+          );
+      }
+    }*/
+
     if let Some(in_grad) = self.in_.grad.as_ref() {
       let in_len = self.cfg.in_dim.flat_len();
-      in_grad.borrow_mut().reshape_mut(batch_size * in_len).parallel_set_constant(0.0);
+      in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
+
       unsafe { self.conv_bwd_in.execute(
-          self.in_.buf.borrow().as_ptr(),
           self.weights.as_view().as_ptr(),
           self.tmp_grad.as_ptr(),
           in_grad.borrow_mut().as_mut_ptr(),
       ).unwrap() };
+
+      /*self.conv_w_buf.copy_from(self.weights.as_slice());
+      self.conv_dst_buf.copy_from(&self.tmp_grad);
+      unsafe { self.conv_bwd_in.execute(
+          self.conv_w_buf.as_ptr(),
+          self.conv_dst_buf.as_ptr(),
+          self.conv_src_buf.as_mut_ptr(),
+      ).unwrap() };
+      self.conv_src_buf.copy_to(&mut *in_grad.borrow_mut());*/
+
+      /*{
+        let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
+        let in_len = self.cfg.in_dim.flat_len();
+        let out_len = self.cfg.out_dim().flat_len();
+        let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
+        in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
+        for idx in 0 .. batch_size {
+          self.col_buf.reshape_mut((out_space_len, w_in_len))
+            .matrix_prod(
+                1.0,
+                self.tmp_grad[idx * out_len .. (idx+1) * out_len].reshape((out_space_len, self.cfg.out_chan)), Transpose::N,
+                self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::T,
+                0.0);
+          unsafe { neuralops_caffe_col2im(
+              self.col_buf.as_ptr(),
+              self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
+              self.cfg.kernel_h as _, self.cfg.kernel_w as _,
+              self.cfg.pad_h as _, self.cfg.pad_w as _,
+              self.cfg.stride_h as _, self.cfg.stride_w as _,
+              1, 1,
+              in_grad.borrow_mut()[idx * in_len .. (idx+1) * in_len].as_mut_ptr(),
+          ) };
+        }
+      }*/
     }
 
     self.watch.lap();
-    println!("DEBUG: conv2d: bwd: {:.6}", self.watch.elapsed());
+    //println!("DEBUG: conv2d: bwd: {:.6}", self.watch.elapsed());
   }
 }
 
@@ -544,7 +656,7 @@ pub struct MklResidualConv2dOperator<S, IoBuf: ?Sized> {
   node:     OperatorNode,
   join_op:  Rc<RefCell<NewAddJoinOperator<S, IoBuf>>>,
   out:      CommonOutput,
-  act_k:    ParallelActivateKernel,
+  act_k:    ActivateKernel,
 }
 
 impl<S, IoBuf: ?Sized> MklResidualConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
@@ -600,7 +712,7 @@ impl<S, IoBuf: ?Sized> MklResidualConv2dOperator<S, IoBuf> where S: 'static, IoB
       node:     OperatorNode::default(),
       join_op:  join_op,
       out:      CommonOutput::new(cfg.batch_sz, cfg.in_dim.flat_len(), cap),
-      act_k:    ParallelActivateKernel::new(cfg.batch_sz, cfg.in_dim.flat_len(), cfg.act_kind),
+      act_k:    ActivateKernel::new(cfg.batch_sz, cfg.in_dim.flat_len(), cfg.act_kind),
     }))
   }
 }
@@ -661,7 +773,7 @@ pub struct MklProjResidualConv2dOperator<S, IoBuf: ?Sized> {
   node:     OperatorNode,
   join_op:  Rc<RefCell<NewAddJoinOperator<S, IoBuf>>>,
   out:      CommonOutput,
-  act_k:    ParallelActivateKernel,
+  act_k:    ActivateKernel,
 }
 
 impl<S, IoBuf: ?Sized> MklProjResidualConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
@@ -733,7 +845,7 @@ impl<S, IoBuf: ?Sized> MklProjResidualConv2dOperator<S, IoBuf> where S: 'static,
       node:     OperatorNode::default(),
       join_op:  join_op,
       out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
-      act_k:    ParallelActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
+      act_k:    ActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
     }))
   }
 }
@@ -797,15 +909,15 @@ pub struct MklSqueezeConv2dOperator<S, IoBuf: ?Sized> {
 
 impl<S, IoBuf: ?Sized> MklSqueezeConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
   pub fn new<InOp>(cfg: SqueezeConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<MklSqueezeConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
-    let squeeze_dim = (cfg.in_dim.0, cfg.in_dim.1, cfg.squeeze);
+    let squeeze_dim = cfg.squeeze_dim();
     let expand_chan = cfg.out_chan / 2;
     assert_eq!(0, cfg.out_chan % 2);
     let conv1_cfg = Conv2dOperatorConfig{
       batch_sz: cfg.batch_sz,
       in_dim:   cfg.in_dim,
-      kernel_w: 1,  kernel_h: 1,
-      stride_w: 1,  stride_h: 1,
-      pad_w:    0,  pad_h:    0,
+      kernel_w: 1,            kernel_h: 1,
+      stride_w: cfg.stride_w, stride_h: cfg.stride_h,
+      pad_w:    0,            pad_h:    0,
       out_chan: cfg.squeeze,
       bias:     false,
       act_kind: ActivationKind::Rect,

@@ -89,7 +89,8 @@ impl<Iter> Iterator for DecodeJpegData<Iter> where Iter: Iterator<Item=SampleIte
       item.kvs.insert::<SampleSharedExtractInputKey<[u8]>>(Arc::new(new_buf.clone()));
       item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(new_buf));
       let dim: (usize, usize, usize) = (width, height, 3);
-      item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new(dim));
+      //item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new(dim));
+      item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Arc::new(dim));
 
       return Some(item);
     }

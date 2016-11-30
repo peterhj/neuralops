@@ -660,6 +660,8 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelProjResidualConv2dOper
 pub struct SqueezeConv2dOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   (usize, usize, usize),
+  pub stride_w: usize,
+  pub stride_h: usize,
   pub squeeze:  usize,
   pub out_chan: usize,
   pub act_kind: ActivationKind,
@@ -667,8 +669,18 @@ pub struct SqueezeConv2dOperatorConfig {
 }
 
 impl SqueezeConv2dOperatorConfig {
+  pub fn squeeze_dim(&self) -> (usize, usize, usize) {
+    let (in_w, in_h, _) = self.in_dim;
+    let out_w = max(0, (in_w + self.stride_w - 1) as isize) as usize / self.stride_w;
+    let out_h = max(0, (in_h + self.stride_h - 1) as isize) as usize / self.stride_h;
+    (out_w, out_h, self.squeeze)
+  }
+
   pub fn out_dim(&self) -> (usize, usize, usize) {
-    (self.in_dim.0, self.in_dim.1, self.out_chan)
+    let (in_w, in_h, _) = self.in_dim;
+    let out_w = max(0, (in_w + self.stride_w - 1) as isize) as usize / self.stride_w;
+    let out_h = max(0, (in_h + self.stride_h - 1) as isize) as usize / self.stride_h;
+    (out_w, out_h, self.out_chan)
   }
 }
 
@@ -680,15 +692,15 @@ pub struct SqueezeConv2dOperator<S, IoBuf: ?Sized> {
 
 impl<S, IoBuf: ?Sized> SqueezeConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
   pub fn new<InOp>(cfg: SqueezeConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<SqueezeConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
-    let squeeze_dim = (cfg.in_dim.0, cfg.in_dim.1, cfg.squeeze);
+    let squeeze_dim = cfg.squeeze_dim();
     let expand_chan = cfg.out_chan / 2;
     assert_eq!(0, cfg.out_chan % 2);
     let conv1_cfg = Conv2dOperatorConfig{
       batch_sz: cfg.batch_sz,
       in_dim:   cfg.in_dim,
-      kernel_w: 1,  kernel_h: 1,
-      stride_w: 1,  stride_h: 1,
-      pad_w:    0,  pad_h:    0,
+      kernel_w: 1,            kernel_h: 1,
+      stride_w: cfg.stride_w, stride_h: cfg.stride_h,
+      pad_w:    0,            pad_h:    0,
       out_chan: cfg.squeeze,
       bias:     false,
       act_kind: ActivationKind::Rect,
@@ -790,15 +802,15 @@ pub struct ParallelSqueezeConv2dOperator<S, IoBuf: ?Sized> {
 
 impl<S, IoBuf: ?Sized> ParallelSqueezeConv2dOperator<S, IoBuf> where S: 'static, IoBuf: 'static {
   pub fn new<InOp>(cfg: SqueezeConv2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<ParallelSqueezeConv2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
-    let squeeze_dim = (cfg.in_dim.0, cfg.in_dim.1, cfg.squeeze);
+    let squeeze_dim = cfg.squeeze_dim();
     let expand_chan = cfg.out_chan / 2;
     assert_eq!(0, cfg.out_chan % 2);
     let conv1_cfg = Conv2dOperatorConfig{
       batch_sz: cfg.batch_sz,
       in_dim:   cfg.in_dim,
-      kernel_w: 1,  kernel_h: 1,
-      stride_w: 1,  stride_h: 1,
-      pad_w:    0,  pad_h:    0,
+      kernel_w: 1,            kernel_h: 1,
+      stride_w: cfg.stride_w, stride_h: cfg.stride_h,
+      pad_w:    0,            pad_h:    0,
       out_chan: cfg.squeeze,
       bias:     false,
       act_kind: ActivationKind::Rect,

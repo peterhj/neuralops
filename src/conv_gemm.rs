@@ -7,6 +7,7 @@ use kernels::ffi::*;
 use densearray::prelude::*;
 use operator::prelude::*;
 use operator::io::{IoBuffer};
+//use rayon::prelude::*;
 use rng::xorshift::{Xorshiftplus128Rng};
 
 use rand::distributions::{IndependentSample};
@@ -210,16 +211,18 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for Conv2dOperator<S, IoBuf> {
             self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::N,
             0.0);
     }
-    let out_dim = self.cfg.out_dim();
-    unsafe { neuralops_conv2d_bias_fwd(
-        batch_size,
-        out_dim.0,
-        out_dim.1,
-        out_dim.2,
-        self.in_.buf.borrow().as_ptr(),
-        self.bias.as_view().as_ptr(),
-        self.tmp_grad.as_mut_ptr(),
-    ) };
+    if self.cfg.bias {
+      let out_dim = self.cfg.out_dim();
+      unsafe { neuralops_conv2d_bias_fwd(
+          batch_size,
+          out_dim.0,
+          out_dim.1,
+          out_dim.2,
+          self.in_.buf.borrow().as_ptr(),
+          self.bias.as_view().as_ptr(),
+          self.tmp_grad.as_mut_ptr(),
+      ) };
+    }
 
     self.act_kern.forward(batch_size, &self.tmp_buf, &mut *self.out.buf.borrow_mut());
   }
@@ -229,15 +232,17 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for Conv2dOperator<S, IoBuf> {
 
     self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
-    let out_dim = self.cfg.out_dim();
-    unsafe { neuralops_conv2d_bias_bwd(
-        batch_size,
-        out_dim.0,
-        out_dim.1,
-        out_dim.2,
-        self.tmp_grad.as_ptr(),
-        self.b_grad.as_view_mut().as_mut_ptr(),
-    ) };
+    if self.cfg.bias {
+      let out_dim = self.cfg.out_dim();
+      unsafe { neuralops_conv2d_bias_bwd(
+          batch_size,
+          out_dim.0,
+          out_dim.1,
+          out_dim.2,
+          self.tmp_grad.as_ptr(),
+          self.b_grad.as_view_mut().as_mut_ptr(),
+      ) };
+    }
 
     let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
     let in_len = self.cfg.in_dim.flat_len();
@@ -304,6 +309,7 @@ pub struct ParallelConv2dOperator<S, IoBuf: ?Sized> {
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   act_kern: ParallelActivateKernel,
+  watch:    Stopwatch,
 }
 
 impl<S, IoBuf: ?Sized> ParallelConv2dOperator<S, IoBuf> {
@@ -337,6 +343,7 @@ impl<S, IoBuf: ?Sized> ParallelConv2dOperator<S, IoBuf> {
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       act_kern: ParallelActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
+      watch:    Stopwatch::new(),
     }))
   }
 }
@@ -564,6 +571,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelConv2dOperator<S, IoBu
     }
   }
 }
+
 pub struct BatchNormConv2dOperator<S, IoBuf: ?Sized> {
   cfg:      BatchNormConv2dOperatorConfig,
   node:     OperatorNode,
@@ -876,6 +884,7 @@ pub struct ParallelBatchNormConv2dOperator<S, IoBuf: ?Sized> {
   bnorm_k:  BatchNorm2dKernel,
   scale_k:  ConvScale2dKernel,
   act_kern: ParallelActivateKernel,
+  watch:    Stopwatch,
 }
 
 impl<S, IoBuf: ?Sized> ParallelBatchNormConv2dOperator<S, IoBuf> {
@@ -924,6 +933,7 @@ impl<S, IoBuf: ?Sized> ParallelBatchNormConv2dOperator<S, IoBuf> {
       bnorm_k:  BatchNorm2dKernel::new(cfg.batch_sz, cfg.out_dim(), cfg.epsilon),
       scale_k:  ConvScale2dKernel::new(cfg.batch_sz, cfg.out_dim()),
       act_kern: ParallelActivateKernel::new(cfg.batch_sz, cfg.out_dim().flat_len(), cfg.act_kind),
+      watch:    Stopwatch::new(),
     }))
   }
 }
@@ -1049,12 +1059,14 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
   }
 
   fn _reset_grad(&mut self) {
-    self.w_grad.as_view_mut().set_constant(0.0);
-    self.scale_k.scale_grad.as_view_mut().set_constant(0.0);
-    self.scale_k.bias_grad.as_view_mut().set_constant(0.0);
+    self.w_grad.as_view_mut().parallel_set_constant(0.0);
+    self.scale_k.scale_grad.as_view_mut().parallel_set_constant(0.0);
+    self.scale_k.bias_grad.as_view_mut().parallel_set_constant(0.0);
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
+    self.watch.lap();
+
     let batch_size = self.in_.batch_sz.get();
     self.out.batch_sz.set(batch_size);
     assert!(batch_size <= self.cfg.batch_sz);
@@ -1063,8 +1075,36 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
     let in_len = self.cfg.in_dim.flat_len();
     let out_len = self.cfg.out_dim().flat_len();
     let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
+
+    /*{
+      let out_chan = self.cfg.out_chan;
+      let col_buf = self.col_buf.reshape((out_space_len, w_in_len));
+      let weights = self.weights.as_view().reshape((w_in_len, self.cfg.out_chan));
+      let mut tmp_chunks: Vec<_> = self.tmp_buf[ .. batch_size * out_len].chunks_mut(out_len).collect();
+      tmp_chunks
+        .par_iter_mut()
+        .for_each(move |tmp| {
+          /*unsafe { neuralops_omp_caffe_im2col(
+              self.in_.buf.borrow()[idx * in_len .. (idx+1) * in_len].as_ptr(),
+              self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
+              self.cfg.kernel_h as _, self.cfg.kernel_w as _,
+              self.cfg.pad_h as _, self.cfg.pad_w as _,
+              self.cfg.stride_h as _, self.cfg.stride_w as _,
+              1, 1,
+              self.col_buf.as_mut_ptr(),
+          ) };*/
+          tmp
+            .reshape_mut((out_space_len, out_chan))
+            .parallel_matrix_prod(
+                1.0,
+                col_buf, Transpose::N,
+                weights, Transpose::N,
+                0.0);
+            });
+    }*/
+
     for idx in 0 .. batch_size {
-      unsafe { neuralops_omp_caffe_im2col(
+      /*unsafe { neuralops_omp_caffe_im2col(
           self.in_.buf.borrow()[idx * in_len .. (idx+1) * in_len].as_ptr(),
           self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
           self.cfg.kernel_h as _, self.cfg.kernel_w as _,
@@ -1072,7 +1112,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
           self.cfg.stride_h as _, self.cfg.stride_w as _,
           1, 1,
           self.col_buf.as_mut_ptr(),
-      ) };
+      ) };*/
       self.tmp_buf[idx * out_len .. (idx+1) * out_len]
         .reshape_mut((out_space_len, self.cfg.out_chan))
         .parallel_matrix_prod(
@@ -1083,25 +1123,30 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
     }
 
     let out_len = batch_size * self.cfg.out_dim().flat_len();
-    self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
-    self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
+    //self.bnorm_k.forward(batch_size, &self.tmp_buf[ .. out_len], &mut self.tmp2_buf[ .. out_len], 1.0);
+    //self.scale_k.forward(batch_size, &self.tmp2_buf[ .. out_len], &mut self.tmp3_buf[ .. out_len]);
     self.act_kern.forward(batch_size, &self.tmp3_buf, &mut *self.out.buf.borrow_mut());
+
+    self.watch.lap();
+    println!("DEBUG: conv2d: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {
+    self.watch.lap();
+
     let batch_size = self.out.batch_sz.get();
 
     let out_len = batch_size * self.cfg.out_dim().flat_len();
     self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp3_grad);
-    self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
-    self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
+    //self.scale_k.backward(batch_size, &self.tmp2_buf[ .. out_len], &self.tmp3_grad[ .. out_len], &mut self.tmp2_grad[ .. out_len]);
+    //self.bnorm_k.backward(batch_size, &self.tmp_buf[ .. out_len], &self.tmp2_grad[ .. out_len], &mut self.tmp_grad[ .. out_len], 1.0);
 
     let w_in_len = self.cfg.kernel_w * self.cfg.kernel_h * self.cfg.in_dim.2;
     let in_len = self.cfg.in_dim.flat_len();
     let out_len = self.cfg.out_dim().flat_len();
     let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
     for idx in 0 .. batch_size {
-      unsafe { neuralops_omp_caffe_im2col(
+      /*unsafe { neuralops_omp_caffe_im2col(
           self.in_.buf.borrow()[idx * in_len .. (idx+1) * in_len].as_ptr(),
           self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
           self.cfg.kernel_h as _, self.cfg.kernel_w as _,
@@ -1109,7 +1154,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
           self.cfg.stride_h as _, self.cfg.stride_w as _,
           1, 1,
           self.col_buf.as_mut_ptr(),
-      ) };
+      ) };*/
       self.w_grad.as_view_mut().reshape_mut((w_in_len, self.cfg.out_chan))
         .parallel_matrix_prod(
             1.0,
@@ -1124,7 +1169,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
       let in_len = self.cfg.in_dim.flat_len();
       let out_len = self.cfg.out_dim().flat_len();
       let out_space_len = self.cfg.out_dim().0 * self.cfg.out_dim().1;
-      in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
+      in_grad.borrow_mut().reshape_mut(batch_size * in_len).parallel_set_constant(0.0);
       for idx in 0 .. batch_size {
         self.col_buf.reshape_mut((out_space_len, w_in_len))
           .parallel_matrix_prod(
@@ -1132,7 +1177,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
               self.tmp_grad[idx * out_len .. (idx+1) * out_len].reshape((out_space_len, self.cfg.out_chan)), Transpose::N,
               self.weights.as_view().reshape((w_in_len, self.cfg.out_chan)), Transpose::T,
               0.0);
-        unsafe { neuralops_omp_caffe_col2im(
+        /*unsafe { neuralops_omp_caffe_col2im(
             self.col_buf.as_ptr(),
             self.cfg.in_dim.2 as _, self.cfg.in_dim.1 as _, self.cfg.in_dim.0 as _,
             self.cfg.kernel_h as _, self.cfg.kernel_w as _,
@@ -1140,8 +1185,11 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelBatchNormConv2dOperato
             self.cfg.stride_h as _, self.cfg.stride_w as _,
             1, 1,
             in_grad.borrow_mut()[idx * in_len .. (idx+1) * in_len].as_mut_ptr(),
-        ) };
+        ) };*/
       }
     }
+
+    self.watch.lap();
+    println!("DEBUG: conv2d: bwd: {:.6}", self.watch.elapsed());
   }
 }

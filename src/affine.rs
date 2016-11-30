@@ -264,6 +264,7 @@ pub struct ParallelAffineOperator<S, IoBuf: ?Sized> {
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   act_kern: ParallelActivateKernel,
+  watch:    Stopwatch,
 }
 
 impl<S, IoBuf: ?Sized> ParallelAffineOperator<S, IoBuf> {
@@ -285,6 +286,7 @@ impl<S, IoBuf: ?Sized> ParallelAffineOperator<S, IoBuf> {
       tmp_buf:  tmp_buf,
       tmp_grad: tmp_grad,
       act_kern: ParallelActivateKernel::new(cfg.batch_sz, cfg.out_dim, cfg.act_kind),
+      watch:    Stopwatch::new(),
     }))
   }
 }
@@ -404,11 +406,13 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
   }
 
   fn _reset_grad(&mut self) {
-    self.weights.borrow_mut().grad_mut().as_view_mut().set_constant(0.0);
-    self.bias.borrow_mut().grad_mut().as_view_mut().set_constant(0.0);
+    self.weights.borrow_mut().grad_mut().as_view_mut().parallel_set_constant(0.0);
+    self.bias.borrow_mut().grad_mut().as_view_mut().parallel_set_constant(0.0);
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
+    self.watch.lap();
+
     let batch_size = self.in_.batch_sz.get();
     self.out.batch_sz.set(batch_size);
     assert!(batch_size <= self.cfg.batch_sz);
@@ -422,6 +426,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
           in_buf.reshape((self.cfg.in_dim, batch_size)), Transpose::N,
           0.0,
       );
+
     if self.cfg.bias {
       for j in 0 .. batch_size {
         self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
@@ -436,20 +441,18 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
     let mut out_buf = self.out.buf.borrow_mut();
     self.act_kern.forward(batch_size, &self.tmp_buf, &mut *out_buf);
     //println!("DEBUG: affine: output: {:?}", &out_buf[ .. self.cfg.out_dim]);
+
+    self.watch.lap();
+    //println!("DEBUG: affine: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {
+    self.watch.lap();
+
     let batch_size = self.out.batch_sz.get();
 
     self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
-    self.weights.borrow_mut().grad_mut().as_view_mut()
-      .parallel_matrix_prod(
-          1.0,
-          self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
-          self.in_.buf.borrow().reshape((self.cfg.in_dim, batch_size)), Transpose::T,
-          1.0,
-      );
     if self.cfg.bias {
       for j in 0 .. batch_size {
         self.bias.borrow_mut().grad_mut().as_view_mut().reshape_mut((self.cfg.out_dim, 1))
@@ -461,6 +464,14 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
       }
     }
 
+    self.weights.borrow_mut().grad_mut().as_view_mut()
+      .parallel_matrix_prod(
+          1.0,
+          self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
+          self.in_.buf.borrow().reshape((self.cfg.in_dim, batch_size)), Transpose::T,
+          1.0,
+      );
+
     if let Some(in_grad) = self.in_.grad.as_ref() {
       in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, batch_size))
         .parallel_matrix_prod(
@@ -470,6 +481,9 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
             0.0,
         );
     }
+
+    self.watch.lap();
+    //println!("DEBUG: affine: bwd: {:.6}", self.watch.elapsed());
   }
 }
 

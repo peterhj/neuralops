@@ -64,18 +64,19 @@ fn main() {
       .opt_level(2)
       .pic(true)
       .flag("-std=c99")
-      .flag("-fno-strict-aliasing")
-      .flag("-qopenmp");
-    if cfg!(feature = "knl") {
+      .flag("-qopenmp")
+      .flag("-qno-offload")
+      .flag("-xMIC-AVX512");
+    /*if cfg!(feature = "knl") {
       openmp_gcc
         .flag("-qno-offload")
         .flag("-xMIC-AVX512");
-    }
+    }*/
   }
   openmp_gcc
     .flag("-Ikernels")
     .flag("-DNEURALOPS_OMP")
-    .file("kernels/activate.c")
+    .file("omp_kernels/activate.c")
     .file("omp_kernels/conv.c")
     .file("omp_kernels/image.c")
     .file("omp_kernels/interpolate.c")
