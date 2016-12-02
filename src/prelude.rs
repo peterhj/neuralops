@@ -19,6 +19,7 @@ pub use common::{
 };
 pub use conv::{
   Conv2dOperatorConfig,
+  Conv2d1x1OperatorConfig,
   BatchNormConv2dOperatorConfig,
   ResidualConv2dOperatorConfig,
   ProjResidualConv2dOperatorConfig,
@@ -37,10 +38,12 @@ pub use conv_gemm::{
 #[cfg(feature = "mkldnn")]
 pub use conv_mkldnn::{
   MklConv2dOperator,
+  ParallelConv2d1x1Operator,
   MklBatchNormConv2dOperator,
   MklResidualConv2dOperator,
   MklProjResidualConv2dOperator,
   MklSqueezeConv2dOperator,
+  MklProjSqueezeConv2dOperator,
 };
 //#[cfg(not(feature = "mkl"))]
 pub use conv_nnpack::{
@@ -52,6 +55,7 @@ pub use deconv::{
   ConvTranspose2dOperatorConfig,
   BatchNormConvTranspose2dOperatorConfig,
 };
+pub use dropout::*;
 pub use dummy::{
   DummyOperatorConfig,
   DummyOperator,

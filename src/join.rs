@@ -122,6 +122,7 @@ pub struct ConcatJoinOperator<S, IoBuf: ?Sized> {
   in_ops:   Vec<Rc<RefCell<DiffOperator<S, IoBuf>>>>,
   in_:  Vec<CommonOutput>,
   out:  CommonOutput,
+  watch:    Stopwatch,
 }
 
 impl<S, IoBuf: ?Sized> ConcatJoinOperator<S, IoBuf> {
@@ -141,6 +142,7 @@ impl<S, IoBuf: ?Sized> ConcatJoinOperator<S, IoBuf> {
       in_ops:   in_ops,
       in_:      in_,
       out:  out,
+      watch:    Stopwatch::new(),
     }))
   }
 
@@ -191,6 +193,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ConcatJoinOperator<S, IoBuf> {
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
+    self.watch.lap();
     let batch_size = self.in_[0].batch_sz.get();
     assert!(batch_size <= self.cfg.batch_sz);
     self.out.batch_sz.set(batch_size);
@@ -204,9 +207,12 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ConcatJoinOperator<S, IoBuf> {
         offset += self.cfg.in_dims[arm];
       }
     }
+    self.watch.lap();
+    println!("DEBUG: concat: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {
+    self.watch.lap();
     let batch_size = self.out.batch_sz.get();
     for idx in 0 .. batch_size {
       let mut offset = 0;
@@ -219,5 +225,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ConcatJoinOperator<S, IoBuf> {
         offset += self.cfg.in_dims[arm];
       }
     }
+    self.watch.lap();
+    println!("DEBUG: concat: bwd: {:.6}", self.watch.elapsed());
   }
 }

@@ -39,6 +39,7 @@ pub mod conv_mkl;
 pub mod conv_nnpack;
 pub mod data;
 pub mod deconv;
+pub mod dropout;
 pub mod dummy;
 pub mod input;
 pub mod join;

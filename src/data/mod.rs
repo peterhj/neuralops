@@ -407,7 +407,8 @@ impl<S, Shard> PartitionDataShard<S, Shard> where Shard: IndexedDataShard<S> {
     let part_len = part_end - part_offset;*/
     let inner_len = inner.len();
     let parts = partition_range(inner_len, num_parts);
-    let (part_offset, part_len) = parts[part_idx];
+    let (part_offset, part_end) = parts[part_idx];
+    let part_len = part_end - part_offset;
     PartitionDataShard{
       part_offset:  part_offset,
       part_len:     part_len,
@@ -524,5 +525,25 @@ impl<Iter> Iterator for EasyClassLabel<Iter> where Iter: Iterator<Item=SampleIte
     item.kvs.insert::<SampleSharedSliceDataKey<u8>>(new_data);
     item.kvs.insert::<SampleClassLabelKey>(label);
     Some(item)
+  }
+}
+
+pub struct IdentityDataIter<Iter> {
+  inner:    Iter,
+}
+
+impl<Iter> IdentityDataIter<Iter> {
+  pub fn new(inner: Iter) -> IdentityDataIter<Iter> {
+    IdentityDataIter{
+      inner:    inner,
+    }
+  }
+}
+
+impl<Iter> Iterator for IdentityDataIter<Iter> where Iter: Iterator<Item=SampleItem> {
+  type Item = SampleItem;
+
+  fn next(&mut self) -> Option<SampleItem> {
+    self.inner.next()
   }
 }

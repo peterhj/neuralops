@@ -370,7 +370,7 @@ impl<S, IoBuf: ?Sized> ParallelVarInputOperator<S, IoBuf> {
     let batch_sz = cfg.batch_sz;
     let mut tmp_buf = Vec::with_capacity(batch_sz * cfg.max_stride);
     tmp_buf.resize(batch_sz * cfg.max_stride, 0.0);
-    let out = CommonOutput::new(batch_sz, cfg.max_stride, OpCapability::Forward);
+    let out = CommonOutput::new(batch_sz, cfg.max_stride, cap);
     Rc::new(RefCell::new(ParallelVarInputOperator{
       cfg:      cfg,
       node:     OperatorNode::default(),
@@ -454,7 +454,7 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for ParallelVarInputOperator
     }
 
     self.watch.lap();
-    //println!("DEBUG: varinput: load batch: {:.6}", self.watch.elapsed());
+    println!("DEBUG: varinput: load batch: {:.6}", self.watch.elapsed());
   }
 
   fn _forward(&mut self, phase: OpPhase) {
@@ -650,9 +650,10 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for ParallelVarInputOperator
     //println!("DEBUG: varinput: output: {:?}", &out_buf[ .. out_len]);
 
     self.watch.lap();
-    //println!("DEBUG: varinput: fwd: {:.6}", self.watch.elapsed());
+    println!("DEBUG: varinput: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {
+    println!("DEBUG: varinput: bwd");
   }
 }

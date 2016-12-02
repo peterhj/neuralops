@@ -191,17 +191,23 @@ pub struct ParallelPool2dOperator<S, IoBuf: ?Sized> {
   in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
+  mask:     Vec<u32>,
+  watch:    Stopwatch,
 }
 
 impl<S, IoBuf: ?Sized> ParallelPool2dOperator<S, IoBuf> {
   pub fn new<InOp>(cfg: Pool2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<ParallelPool2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let in_ = prev_op.borrow()._output(prev_arm);
+    let mut mask = Vec::with_capacity(cfg.out_dim().flat_len() * cfg.batch_sz);
+    mask.resize(cfg.out_dim().flat_len() * cfg.batch_sz, 0xffffffff);
     Rc::new(RefCell::new(ParallelPool2dOperator{
       cfg:      cfg,
       node:     OperatorNode::default(),
       in_op:    prev_op,
       in_:      in_,
       out:      CommonOutput::new(cfg.batch_sz, cfg.out_dim().flat_len(), cap),
+      mask:     mask,
+      watch:    Stopwatch::new(),
     }))
   }
 }
@@ -242,6 +248,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
+    self.watch.lap();
     let batch_size = self.in_.batch_sz.get();
     assert!(batch_size <= self.cfg.batch_sz);
     self.out.batch_sz.set(batch_size);
@@ -266,8 +273,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
         ) };
       }
       PoolKind::Max => {
-        // FIXME(20161128)
-        unsafe { neuralops_omp_caffe_avgpool2d_fwd(
+        unsafe { neuralops_omp_caffe_maxpool2d_fwd(
             batch_size,
             self.cfg.in_dim.0,
             self.cfg.in_dim.1,
@@ -275,6 +281,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
             self.in_.buf.borrow().as_ptr(),
             out_w,
             out_h,
+            self.mask.as_mut_ptr(),
             self.out.buf.borrow_mut().as_mut_ptr(),
             self.cfg.pool_w,
             self.cfg.pool_h,
@@ -285,9 +292,12 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
         ) };
       }
     }
+    self.watch.lap();
+    println!("DEBUG: pool2d: fwd: {:.6}", self.watch.elapsed());
   }
 
   fn _backward(&mut self) {
+    self.watch.lap();
     let batch_size = self.out.batch_sz.get();
     let (out_w, out_h, _) = self.cfg.out_dim();
     if let Some(in_grad) = self.in_.grad.as_ref() {
@@ -311,14 +321,16 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
           ) };
         }
         PoolKind::Max => {
-          // FIXME(20161128)
-          unsafe { neuralops_omp_caffe_avgpool2d_bwd(
+          // FIXME(20161130): maxpool backward involves a reduction.
+          unsafe { neuralops_caffe_maxpool2d_bwd(
+          //unsafe { neuralops_omp_caffe_maxpool2d_bwd(
               batch_size,
               self.cfg.in_dim.0,
               self.cfg.in_dim.1,
               self.cfg.in_dim.2,
               out_w,
               out_h,
+              self.mask.as_ptr(),
               self.out.grad.as_ref().unwrap().borrow().as_ptr(),
               in_grad.borrow_mut().as_mut_ptr(),
               self.cfg.pool_w,
@@ -331,5 +343,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelPool2dOperator<S, IoBu
         }
       }
     }
+    self.watch.lap();
+    println!("DEBUG: pool2d: bwd: {:.6}", self.watch.elapsed());
   }
 }

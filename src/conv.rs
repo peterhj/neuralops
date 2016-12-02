@@ -62,6 +62,23 @@ impl Conv2dOperatorConfig {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct Conv2d1x1OperatorConfig {
+  pub batch_sz: usize,
+  pub in_dim:   (usize, usize, usize),
+  pub out_chan: usize,
+  pub bias:     bool,
+  pub act_kind: ActivationKind,
+  pub w_init:   ParamInitKind,
+}
+
+impl Conv2d1x1OperatorConfig {
+  pub fn out_dim(&self) -> (usize, usize, usize) {
+    let (in_w, in_h, _) = self.in_dim;
+    (in_w, in_h, self.out_chan)
+  }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Conv3dOperatorConfig {
   pub batch_sz: usize,
   pub in_dim:   (usize, usize, usize, usize),

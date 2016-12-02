@@ -23,8 +23,10 @@ pub struct MklPool2dOperator<S, IoBuf: ?Sized> {
 impl<S, IoBuf: ?Sized> MklPool2dOperator<S, IoBuf> {
   pub fn new<InOp>(cfg: Pool2dOperatorConfig, cap: OpCapability, prev_op: Rc<RefCell<InOp>>, prev_arm: usize) -> Rc<RefCell<MklPool2dOperator<S, IoBuf>>> where InOp: 'static + CommonOperator + DiffOperator<S, IoBuf> {
     let in_ = prev_op.borrow()._output(prev_arm);
+    let out_dim = cfg.out_dim();
     let pool_cfg = MklDnnPool2dConfig{
       in_dim:   vec![cfg.in_dim.0, cfg.in_dim.1, cfg.in_dim.2, cfg.batch_sz],
+      out_dim:  vec![out_dim.0, out_dim.1, out_dim.2, cfg.batch_sz],
       pool_dim: vec![cfg.pool_w, cfg.pool_h],
       stride:   vec![cfg.stride_w, cfg.stride_h],
       pad:      vec![cfg.pad_w, cfg.pad_h],
@@ -84,14 +86,24 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for MklPool2dOperator<S, IoBuf> {
     let batch_size = self.in_.batch_sz.get();
     assert!(batch_size <= self.cfg.batch_sz);
     self.out.batch_sz.set(batch_size);
-    unimplemented!();
+    unsafe { self.fwd.execute(
+        self.in_.buf.borrow().as_ptr(),
+        self.out.buf.borrow_mut().as_mut_ptr(),
+    ).unwrap() };
   }
 
   fn _backward(&mut self) {
     let batch_size = self.out.batch_sz.get();
-    let (out_w, out_h, _) = self.cfg.out_dim();
+    //let (out_w, out_h, _) = self.cfg.out_dim();
     if let Some(in_grad) = self.in_.grad.as_ref() {
-      unimplemented!();
+      let in_len = self.cfg.in_dim.flat_len();
+      in_grad.borrow_mut().reshape_mut(batch_size * in_len).set_constant(0.0);
+      let workspace = self.fwd._workspace();
+      unsafe { self.bwd.execute(
+          self.out.grad.as_ref().unwrap().borrow().as_ptr(),
+          in_grad.borrow_mut().as_mut_ptr(),
+          workspace,
+      ).unwrap() };
     }
   }
 }
