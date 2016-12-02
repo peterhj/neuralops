@@ -26,6 +26,8 @@ extern crate rand;
 
 pub mod affine;
 pub mod archs;
+#[cfg(feature = "mkldnn")]
+pub mod archs_mkl;
 pub mod checkpoint;
 pub mod class_loss;
 pub mod common;
