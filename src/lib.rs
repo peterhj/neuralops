@@ -48,7 +48,7 @@ pub mod join;
 pub mod kernels;
 pub mod loss;
 pub mod mux;
-pub mod param;
+//pub mod param;
 pub mod pool;
 #[cfg(feature = "mkldnn")]
 pub mod pool_mkldnn;

@@ -106,8 +106,8 @@ impl IndexedDataShard<SampleItem> for MnistDataShard {
     let label = self.labels_m.as_slice()[idx] as u32;
     let mut item = SampleItem::new();
     item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(input_buf));
-    //item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new(self.frame_d));
-    item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Arc::new(self.frame_d));
+    item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new(self.frame_d));
+    //item.kvs.insert::<SharedSampleInputShapeKey<(usize, usize, usize)>>(Arc::new(self.frame_d));
     item.kvs.insert::<SampleClassLabelKey>(label);
     item
   }

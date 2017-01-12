@@ -93,8 +93,8 @@ impl IndexedDataShard<SampleItem> for CifarDataShard {
     let mut item = SampleItem::new();
     item.kvs.insert::<SampleSharedExtractInputKey<[u8]>>(Arc::new(input_buf.clone()));
     item.kvs.insert::<SampleSharedExtractInputKey<[f32]>>(Arc::new(input_buf));
-    //item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new((32, 32, 3)));
-    item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Arc::new((32, 32, 3)));
+    item.kvs.insert::<SampleInputShapeKey<(usize, usize, usize)>>(Rc::new((32, 32, 3)));
+    //item.kvs.insert::<SharedSampleInputShapeKey<(usize, usize, usize)>>(Arc::new((32, 32, 3)));
     item.kvs.insert::<SampleClassLabelKey>(label);
     item
   }

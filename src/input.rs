@@ -89,6 +89,18 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewVarInputOperator<S, IoBuf> {
   }*/
 }
 
+impl<IoBuf: ?Sized> DiffOperatorData<SampleItem> for NewVarInputOperator<SampleItem, IoBuf> {
+  fn _load_batch(&mut self, samples: &[SampleItem]) {
+    unimplemented!();
+  }
+}
+
+impl<IoBuf: ?Sized> DiffOperatorData<SharedSampleItem> for NewVarInputOperator<SharedSampleItem, IoBuf> {
+  fn _load_batch(&mut self, samples: &[SharedSampleItem]) {
+    unimplemented!();
+  }
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewVarInputOperator<S, IoBuf> {
 }
 
