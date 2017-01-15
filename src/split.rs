@@ -50,6 +50,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewCopySplitOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for NewCopySplitOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewCopySplitOperator<S, IoBuf> {
 }
 

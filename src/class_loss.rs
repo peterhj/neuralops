@@ -136,44 +136,13 @@ impl<IoBuf: ?Sized> DiffLoss<SampleItem, IoBuf> for SoftmaxNLLClassLoss<SampleIt
   }
 }
 
-impl<IoBuf: ?Sized> DiffOperatorIo<IoBuf> for SoftmaxNLLClassLoss<SampleItem, IoBuf> {
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for SoftmaxNLLClassLoss<S, IoBuf> {
+  default fn _load_batch(&mut self, samples: &[S]) {
+    unimplemented!();
+  }
 }
 
-impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for SoftmaxNLLClassLoss<SampleItem, IoBuf> {
-  //type IoBuf = [f32];
-
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
-    if let Some(0) = self.batch_nr {
-      // FIXME(20161013): L2 reg.
-      /*for block in self.blocks.iter() {
-        apply(&mut *block.borrow_mut());
-      }*/
-    }
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
-    if let Some(0) = self.batch_nr {
-      // FIXME(20161013): L2 reg.
-      /*for block in self.blocks.iter() {
-        apply(&mut *block.borrow_mut());
-      }*/
-    }
-    self.node.pop(epoch);
-  }
-
-  fn _next_iteration(&mut self) {
-    self.batch_nr = None;
-  }
-
+impl<IoBuf: ?Sized> DiffOperatorData<SampleItem> for SoftmaxNLLClassLoss<SampleItem, IoBuf> {
   fn _load_batch(&mut self, samples: &[SampleItem]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
@@ -207,6 +176,45 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for SoftmaxNLLClassLoss<Samp
     }
     self.out.batch_sz.set(actual_batch_size);
     self.batch_nr = Some(self.batch_nr.map_or(0, |batch| batch + 1));
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for SoftmaxNLLClassLoss<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for SoftmaxNLLClassLoss<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
+    if let Some(0) = self.batch_nr {
+      // FIXME(20161013): L2 reg.
+      /*for block in self.blocks.iter() {
+        apply(&mut *block.borrow_mut());
+      }*/
+    }
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
+    if let Some(0) = self.batch_nr {
+      // FIXME(20161013): L2 reg.
+      /*for block in self.blocks.iter() {
+        apply(&mut *block.borrow_mut());
+      }*/
+    }
+    self.node.pop(epoch);
+  }
+
+  fn _next_iteration(&mut self) {
+    self.batch_nr = None;
   }
 
   fn _forward(&mut self, _phase: OpPhase) {

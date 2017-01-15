@@ -100,44 +100,13 @@ impl<IoBuf: ?Sized> DiffLoss<SampleItem, IoBuf> for LstSqRegressLoss<SampleItem,
   }*/
 }
 
-impl<IoBuf: ?Sized> DiffOperatorIo<IoBuf> for LstSqRegressLoss<SampleItem, IoBuf> {
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for LstSqRegressLoss<S, IoBuf> {
+  default fn _load_batch(&mut self, samples: &[S]) {
+    unimplemented!();
+  }
 }
 
-impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for LstSqRegressLoss<SampleItem, IoBuf> {
-  //type IoBuf = [f32];
-
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
-    if let Some(0) = self.batch_nr {
-      // FIXME(20161013): L2 reg.
-      /*for block in self.blocks.iter() {
-        apply(&mut *block.borrow_mut());
-      }*/
-    }
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
-    if let Some(0) = self.batch_nr {
-      // FIXME(20161013): L2 reg.
-      /*for block in self.blocks.iter() {
-        apply(&mut *block.borrow_mut());
-      }*/
-    }
-    self.node.pop(epoch);
-  }
-
-  fn _next_iteration(&mut self) {
-    self.batch_nr = None;
-  }
-
+impl<IoBuf: ?Sized> DiffOperatorData<SampleItem> for LstSqRegressLoss<SampleItem, IoBuf> {
   fn _load_batch(&mut self, samples: &[SampleItem]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
@@ -157,6 +126,45 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for LstSqRegressLoss<SampleI
     }
     self.out.batch_sz.set(actual_batch_size);
     self.batch_nr = Some(self.batch_nr.map_or(0, |batch| batch + 1));
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for LstSqRegressLoss<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for LstSqRegressLoss<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
+    if let Some(0) = self.batch_nr {
+      // FIXME(20161013): L2 reg.
+      /*for block in self.blocks.iter() {
+        apply(&mut *block.borrow_mut());
+      }*/
+    }
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
+    if let Some(0) = self.batch_nr {
+      // FIXME(20161013): L2 reg.
+      /*for block in self.blocks.iter() {
+        apply(&mut *block.borrow_mut());
+      }*/
+    }
+    self.node.pop(epoch);
+  }
+
+  fn _next_iteration(&mut self) {
+    self.batch_nr = None;
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
@@ -511,44 +519,13 @@ impl<IoBuf: ?Sized> DiffLoss<SampleItem, IoBuf> for IndLstSqRegressLoss<SampleIt
   }*/
 }
 
-impl<IoBuf: ?Sized> DiffOperatorIo<IoBuf> for IndLstSqRegressLoss<SampleItem, IoBuf> {
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for IndLstSqRegressLoss<S, IoBuf> {
+  default fn _load_batch(&mut self, samples: &[S]) {
+    unimplemented!();
+  }
 }
 
-impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for IndLstSqRegressLoss<SampleItem, IoBuf> {
-  //type IoBuf = [f32];
-
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
-    if let Some(0) = self.batch_nr {
-      // FIXME(20161013): L2 reg.
-      /*for block in self.blocks.iter() {
-        apply(&mut *block.borrow_mut());
-      }*/
-    }
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
-    if let Some(0) = self.batch_nr {
-      // FIXME(20161013): L2 reg.
-      /*for block in self.blocks.iter() {
-        apply(&mut *block.borrow_mut());
-      }*/
-    }
-    self.node.pop(epoch);
-  }
-
-  fn _next_iteration(&mut self) {
-    self.batch_nr = None;
-  }
-
+impl<IoBuf: ?Sized> DiffOperatorData<SampleItem> for IndLstSqRegressLoss<SampleItem, IoBuf> {
   fn _load_batch(&mut self, samples: &[SampleItem]) {
     let actual_batch_size = samples.len();
     assert!(actual_batch_size <= self.cfg.batch_sz);
@@ -574,6 +551,45 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for IndLstSqRegressLoss<Samp
     }
     self.out.batch_sz.set(actual_batch_size);
     self.batch_nr = Some(self.batch_nr.map_or(0, |batch| batch + 1));
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for IndLstSqRegressLoss<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for IndLstSqRegressLoss<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    self.in_op.borrow_mut()._traverse_fwd(epoch, apply);
+    if let Some(0) = self.batch_nr {
+      // FIXME(20161013): L2 reg.
+      /*for block in self.blocks.iter() {
+        apply(&mut *block.borrow_mut());
+      }*/
+    }
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.in_op.borrow_mut()._traverse_bwd(epoch, apply);
+    if let Some(0) = self.batch_nr {
+      // FIXME(20161013): L2 reg.
+      /*for block in self.blocks.iter() {
+        apply(&mut *block.borrow_mut());
+      }*/
+    }
+    self.node.pop(epoch);
+  }
+
+  fn _next_iteration(&mut self) {
+    self.batch_nr = None;
   }
 
   fn _forward(&mut self, _phase: OpPhase) {

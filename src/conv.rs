@@ -252,6 +252,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewResidualConv2dOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for NewResidualConv2dOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewResidualConv2dOperator<S, IoBuf> {
 }
 
@@ -367,6 +370,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelResidualConv2dOperator<S, IoBu
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelResidualConv2dOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelResidualConv2dOperator<S, IoBuf> {
@@ -502,6 +508,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewProjResidualConv2dOperator<S, IoBuf
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for NewProjResidualConv2dOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewProjResidualConv2dOperator<S, IoBuf> {
 }
 
@@ -633,6 +642,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelProjResidualConv2dOperator<S, 
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelProjResidualConv2dOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelProjResidualConv2dOperator<S, IoBuf> {
@@ -784,6 +796,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for SqueezeConv2dOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for SqueezeConv2dOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for SqueezeConv2dOperator<S, IoBuf> {
 }
 
@@ -892,6 +907,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelSqueezeConv2dOperator<S, IoBuf
     let join_out = self.join_op.borrow()._output(0);
     join_out
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelSqueezeConv2dOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelSqueezeConv2dOperator<S, IoBuf> {

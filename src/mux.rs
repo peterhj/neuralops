@@ -78,6 +78,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for BatchMuxOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for BatchMuxOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for BatchMuxOperator<S, IoBuf> {
 }
 
@@ -192,6 +195,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for BatchDemuxOperator<S, IoBuf> {
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for BatchDemuxOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for BatchDemuxOperator<S, IoBuf> {

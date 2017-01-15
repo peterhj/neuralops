@@ -83,6 +83,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for Conv2dOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for Conv2dOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for Conv2dOperator<S, IoBuf> {
   default fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut IoBuf) -> usize {
     unimplemented!();
@@ -359,6 +362,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelConv2dOperator<S, IoBuf> {
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelConv2dOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelConv2dOperator<S, IoBuf> {
@@ -657,6 +663,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for BatchNormConv2dOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for BatchNormConv2dOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for BatchNormConv2dOperator<S, IoBuf> {
   default fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut IoBuf) -> usize {
     unimplemented!();
@@ -949,6 +958,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelBatchNormConv2dOperator<S, IoB
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelBatchNormConv2dOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelBatchNormConv2dOperator<S, IoBuf> {

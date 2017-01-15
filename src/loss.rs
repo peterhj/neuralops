@@ -10,11 +10,11 @@ pub struct L2RegOperator<A> {
   lambda:   f32,
   node:     OperatorNode,
   out:      CommonOutput,
-  param:    Rc<RefCell<ParamBlock<A>>>,
+  param:    Rc<ParamBlock<A>>,
 }
 
 impl<A> L2RegOperator<A> {
-  pub fn new(lambda: f32, param: Rc<RefCell<ParamBlock<A>>>) -> Rc<RefCell<L2RegOperator<A>>> {
+  pub fn new(lambda: f32, param: Rc<ParamBlock<A>>) -> Rc<RefCell<L2RegOperator<A>>> {
     Rc::new(RefCell::new(L2RegOperator{
       lambda:   lambda,
       node:     OperatorNode::default(),
@@ -35,6 +35,9 @@ impl<A> CommonOperator for L2RegOperator<A> {
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<A, S> DiffOperatorData<S> for L2RegOperator<A> {
 }
 
 impl<A, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for L2RegOperator<A> {
@@ -72,49 +75,43 @@ impl<A, S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<A> {
 
 impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<Array1d<f32>> {
   fn _forward(&mut self, phase: OpPhase) {
-    let param = self.param.borrow();
-    let param_norm = param.val.as_view().l2_norm();
+    let param_norm = self.param.val.as_ref().as_view().l2_norm();
     let reg_loss = 0.5 * self.lambda * param_norm * param_norm;
     self.out.buf.borrow_mut()[0] = reg_loss;
   }
 
   fn _backward(&mut self) {
-    let mut param = &mut *self.param.borrow_mut();
-    param.grad.as_mut().unwrap().as_view_mut()
-      .vector_add(self.lambda, param.val.as_view());
+    self.param.grad.as_mut().as_view_mut()
+      .vector_add(self.lambda, self.param.val.as_ref().as_view());
   }
 }
 
 impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<Array2d<f32>> {
   fn _forward(&mut self, phase: OpPhase) {
-    let param = self.param.borrow();
-    let param_sz = param.val.dim().flat_len();
-    let param_norm = param.val.as_view().reshape(param_sz).l2_norm();
+    let param_sz = self.param.val.as_ref().dim().flat_len();
+    let param_norm = self.param.val.as_ref().as_view().reshape(param_sz).l2_norm();
     let reg_loss = 0.5 * self.lambda * param_norm * param_norm;
     self.out.buf.borrow_mut()[0] = reg_loss;
   }
 
   fn _backward(&mut self) {
-    let mut param = &mut *self.param.borrow_mut();
-    let param_sz = param.val.dim().flat_len();
-    param.grad.as_mut().unwrap().as_view_mut().reshape_mut(param_sz)
-      .vector_add(self.lambda, param.val.as_view().reshape(param_sz));
+    let param_sz = self.param.val.as_ref().dim().flat_len();
+    self.param.grad.as_mut().as_view_mut().reshape_mut(param_sz)
+      .vector_add(self.lambda, self.param.val.as_ref().as_view().reshape(param_sz));
   }
 }
 
 impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for L2RegOperator<Array4d<f32>> {
   fn _forward(&mut self, phase: OpPhase) {
-    let param = self.param.borrow();
-    let param_sz = param.val.dim().flat_len();
-    let param_norm = param.val.as_view().reshape(param_sz).l2_norm();
+    let param_sz = self.param.val.as_ref().dim().flat_len();
+    let param_norm = self.param.val.as_ref().as_view().reshape(param_sz).l2_norm();
     let reg_loss = 0.5 * self.lambda * param_norm * param_norm;
     self.out.buf.borrow_mut()[0] = reg_loss;
   }
 
   fn _backward(&mut self) {
-    let mut param = &mut *self.param.borrow_mut();
-    let param_sz = param.val.dim().flat_len();
-    param.grad.as_mut().unwrap().as_view_mut().reshape_mut(param_sz)
-      .vector_add(self.lambda, param.val.as_view().reshape(param_sz));
+    let param_sz = self.param.val.as_ref().dim().flat_len();
+    self.param.grad.as_mut().as_view_mut().reshape_mut(param_sz)
+      .vector_add(self.lambda, self.param.val.as_ref().as_view().reshape(param_sz));
   }
 }

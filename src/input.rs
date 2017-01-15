@@ -89,48 +89,13 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewVarInputOperator<S, IoBuf> {
   }*/
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for NewVarInputOperator<S, IoBuf> {
+  default fn _load_batch(&mut self, samples: &[S]) {
+    unimplemented!();
+  }
+}
+
 impl<IoBuf: ?Sized> DiffOperatorData<SampleItem> for NewVarInputOperator<SampleItem, IoBuf> {
-  fn _load_batch(&mut self, samples: &[SampleItem]) {
-    unimplemented!();
-  }
-}
-
-impl<IoBuf: ?Sized> DiffOperatorData<SharedSampleItem> for NewVarInputOperator<SharedSampleItem, IoBuf> {
-  fn _load_batch(&mut self, samples: &[SharedSampleItem]) {
-    unimplemented!();
-  }
-}
-
-impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewVarInputOperator<S, IoBuf> {
-}
-
-impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<SampleItem, IoBuf> {
-  //type IoBuf = [f32];
-
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _save_rng_state(&mut self) {
-    self.r_state.clear();
-    self.r_state.resize(self.rng.state_size(), 0);
-    self.rng.extract_state(&mut self.r_state);
-  }
-
-  fn _restore_rng_state(&mut self) {
-    self.rng.set_state(&self.r_state);
-  }
-
   fn _load_batch(&mut self, samples: &[SampleItem]) {
     self.watch.lap();
 
@@ -168,6 +133,43 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for NewVarInputOperator<Samp
 
     self.watch.lap();
     //println!("DEBUG: varinput: load batch: {:.6}", self.watch.elapsed());
+  }
+}
+
+impl<IoBuf: ?Sized> DiffOperatorData<SharedSampleItem> for NewVarInputOperator<SharedSampleItem, IoBuf> {
+  fn _load_batch(&mut self, samples: &[SharedSampleItem]) {
+    unimplemented!();
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewVarInputOperator<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewVarInputOperator<S, IoBuf> {
+  //type IoBuf = [f32];
+
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _save_rng_state(&mut self) {
+    self.r_state.clear();
+    self.r_state.resize(self.rng.state_size(), 0);
+    self.rng.extract_state(&mut self.r_state);
+  }
+
+  fn _restore_rng_state(&mut self) {
+    self.rng.set_state(&self.r_state);
   }
 
   fn _forward(&mut self, phase: OpPhase) {
@@ -411,34 +413,13 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelVarInputOperator<S, IoBuf> {
   }
 }
 
-impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelVarInputOperator<S, IoBuf> {
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelVarInputOperator<S, IoBuf> {
+  default fn _load_batch(&mut self, samples: &[S]) {
+    unimplemented!();
+  }
 }
 
-impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for ParallelVarInputOperator<SampleItem, IoBuf> {
-  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<SampleItem, IoBuf>)) {
-    self.node.push(epoch);
-    assert!(self.node.limit(1));
-    apply(self);
-    self.node.pop(epoch);
-  }
-
-  fn _save_rng_state(&mut self) {
-    self.r_state.clear();
-    self.r_state.resize(self.rng.state_size(), 0);
-    self.rng.extract_state(&mut self.r_state);
-  }
-
-  fn _restore_rng_state(&mut self) {
-    self.rng.set_state(&self.r_state);
-  }
-
+impl<IoBuf: ?Sized> DiffOperatorData<SampleItem> for ParallelVarInputOperator<SampleItem, IoBuf> {
   fn _load_batch(&mut self, samples: &[SampleItem]) {
     self.watch.lap();
 
@@ -467,6 +448,35 @@ impl<IoBuf: ?Sized> DiffOperator<SampleItem, IoBuf> for ParallelVarInputOperator
 
     self.watch.lap();
     println!("DEBUG: varinput: load batch: {:.6}", self.watch.elapsed());
+  }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelVarInputOperator<S, IoBuf> {
+}
+
+impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelVarInputOperator<S, IoBuf> {
+  fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
+    self.node.push(epoch);
+    assert!(self.node.limit(1));
+    apply(self);
+    self.node.pop(epoch);
+  }
+
+  fn _save_rng_state(&mut self) {
+    self.r_state.clear();
+    self.r_state.resize(self.rng.state_size(), 0);
+    self.rng.extract_state(&mut self.r_state);
+  }
+
+  fn _restore_rng_state(&mut self) {
+    self.rng.set_state(&self.r_state);
   }
 
   fn _forward(&mut self, phase: OpPhase) {

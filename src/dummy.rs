@@ -42,6 +42,9 @@ impl<S, IoBuf: ?Sized> Operator for DummyOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for DummyOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> CommonOperator for DummyOperator<S, IoBuf> {
   fn _output(&self, arm: usize) -> CommonOutput {
     assert_eq!(0, arm);

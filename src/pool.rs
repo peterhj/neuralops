@@ -76,6 +76,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewPool2dOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for NewPool2dOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewPool2dOperator<S, IoBuf> {
 }
 
@@ -223,6 +226,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelPool2dOperator<S, IoBuf> {
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelPool2dOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelPool2dOperator<S, IoBuf> {

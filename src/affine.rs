@@ -33,14 +33,11 @@ pub struct NewAffineOperator<S, IoBuf: ?Sized> {
   in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
-  weights:  Rc<RefCell<ParamBlock<Array2d<f32>>>>,
-  //w_grad:   Array2d<f32>,
-  bias:     Rc<RefCell<ParamBlock<Array1d<f32>>>>,
-  //b_grad:   Array1d<f32>,
+  weights:  Rc<ParamBlock<Array2d<f32>>>,
+  bias:     Rc<ParamBlock<Array1d<f32>>>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   act_kern: ActivateKernel,
-  //_marker:  PhantomData<S>,
 }
 
 impl<S, IoBuf: ?Sized> NewAffineOperator<S, IoBuf> {
@@ -84,6 +81,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewAffineOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for NewAffineOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewAffineOperator<S, IoBuf> {
   default fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut IoBuf) -> usize {
     unimplemented!();
@@ -101,31 +101,40 @@ impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewAffineOperator<S, IoBuf> {
 impl<S> DiffOperatorIo<[f32]> for NewAffineOperator<S, [f32]> {
   fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_reader.read_buf(offset, self.weights.borrow_mut().as_mut_slice());
-    offset += param_reader.read_buf(offset, self.bias.borrow_mut().as_mut_slice());
+    offset += param_reader.read_buf(offset, self.weights.val.as_mut().as_mut_slice());
+    offset += param_reader.read_buf(offset, self.bias.val.as_mut().as_mut_slice());
     offset - init_offset
   }
 
   fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_writer.write_buf(offset, self.weights.borrow().as_slice());
-    offset += param_writer.write_buf(offset, self.bias.borrow().as_slice());
+    offset += param_writer.write_buf(offset, self.weights.val.as_ref().as_slice());
+    offset += param_writer.write_buf(offset, self.bias.val.as_ref().as_slice());
     offset - init_offset
   }
 
   fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += grad_writer.write_buf(offset, self.weights.borrow().grad().as_slice());
-    offset += grad_writer.write_buf(offset, self.bias.borrow().grad().as_slice());
+    offset += grad_writer.write_buf(offset, self.weights.grad.as_ref().as_slice());
+    offset += grad_writer.write_buf(offset, self.bias.grad.as_ref().as_slice());
+    offset - init_offset
+  }
+
+  fn _load_param(&mut self, params: &mut ParamSet, init_offset: usize, param_reader: &mut [f32]) -> usize {
+    let mut offset = init_offset;
+    if params.unmasked(&self.weights.param) {
+      offset += param_reader.read_buf(offset, self.weights.val.as_mut().as_mut_slice());
+      params.mask(self.weights.param.clone());
+    }
+    if params.unmasked(&self.bias.param) {
+      offset += param_reader.read_buf(offset, self.bias.val.as_mut().as_mut_slice());
+      params.mask(self.bias.param.clone());
+    }
     offset - init_offset
   }
 }
 
 impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
-  //type IoBuf = [f32];
-  //type Op = Rc<RefCell<CommonOperator>>;
-
-  //fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf, Op=CommonOperator>)) {
   fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
@@ -134,7 +143,6 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
     self.node.pop(epoch);
   }
 
-  //fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf, Op=CommonOperator>)) {
   fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
@@ -154,20 +162,20 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
       }
       ParamInitKind::Uniform{lo, hi} => {
         let dist = Range::new(lo, hi);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
       ParamInitKind::Normal{mean, std} => {
         let dist = Normal::new(mean as f64, std as f64);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
       ParamInitKind::Xavier => {
         let half_range = (6.0 / (self.cfg.in_dim + self.cfg.out_dim) as f64).sqrt();
         let dist = Range::new(-half_range, half_range);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
@@ -175,19 +183,19 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
         //let std = (2.0 / max(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
         let std = (2.0 / self.cfg.in_dim as f64).sqrt();
         let dist = Normal::new(0.0, std);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
     }
-    for e in self.bias.borrow_mut().as_mut_slice().iter_mut() {
+    for e in self.bias.val.as_mut().as_mut_slice().iter_mut() {
       *e = 0.0;
     }
   }
 
   fn _reset_grad(&mut self) {
-    self.weights.borrow_mut().grad_mut().as_view_mut().set_constant(0.0);
-    self.bias.borrow_mut().grad_mut().as_view_mut().set_constant(0.0);
+    self.weights.grad.as_mut().as_view_mut().set_constant(0.0);
+    self.bias.grad.as_mut().as_view_mut().set_constant(0.0);
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
@@ -200,7 +208,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
     self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
       .matrix_prod(
           1.0,
-          self.weights.borrow().as_view(), Transpose::N,
+          self.weights.val.as_ref().as_view(), Transpose::N,
           in_buf.reshape((self.cfg.in_dim, batch_size)), Transpose::N,
           0.0,
       );
@@ -209,7 +217,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
         .view_mut((0, j), (self.cfg.out_dim, j+1))
         .matrix_add(
             1.0,
-            self.bias.borrow().as_view().reshape((self.cfg.out_dim, 1)),
+            self.bias.val.as_ref().as_view().reshape((self.cfg.out_dim, 1)),
         );
     }
 
@@ -223,7 +231,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
 
     self.act_kern.backward(batch_size, &self.out.buf.borrow(), &self.out.grad.as_ref().unwrap().borrow(), &mut self.tmp_grad);
 
-    self.weights.borrow_mut().grad_mut().as_view_mut()
+    self.weights.grad.as_mut().as_view_mut()
       .matrix_prod(
           1.0,
           self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
@@ -231,7 +239,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
           1.0,
       );
     for j in 0 .. batch_size {
-      self.bias.borrow_mut().grad_mut().as_view_mut().reshape_mut((self.cfg.out_dim, 1))
+      self.bias.grad.as_mut().as_view_mut().reshape_mut((self.cfg.out_dim, 1))
         .matrix_add(
             1.0,
             self.tmp_grad.reshape((self.cfg.out_dim, batch_size))
@@ -243,11 +251,23 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for NewAffineOperator<S, IoBuf> {
       in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, batch_size))
         .matrix_prod(
             1.0,
-            self.weights.borrow().as_view(), Transpose::T,
+            self.weights.val.as_ref().as_view(), Transpose::T,
             self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
             0.0,
         );
     }
+  }
+
+  fn _backward2(&mut self) {
+    unimplemented!();
+  }
+
+  fn _r_forward(&mut self) {
+    unimplemented!();
+  }
+
+  fn _r_backward(&mut self) {
+    unimplemented!();
   }
 }
 
@@ -257,8 +277,8 @@ pub struct ParallelAffineOperator<S, IoBuf: ?Sized> {
   in_op:    Rc<RefCell<DiffOperator<S, IoBuf>>>,
   in_:      CommonOutput,
   out:      CommonOutput,
-  weights:  Rc<RefCell<ParamBlock<Array2d<f32>>>>,
-  bias:     Rc<RefCell<ParamBlock<Array1d<f32>>>>,
+  weights:  Rc<ParamBlock<Array2d<f32>>>,
+  bias:     Rc<ParamBlock<Array1d<f32>>>,
   tmp_buf:  Vec<f32>,
   tmp_grad: Vec<f32>,
   act_kern: ParallelActivateKernel,
@@ -302,6 +322,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ParallelAffineOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ParallelAffineOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelAffineOperator<S, IoBuf> {
   default fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut IoBuf) -> usize {
     unimplemented!();
@@ -319,31 +342,27 @@ impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ParallelAffineOperator<S, IoBuf
 impl<S> DiffOperatorIo<[f32]> for ParallelAffineOperator<S, [f32]> {
   fn _load_diff_param(&mut self, init_offset: usize, param_reader: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_reader.read_buf(offset, self.weights.borrow_mut().as_mut_slice());
-    offset += param_reader.read_buf(offset, self.bias.borrow_mut().as_mut_slice());
+    offset += param_reader.read_buf(offset, self.weights.val.as_mut().as_mut_slice());
+    offset += param_reader.read_buf(offset, self.bias.val.as_mut().as_mut_slice());
     offset - init_offset
   }
 
   fn _store_diff_param(&mut self, init_offset: usize, param_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += param_writer.write_buf(offset, self.weights.borrow().as_slice());
-    offset += param_writer.write_buf(offset, self.bias.borrow().as_slice());
+    offset += param_writer.write_buf(offset, self.weights.val.as_ref().as_slice());
+    offset += param_writer.write_buf(offset, self.bias.val.as_ref().as_slice());
     offset - init_offset
   }
 
   fn _store_grad(&mut self, init_offset: usize, grad_writer: &mut [f32]) -> usize {
     let mut offset = init_offset;
-    offset += grad_writer.write_buf(offset, self.weights.borrow().grad().as_slice());
-    offset += grad_writer.write_buf(offset, self.bias.borrow().grad().as_slice());
+    offset += grad_writer.write_buf(offset, self.weights.grad.as_ref().as_slice());
+    offset += grad_writer.write_buf(offset, self.bias.grad.as_ref().as_slice());
     offset - init_offset
   }
 }
 
 impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBuf> {
-  //type IoBuf = [f32];
-  //type Op = Rc<RefCell<CommonOperator>>;
-
-  //fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf, Op=CommonOperator>)) {
   fn _traverse_fwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
@@ -352,7 +371,6 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
     self.node.pop(epoch);
   }
 
-  //fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf, Op=CommonOperator>)) {
   fn _traverse_bwd(&mut self, epoch: u64, apply: &mut FnMut(&mut DiffOperator<S, IoBuf>)) {
     self.node.push(epoch);
     assert!(self.node.limit(1));
@@ -372,20 +390,20 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
       }
       ParamInitKind::Uniform{lo, hi} => {
         let dist = Range::new(lo, hi);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
       ParamInitKind::Normal{mean, std} => {
         let dist = Normal::new(mean as f64, std as f64);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
       ParamInitKind::Xavier => {
         let half_range = (6.0 / (self.cfg.in_dim + self.cfg.out_dim) as f64).sqrt();
         let dist = Range::new(-half_range, half_range);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
@@ -393,19 +411,19 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
         //let std = (2.0 / max(self.cfg.in_dim, self.cfg.out_dim) as f64).sqrt();
         let std = (2.0 / self.cfg.in_dim as f64).sqrt();
         let dist = Normal::new(0.0, std);
-        for e in self.weights.borrow_mut().as_mut_slice().iter_mut() {
+        for e in self.weights.val.as_mut().as_mut_slice().iter_mut() {
           *e = dist.ind_sample(rng) as f32;
         }
       }
     }
-    for e in self.bias.borrow_mut().as_mut_slice().iter_mut() {
+    for e in self.bias.val.as_mut().as_mut_slice().iter_mut() {
       *e = 0.0;
     }
   }
 
   fn _reset_grad(&mut self) {
-    self.weights.borrow_mut().grad_mut().as_view_mut().parallel_set_constant(0.0);
-    self.bias.borrow_mut().grad_mut().as_view_mut().parallel_set_constant(0.0);
+    self.weights.grad.as_mut().as_view_mut().parallel_set_constant(0.0);
+    self.bias.grad.as_mut().as_view_mut().parallel_set_constant(0.0);
   }
 
   fn _forward(&mut self, _phase: OpPhase) {
@@ -420,7 +438,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
     self.tmp_buf.reshape_mut((self.cfg.out_dim, batch_size))
       .parallel_matrix_prod(
           1.0,
-          self.weights.borrow().as_view(), Transpose::N,
+          self.weights.val.as_ref().as_view(), Transpose::N,
           in_buf.reshape((self.cfg.in_dim, batch_size)), Transpose::N,
           0.0,
       );
@@ -431,7 +449,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
           .view_mut((0, j), (self.cfg.out_dim, j+1))
           .matrix_add(
               1.0,
-              self.bias.borrow().as_view().reshape((self.cfg.out_dim, 1)),
+              self.bias.val.as_ref().as_view().reshape((self.cfg.out_dim, 1)),
           );
       }
     }
@@ -453,7 +471,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
 
     if self.cfg.bias {
       for j in 0 .. batch_size {
-        self.bias.borrow_mut().grad_mut().as_view_mut().reshape_mut((self.cfg.out_dim, 1))
+        self.bias.grad.as_mut().as_view_mut().reshape_mut((self.cfg.out_dim, 1))
           .matrix_add(
               1.0,
               self.tmp_grad.reshape((self.cfg.out_dim, batch_size))
@@ -462,7 +480,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
       }
     }
 
-    self.weights.borrow_mut().grad_mut().as_view_mut()
+    self.weights.grad.as_mut().as_view_mut()
       .parallel_matrix_prod(
           1.0,
           self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
@@ -474,7 +492,7 @@ impl<S, IoBuf: ?Sized> DiffOperator<S, IoBuf> for ParallelAffineOperator<S, IoBu
       in_grad.borrow_mut().reshape_mut((self.cfg.in_dim, batch_size))
         .parallel_matrix_prod(
             1.0,
-            self.weights.borrow().as_view(), Transpose::T,
+            self.weights.val.as_ref().as_view(), Transpose::T,
             self.tmp_grad.reshape((self.cfg.out_dim, batch_size)), Transpose::N,
             0.0,
         );

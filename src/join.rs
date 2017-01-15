@@ -63,6 +63,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for NewAddJoinOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for NewAddJoinOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for NewAddJoinOperator<S, IoBuf> {
 }
 
@@ -166,6 +169,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for ConcatJoinOperator<S, IoBuf> {
     assert_eq!(0, arm);
     self.out.clone()
   }
+}
+
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for ConcatJoinOperator<S, IoBuf> {
 }
 
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for ConcatJoinOperator<S, IoBuf> {

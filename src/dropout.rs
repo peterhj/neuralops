@@ -62,6 +62,9 @@ impl<S, IoBuf: ?Sized> CommonOperator for DropoutOperator<S, IoBuf> {
   }
 }
 
+impl<S, IoBuf: ?Sized> DiffOperatorData<S> for DropoutOperator<S, IoBuf> {
+}
+
 impl<S, IoBuf: ?Sized> DiffOperatorIo<IoBuf> for DropoutOperator<S, IoBuf> {
 }
 
